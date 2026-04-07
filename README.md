@@ -1,50 +1,173 @@
-# Welcome to your Expo app 👋
+# Statto
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An AFL team stats and admin app built with Expo.
 
-## Get started
+Statto helps clubs, coaches, and team managers keep the weekly chaos under control in one place — from training attendance and game availability through to match stats, player votes, and fines.
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+* **Training attendance** tracking for players across sessions
+* **Game availability** management for upcoming matches
+* **Game stats** recording and review
+* **Player votes** entry and tallying
+* **Player fines** logging and tracking
 
-2. Start the app
+## Why Statto?
 
-   ```bash
-   npx expo start
-   ```
+Local footy admin can get messy fast. Statto is designed to give clubs a simple way to manage the player data that usually ends up scattered across group chats, notebooks, spreadsheets, and someone’s memory.
 
-In the output, you'll find options to open the app in a
+## Tech Stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+* **Expo**
+* **React Native**
+* **TypeScript**
+* Additional libraries depending on project setup
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Getting Started
 
-## Get a fresh project
+### Prerequisites
 
-When you're ready, run:
+Make sure you have installed:
+
+* [Node.js](https://nodejs.org/)
+* npm, yarn, pnpm, or bun
+* Expo Go on your mobile device, or an iOS/Android simulator
+
+### Install dependencies
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Start the development server
 
-## Learn more
+```bash
+npx expo start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+This will open the Expo developer tools in your terminal or browser. From there you can run the app on:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+* **iOS simulator**
+* **Android emulator**
+* **Expo Go** on a physical device
+* **Web**
 
-## Join the community
+## Project Structure
 
-Join our community of developers creating universal apps.
+```text
+statto/
+├── app/
+├── components/
+│   ├── ui/
+├── features/
+│   ├── attendance/
+│   ├── availability/
+│   ├── stats/
+│   ├── votes/
+│   └── fines/
+├── constants/
+├── hooks/
+├── services/
+├── store/
+├── assets/
+└── README.md
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Core Modules
+
+### Attendance
+
+Track who turns up to training and build a reliable attendance history across the season.
+
+### Availability
+
+Let players mark whether they are available, unavailable, or uncertain for upcoming games.
+
+### Game Stats
+
+Capture match-day performance data for players and teams.
+
+Possible stat categories could include:
+
+* Kicks
+* Handballs
+* Marks
+* Tackles
+* Goals
+* Behinds
+* Hitouts
+* Clearances
+* Inside 50s
+
+### Player Votes
+
+Record votes after each match and keep a running leaderboard across the season.
+
+### Player Fines
+
+Track team fines with reasons, amounts, and payment status.
+
+## Roadmap
+
+Potential future features:
+
+* Team selection tools
+* Season ladders and player leaderboards
+* Push notifications for training and match reminders
+* Coach and admin roles
+* Data export to CSV
+* Match reports and summaries
+* Club payments integration
+
+## Scripts
+
+Common Expo scripts:
+
+```bash
+npm run start
+npm run android
+npm run ios
+npm run web
+```
+
+Depending on your setup, your `package.json` scripts may vary.
+
+## Environment Variables
+
+If your app uses environment variables, create a `.env` file in the project root.
+
+Example:
+
+```env
+EXPO_PUBLIC_API_URL=https://your-api-url.com
+```
+
+Never commit secrets to version control.
+
+## Contributing
+
+Contributions, ideas, and feedback are welcome.
+
+To contribute:
+
+1. Fork the repo
+2. Create a feature branch
+3. Commit your changes
+4. Open a pull request
+
+## Design Principles
+
+Statto aims to be:
+
+* **Fast** enough for match day
+* **Simple** enough for volunteers and team managers
+* **Useful** enough that coaches actually keep using it
+* **Flexible** enough to work across local clubs and competitions
+
+## License
+
+Add your preferred license here.
+
+---
+
+Built for footy clubs who are tired of running the season off spreadsheets, whiteboards, and pure optimism.
