@@ -4,6 +4,7 @@ import {
   fitnessResults,
   fixtures,
   fines,
+  matchStats,
   players,
   trainingSessions,
   voteEntries,
@@ -14,6 +15,7 @@ import type {
   FitnessResult,
   Fine,
   Fixture,
+  MatchStatEntry,
   Player,
   TrainingSession,
   VoteEntry,
@@ -25,6 +27,7 @@ export type ClubDataSnapshot = {
   attendanceRecords: AttendanceRecord[];
   players: Player[];
   availabilityRecords: AvailabilityRecord[];
+  matchStats: MatchStatEntry[];
   fitnessResults: FitnessResult[];
   fines: Fine[];
   voteEntries: VoteEntry[];
@@ -36,6 +39,7 @@ export const seedClubDataSnapshot: ClubDataSnapshot = {
   attendanceRecords,
   players,
   availabilityRecords,
+  matchStats,
   fitnessResults,
   fines,
   voteEntries,
@@ -52,6 +56,7 @@ export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | 
     attendanceRecords: asList(snapshot?.attendanceRecords, seedClubDataSnapshot.attendanceRecords),
     players: asList(snapshot?.players, seedClubDataSnapshot.players),
     availabilityRecords: asList(snapshot?.availabilityRecords, seedClubDataSnapshot.availabilityRecords),
+    matchStats: asList(snapshot?.matchStats, seedClubDataSnapshot.matchStats),
     fitnessResults: asList(snapshot?.fitnessResults, seedClubDataSnapshot.fitnessResults),
     fines: asList(snapshot?.fines, seedClubDataSnapshot.fines),
     voteEntries: asList(snapshot?.voteEntries, seedClubDataSnapshot.voteEntries),

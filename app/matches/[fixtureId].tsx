@@ -69,6 +69,9 @@ export default function MatchFixtureScreen() {
         <ThemedText style={styles.helperText}>
           {isHydrated ? 'Changes are saved on this device.' : 'Loading saved availability...'}
         </ThemedText>
+        <Link href={`/matches/${fixture.id}/stats` as Href}>
+          <ThemedText type="link">Open match stats</ThemedText>
+        </Link>
         <Link href={`/matches/${fixture.id}/votes` as Href}>
           <ThemedText type="link">Open player votes</ThemedText>
         </Link>

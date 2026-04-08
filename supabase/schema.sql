@@ -72,6 +72,16 @@ create table if not exists public.club_availability_records (
   primary key (club_id, fixture_id, player_id)
 );
 
+create table if not exists public.club_match_stats (
+  club_id text not null references public.clubs (id) on delete cascade,
+  fixture_id text not null,
+  metric text not null,
+  team text not null check (team in ('ours', 'theirs')),
+  value integer not null default 0 check (value >= 0),
+  updated_at timestamptz not null default timezone('utc', now()),
+  primary key (club_id, fixture_id, metric, team)
+);
+
 create table if not exists public.club_vote_entries (
   club_id text not null references public.clubs (id) on delete cascade,
   fixture_id text not null,
@@ -99,6 +109,7 @@ alter table public.club_training_sessions enable row level security;
 alter table public.club_attendance_records enable row level security;
 alter table public.club_fixtures enable row level security;
 alter table public.club_availability_records enable row level security;
+alter table public.club_match_stats enable row level security;
 alter table public.club_vote_entries enable row level security;
 alter table public.club_fitness_results enable row level security;
 
@@ -448,6 +459,66 @@ using (
     select 1
     from public.club_memberships
     where club_memberships.club_id = club_availability_records.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can read match stats"
+on public.club_match_stats
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_stats.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can insert match stats"
+on public.club_match_stats
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_stats.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can update match stats"
+on public.club_match_stats
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_stats.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_stats.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can delete match stats"
+on public.club_match_stats
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_stats.club_id
       and club_memberships.user_id = auth.uid()
   )
 );

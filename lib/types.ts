@@ -65,6 +65,27 @@ export type VoteEntry = {
   points: number;
 };
 
+export type MatchStatMetric =
+  | 'clearances'
+  | 'goals'
+  | 'points'
+  | 'tackles'
+  | 'hit-outs'
+  | 'inside-50s'
+  | 'uncontested-marks'
+  | 'marks-i50'
+  | 'free-kicks'
+  | 'intercept-marks';
+
+export type MatchStatTeam = 'ours' | 'theirs';
+
+export type MatchStatEntry = {
+  fixtureId: string;
+  metric: MatchStatMetric;
+  team: MatchStatTeam;
+  value: number;
+};
+
 export type FitnessMetric = 'time-trial-1.2km' | 'agility' | 'speed';
 
 export type FitnessPhase = 'start-of-season' | 'mid-season' | 'end-of-season';

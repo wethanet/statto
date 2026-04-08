@@ -15,6 +15,7 @@ import {
 } from '@/lib/availability';
 import { useClubData } from '@/lib/club-data-context';
 import { importFixturesFromCalendarUrl, normalizeWebcalUrl } from '@/lib/fixture-calendar';
+import { deleteMatchStatsForFixture } from '@/lib/match-stats';
 import { deleteVoteEntriesForFixture } from '@/lib/votes';
 
 type FixtureFormResult =
@@ -43,7 +44,8 @@ function formatDate(value: string) {
 
 export default function MatchSetupScreen() {
   const colorScheme = useColorScheme() ?? 'light';
-  const { fixtures, setAvailabilityRecords, setFixtures, setVoteEntries } = useClubData();
+  const { fixtures, setAvailabilityRecords, setFixtures, setMatchStats, setVoteEntries } =
+    useClubData();
   const [opponent, setOpponent] = useState('');
   const [grade, setGrade] = useState('');
   const [fixtureDate, setFixtureDate] = useState('');
@@ -200,6 +202,9 @@ export default function MatchSetupScreen() {
     });
     setVoteEntries((current) => {
       return deleteVoteEntriesForFixture(current, fixtureId);
+    });
+    setMatchStats((current) => {
+      return deleteMatchStatsForFixture(current, fixtureId);
     });
     setFormMessage('Match deleted.');
   }

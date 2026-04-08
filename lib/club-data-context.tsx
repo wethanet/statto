@@ -4,6 +4,7 @@ import { normalizeClubDataSnapshot, seedClubDataSnapshot, type ClubDataSnapshot 
 import { useClubAccess } from '@/lib/club-access-context';
 import { useAuth } from '@/lib/auth-context';
 import { loadFines, saveFines } from '@/lib/storage/fines-storage';
+import { loadMatchStats, saveMatchStats } from '@/lib/storage/match-stats-storage';
 import { loadAttendanceRecords, saveAttendanceRecords } from '@/lib/storage/attendance-storage';
 import { loadAvailabilityRecords, saveAvailabilityRecords } from '@/lib/storage/availability-storage';
 import { loadFitnessResults, saveFitnessResults } from '@/lib/storage/fitness-results-storage';
@@ -18,6 +19,7 @@ import type {
   FitnessResult,
   Fine,
   Fixture,
+  MatchStatEntry,
   Player,
   TrainingSession,
   VoteEntry,
@@ -34,6 +36,8 @@ type ClubDataContextValue = {
   setPlayers: React.Dispatch<React.SetStateAction<Player[]>>;
   availabilityRecords: AvailabilityRecord[];
   setAvailabilityRecords: React.Dispatch<React.SetStateAction<AvailabilityRecord[]>>;
+  matchStats: MatchStatEntry[];
+  setMatchStats: React.Dispatch<React.SetStateAction<MatchStatEntry[]>>;
   fitnessResults: FitnessResult[];
   setFitnessResults: React.Dispatch<React.SetStateAction<FitnessResult[]>>;
   fines: Fine[];
@@ -54,10 +58,12 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const [attendanceRecords, setAttendanceRecords] = useState(seedClubDataSnapshot.attendanceRecords);
   const [players, setPlayers] = useState(seedClubDataSnapshot.players);
   const [availabilityRecords, setAvailabilityRecords] = useState(seedClubDataSnapshot.availabilityRecords);
+  const [matchStats, setMatchStats] = useState(seedClubDataSnapshot.matchStats);
   const [fitnessResults, setFitnessResults] = useState(seedClubDataSnapshot.fitnessResults);
   const [fines, setFines] = useState(seedClubDataSnapshot.fines);
   const [voteEntries, setVoteEntries] = useState(seedClubDataSnapshot.voteEntries);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isCloudSyncReady, setIsCloudSyncReady] = useState(!isConfigured);
 
   function applySnapshot(snapshot: ClubDataSnapshot) {
     setFixtures(snapshot.fixtures);
@@ -65,6 +71,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setAttendanceRecords(snapshot.attendanceRecords);
     setPlayers(snapshot.players);
     setAvailabilityRecords(snapshot.availabilityRecords);
+    setMatchStats(snapshot.matchStats);
     setFitnessResults(snapshot.fitnessResults);
     setFines(snapshot.fines);
     setVoteEntries(snapshot.voteEntries);
@@ -77,6 +84,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
     let isMounted = true;
     setIsHydrated(false);
+    setIsCloudSyncReady(!isConfigured || !activeClubId);
 
     async function hydrate() {
       try {
@@ -86,6 +94,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           storedAttendance,
           storedPlayers,
           storedAvailability,
+          storedMatchStats,
           storedFitnessResults,
           storedFines,
           storedVoteEntries,
@@ -95,6 +104,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           loadAttendanceRecords(),
           loadPlayers(),
           loadAvailabilityRecords(),
+          loadMatchStats(),
           loadFitnessResults(),
           loadFines(),
           loadVoteEntries(),
@@ -106,6 +116,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           attendanceRecords: storedAttendance,
           players: storedPlayers,
           availabilityRecords: storedAvailability,
+          matchStats: storedMatchStats,
           fitnessResults: storedFitnessResults,
           fines: storedFines,
           voteEntries: storedVoteEntries,
@@ -123,9 +134,19 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
                 ...remoteCoreData,
               });
             }
+
+            if (isMounted) {
+              setIsCloudSyncReady(true);
+            }
           } catch (error: unknown) {
             console.warn('Failed to load cloud club data', error);
+
+            if (isMounted) {
+              setIsCloudSyncReady(false);
+            }
           }
+        } else if (isMounted) {
+          setIsCloudSyncReady(true);
         }
 
         if (!isMounted) {
@@ -202,6 +223,16 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    saveMatchStats(matchStats).catch((error: unknown) => {
+      console.warn('Failed to save match stats', error);
+    });
+  }, [isHydrated, matchStats]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
     saveFitnessResults(fitnessResults).catch((error: unknown) => {
       console.warn('Failed to save fitness results', error);
     });
@@ -234,20 +265,30 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       attendanceRecords,
       fixtures,
       availabilityRecords,
+      matchStats,
       voteEntries,
       fitnessResults,
     };
-  }, [players, trainingSessions, attendanceRecords, fixtures, availabilityRecords, voteEntries, fitnessResults]);
+  }, [
+    players,
+    trainingSessions,
+    attendanceRecords,
+    fixtures,
+    availabilityRecords,
+    matchStats,
+    voteEntries,
+    fitnessResults,
+  ]);
 
   useEffect(() => {
-    if (!isHydrated || !isConfigured || !activeClubId) {
+    if (!isHydrated || !isConfigured || !activeClubId || !isCloudSyncReady) {
       return;
     }
 
     saveCloudCoreData(activeClubId, cloudCoreData).catch((error: unknown) => {
       console.warn('Failed to save cloud core data', error);
     });
-  }, [activeClubId, cloudCoreData, isConfigured, isHydrated]);
+  }, [activeClubId, cloudCoreData, isCloudSyncReady, isConfigured, isHydrated]);
 
   const value = useMemo<ClubDataContextValue>(() => {
     return {
@@ -261,6 +302,8 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setPlayers,
       availabilityRecords,
       setAvailabilityRecords,
+      matchStats,
+      setMatchStats,
       fitnessResults,
       setFitnessResults,
       fines,
@@ -276,6 +319,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     attendanceRecords,
     players,
     availabilityRecords,
+    matchStats,
     fitnessResults,
     fines,
     voteEntries,

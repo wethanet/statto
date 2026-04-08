@@ -41,7 +41,7 @@ export default function SettingsScreen() {
     ? user?.email
       ? `Signed in as ${user.email}. Club data is syncing via ${storageMode}.`
       : 'Supabase auth is enabled for this app.'
-    : 'Supabase is not configured yet, so the app is currently using local-only storage.';
+    : 'Supabase is not configured for this build yet, so the app is currently using local-only storage.';
 
   return (
     <ScrollView contentContainerStyle={styles.content}>

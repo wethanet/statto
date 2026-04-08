@@ -3,6 +3,7 @@ import type {
   AvailabilityRecord,
   FitnessResult,
   Fixture,
+  MatchStatEntry,
   Player,
   TrainingSession,
   VoteEntry,
@@ -15,29 +16,61 @@ export type CloudCoreData = {
   attendanceRecords: AttendanceRecord[];
   fixtures: Fixture[];
   availabilityRecords: AvailabilityRecord[];
+  matchStats: MatchStatEntry[];
   voteEntries: VoteEntry[];
   fitnessResults: FitnessResult[];
 };
 
-async function replaceRows(table: string, clubId: string, rows: Record<string, unknown>[]) {
+function getRowKey(row: Record<string, unknown>, keyColumns: string[]) {
+  return keyColumns.map((keyColumn) => String(row[keyColumn] ?? '')).join('::');
+}
+
+async function syncRows(
+  table: string,
+  clubId: string,
+  rows: Record<string, unknown>[],
+  keyColumns: string[]
+) {
   if (!supabase) {
     return;
   }
 
-  const { error: deleteError } = await supabase.from(table).delete().eq('club_id', clubId);
+  const { data: existingRows, error: selectError } = await supabase
+    .from(table)
+    .select(keyColumns.join(','))
+    .eq('club_id', clubId);
 
-  if (deleteError) {
-    throw deleteError;
+  if (selectError) {
+    throw selectError;
   }
 
-  if (rows.length === 0) {
-    return;
+  if (rows.length > 0) {
+    const { error: upsertError } = await supabase.from(table).upsert(rows, {
+      onConflict: keyColumns.join(','),
+    });
+
+    if (upsertError) {
+      throw upsertError;
+    }
   }
 
-  const { error: insertError } = await supabase.from(table).insert(rows);
+  const desiredKeys = new Set(rows.map((row) => getRowKey(row, keyColumns)));
+  const staleRows = ((existingRows ?? []) as unknown as Record<string, unknown>[]).filter((row) => {
+    return !desiredKeys.has(getRowKey(row, keyColumns));
+  });
 
-  if (insertError) {
-    throw insertError;
+  for (const staleRow of staleRows) {
+    let query = supabase.from(table).delete();
+
+    for (const keyColumn of keyColumns) {
+      query = query.eq(keyColumn, staleRow[keyColumn] as string | number | boolean);
+    }
+
+    const { error: deleteError } = await query;
+
+    if (deleteError) {
+      throw deleteError;
+    }
   }
 }
 
@@ -52,6 +85,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     attendanceRecordsResult,
     fixturesResult,
     availabilityRecordsResult,
+    matchStatsResult,
     voteEntriesResult,
     fitnessResultsResult,
   ] = await Promise.all([
@@ -79,6 +113,10 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
       .select('fixture_id, player_id, status')
       .eq('club_id', clubId),
     supabase
+      .from('club_match_stats')
+      .select('fixture_id, metric, team, value')
+      .eq('club_id', clubId),
+    supabase
       .from('club_vote_entries')
       .select('fixture_id, player_id, points')
       .eq('club_id', clubId),
@@ -94,6 +132,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     attendanceRecordsResult.error,
     fixturesResult.error,
     availabilityRecordsResult.error,
+    matchStatsResult.error,
     voteEntriesResult.error,
     fitnessResultsResult.error,
   ].filter(Boolean);
@@ -128,6 +167,14 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
       status: record.status as AvailabilityRecord['status'],
     };
   });
+  const matchStats = (matchStatsResult.data ?? []).map((entry) => {
+    return {
+      fixtureId: entry.fixture_id as string,
+      metric: entry.metric as MatchStatEntry['metric'],
+      team: entry.team as MatchStatEntry['team'],
+      value: Number(entry.value),
+    };
+  });
   const voteEntries = (voteEntriesResult.data ?? []).map((entry) => {
     return {
       fixtureId: entry.fixture_id as string,
@@ -151,6 +198,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     attendanceRecords.length > 0 ||
     fixtures.length > 0 ||
     availabilityRecords.length > 0 ||
+    matchStats.length > 0 ||
     voteEntries.length > 0 ||
     fitnessResults.length > 0;
 
@@ -164,6 +212,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     attendanceRecords,
     fixtures,
     availabilityRecords,
+    matchStats,
     voteEntries,
     fitnessResults,
   };
@@ -175,7 +224,7 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
   }
 
   await Promise.all([
-    replaceRows(
+    syncRows(
       'club_players',
       clubId,
       data.players.map((player) => {
@@ -188,9 +237,10 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           role: player.role,
           active: player.active,
         };
-      })
+      }),
+      ['club_id', 'id']
     ),
-    replaceRows(
+    syncRows(
       'club_training_sessions',
       clubId,
       data.trainingSessions.map((session) => {
@@ -201,9 +251,10 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           date: session.date,
           location: session.location,
         };
-      })
+      }),
+      ['club_id', 'id']
     ),
-    replaceRows(
+    syncRows(
       'club_attendance_records',
       clubId,
       data.attendanceRecords.map((record) => {
@@ -213,9 +264,10 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           player_id: record.playerId,
           status: record.status,
         };
-      })
+      }),
+      ['club_id', 'session_id', 'player_id']
     ),
-    replaceRows(
+    syncRows(
       'club_fixtures',
       clubId,
       data.fixtures.map((fixture) => {
@@ -228,9 +280,10 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           venue: fixture.venue,
           is_home: fixture.isHome,
         };
-      })
+      }),
+      ['club_id', 'id']
     ),
-    replaceRows(
+    syncRows(
       'club_availability_records',
       clubId,
       data.availabilityRecords.map((record) => {
@@ -240,9 +293,24 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           player_id: record.playerId,
           status: record.status,
         };
-      })
+      }),
+      ['club_id', 'fixture_id', 'player_id']
     ),
-    replaceRows(
+    syncRows(
+      'club_match_stats',
+      clubId,
+      data.matchStats.map((entry) => {
+        return {
+          club_id: clubId,
+          fixture_id: entry.fixtureId,
+          metric: entry.metric,
+          team: entry.team,
+          value: entry.value,
+        };
+      }),
+      ['club_id', 'fixture_id', 'metric', 'team']
+    ),
+    syncRows(
       'club_vote_entries',
       clubId,
       data.voteEntries.map((entry) => {
@@ -252,9 +320,10 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           player_id: entry.playerId,
           points: entry.points,
         };
-      })
+      }),
+      ['club_id', 'fixture_id', 'player_id']
     ),
-    replaceRows(
+    syncRows(
       'club_fitness_results',
       clubId,
       data.fitnessResults.map((result) => {
@@ -266,7 +335,8 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           value: result.value,
           recorded_at: result.recordedAt,
         };
-      })
+      }),
+      ['club_id', 'player_id', 'metric', 'phase']
     ),
   ]);
 }

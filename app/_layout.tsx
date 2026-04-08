@@ -42,27 +42,40 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      {isLoading || (hasSession && isClubAccessLoading) ? (
-        <ThemedView style={styles.loadingState}>
-          <ActivityIndicator size="small" color="#0A7EA4" />
-          <ThemedText>Loading your club data...</ThemedText>
-        </ThemedView>
-      ) : !hasSession ? (
-        <AuthScreen />
-      ) : !hasClubAccess ? (
-        <ClubAccessScreen />
-      ) : (
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="admin/club" options={{ title: 'Club access' }} />
-        </Stack>
-      )}
+      <ThemedView style={styles.appShell}>
+        {isLoading || (hasSession && isClubAccessLoading) ? (
+          <ThemedView style={styles.loadingState}>
+            <ActivityIndicator size="small" color="#0A7EA4" />
+            <ThemedText>Loading your club data...</ThemedText>
+          </ThemedView>
+        ) : !hasSession ? (
+          <AuthScreen />
+        ) : !hasClubAccess ? (
+          <ClubAccessScreen />
+        ) : (
+          <Stack screenOptions={{ contentStyle: styles.stackContent }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="admin/club" options={{ title: 'Club access' }} />
+          </Stack>
+        )}
+      </ThemedView>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  appShell: {
+    flex: 1,
+    width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
+  },
+  stackContent: {
+    width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
+  },
   loadingState: {
     flex: 1,
     alignItems: 'center',

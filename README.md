@@ -74,6 +74,22 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=...
 4. In Supabase Auth, enable email/password sign-in.
 5. Restart the Expo dev server.
 
+For EAS deploys and builds, set the same `EXPO_PUBLIC_SUPABASE_URL` and
+`EXPO_PUBLIC_SUPABASE_ANON_KEY` values in your EAS environment as well. Local
+`.env` files help during development, but remote EAS deploys need those values
+provided in the export environment too.
+
+For web deploys, do not rely on `eas deploy` by itself. The browser bundle needs
+to be exported with the right environment first, then deployed. In this project
+the safe production path is:
+
+```bash
+npm run deploy
+```
+
+That script pulls the production EAS environment locally, exports the web app,
+and then deploys the generated bundle.
+
 Once configured, the app will require sign-in before opening the main tabs. Users can create a club or join an existing one with an invite code, and team data, training sessions, attendance, fixtures, availability, and votes are stored against that shared club so multiple people can manage the same team.
 
 ## Project Structure
