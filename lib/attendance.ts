@@ -16,10 +16,54 @@ export function getSortedTrainingSessions(sessions: TrainingSession[]) {
   return byDateAscending(sessions);
 }
 
+export function getTrainingSessionById(sessionId: string, sessions: TrainingSession[]) {
+  return sessions.find((session) => {
+    return session.id === sessionId;
+  });
+}
+
 export function getNextTrainingSession(sessions: TrainingSession[]) {
-  return getSortedTrainingSessions(sessions).find((session) => {
+  const sortedSessions = getSortedTrainingSessions(sessions);
+
+  return sortedSessions.find((session) => {
     return new Date(session.date).getTime() >= Date.now();
-  }) ?? getSortedTrainingSessions(sessions)[0];
+  }) ?? sortedSessions[0];
+}
+
+export function addTrainingSession(
+  sessions: TrainingSession[],
+  input: {
+    title: string;
+    date: string;
+    location: string;
+  }
+) {
+  const session: TrainingSession = {
+    id: `ts-${Date.now()}`,
+    title: input.title.trim(),
+    date: input.date,
+    location: input.location.trim(),
+  };
+
+  return [...sessions, session];
+}
+
+export function deleteTrainingSession(sessions: TrainingSession[], sessionId: string) {
+  return sessions.filter((session) => {
+    return session.id !== sessionId;
+  });
+}
+
+export function deleteAttendanceRecordsForSession(records: AttendanceRecord[], sessionId: string) {
+  return records.filter((record) => {
+    return record.sessionId !== sessionId;
+  });
+}
+
+export function deleteAttendanceRecordsForPlayer(records: AttendanceRecord[], playerId: string) {
+  return records.filter((record) => {
+    return record.playerId !== playerId;
+  });
 }
 
 export function getAttendanceStatusForPlayer(
@@ -58,4 +102,19 @@ export function getPlayersForSession(
       attendanceStatus: getAttendanceStatusForPlayer(sessionId, player.id, records),
     };
   });
+}
+
+export function upsertAttendanceRecord(
+  records: AttendanceRecord[],
+  sessionId: string,
+  playerId: string,
+  status: AttendanceStatus
+) {
+  const nextRecords = records.filter((record) => {
+    return !(record.sessionId === sessionId && record.playerId === playerId);
+  });
+
+  nextRecords.push({ sessionId, playerId, status });
+
+  return nextRecords;
 }

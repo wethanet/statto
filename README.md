@@ -21,7 +21,7 @@ Local footy admin can get messy fast. Statto is designed to give clubs a simple 
 * **Expo**
 * **React Native**
 * **TypeScript**
-* Additional libraries depending on project setup
+* **Supabase** for auth and online storage
 
 ## Getting Started
 
@@ -51,6 +51,30 @@ This will open the Expo developer tools in your terminal or browser. From there 
 * **Android emulator**
 * **Expo Go** on a physical device
 * **Web**
+
+### Supabase setup
+
+Statto now supports:
+
+* email/password auth with Supabase Auth
+* shared club/team access in Supabase
+* local fallback storage when Supabase is not configured yet
+
+To enable Supabase:
+
+1. Create a Supabase project.
+2. Copy [.env.example](/Users/andrewmccallum/Development/statto/.env.example) to `.env` and fill in:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+3. In the Supabase SQL editor, run [supabase/schema.sql](/Users/andrewmccallum/Development/statto/supabase/schema.sql).
+4. In Supabase Auth, enable email/password sign-in.
+5. Restart the Expo dev server.
+
+Once configured, the app will require sign-in before opening the main tabs. Users can create a club or join an existing one with an invite code, and team data, training sessions, attendance, fixtures, availability, and votes are stored against that shared club so multiple people can manage the same team.
 
 ## Project Structure
 
@@ -139,7 +163,8 @@ If your app uses environment variables, create a `.env` file in the project root
 Example:
 
 ```env
-EXPO_PUBLIC_API_URL=https://your-api-url.com
+EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 Never commit secrets to version control.

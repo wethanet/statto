@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
+import { Href, Link } from 'expo-router';
 import { ScrollView, StyleSheet } from 'react-native';
 
-import { getAttendanceSummary, getSortedTrainingSessions } from '@/lib/attendance';
-import { attendanceRecords, players, trainingSessions } from '@/lib/mock-data';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useClubData } from '@/lib/club-data-context';
+import { getAttendanceSummary, getSortedTrainingSessions } from '@/lib/attendance';
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
@@ -16,7 +18,10 @@ function formatDate(value: string) {
 }
 
 export default function TrainingScreen() {
-  const sessions = getSortedTrainingSessions(trainingSessions);
+  const { attendanceRecords, players, trainingSessions } = useClubData();
+  const sessions = useMemo(() => {
+    return getSortedTrainingSessions(trainingSessions);
+  }, [trainingSessions]);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -26,6 +31,16 @@ export default function TrainingScreen() {
           Track attendance across the week and keep coaches aligned on who is turning up.
         </ThemedText>
       </ThemedView>
+
+      {sessions.length === 0 ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">No sessions yet</ThemedText>
+          <ThemedText>Add your first training session from the admin area to start tracking attendance.</ThemedText>
+          <Link href={'/admin/training' as Href}>
+            <ThemedText type="link">Open training setup</ThemedText>
+          </Link>
+        </ThemedView>
+      ) : null}
 
       {sessions.map((session) => {
         const summary = getAttendanceSummary(session.id, players, attendanceRecords);
@@ -40,6 +55,9 @@ export default function TrainingScreen() {
               <ThemedText style={styles.negative}>{summary.absent} absent</ThemedText>
               <ThemedText style={styles.neutral}>{summary.unknown} to confirm</ThemedText>
             </ThemedView>
+            <Link href={`/training/${session.id}` as Href}>
+              <ThemedText type="link">Open session</ThemedText>
+            </Link>
           </ThemedView>
         );
       })}

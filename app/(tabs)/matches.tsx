@@ -1,7 +1,8 @@
+import { Href, Link } from 'expo-router';
 import { ScrollView, StyleSheet } from 'react-native';
 
+import { useClubData } from '@/lib/club-data-context';
 import { getAvailabilitySummary, getSortedFixtures } from '@/lib/availability';
-import { availabilityRecords, fixtures, players } from '@/lib/mock-data';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
@@ -16,6 +17,7 @@ function formatDate(value: string) {
 }
 
 export default function MatchesScreen() {
+  const { availabilityRecords, fixtures, players } = useClubData();
   const upcomingFixtures = getSortedFixtures(fixtures);
 
   return (
@@ -27,13 +29,25 @@ export default function MatchesScreen() {
         </ThemedText>
       </ThemedView>
 
+      {upcomingFixtures.length === 0 ? (
+        <ThemedView style={styles.card}>
+          <ThemedText type="subtitle">No fixtures yet</ThemedText>
+          <ThemedText>Add your first match from the admin area to start tracking availability.</ThemedText>
+          <Link href={'/admin/matches' as Href}>
+            <ThemedText type="link">Open match setup</ThemedText>
+          </Link>
+        </ThemedView>
+      ) : null}
+
       {upcomingFixtures.map((fixture) => {
         const summary = getAvailabilitySummary(fixture.id, players, availabilityRecords);
         const label = fixture.isHome ? 'Home' : 'Away';
 
         return (
           <ThemedView key={fixture.id} style={styles.card}>
-            <ThemedText type="subtitle">vs {fixture.opponent}</ThemedText>
+            <ThemedText type="subtitle">
+              {fixture.grade ? `${fixture.grade} • ` : ''}vs {fixture.opponent}
+            </ThemedText>
             <ThemedText>
               {label} • {formatDate(fixture.date)}
             </ThemedText>
@@ -43,6 +57,9 @@ export default function MatchesScreen() {
               <ThemedText style={styles.negative}>{summary.unavailable} unavailable</ThemedText>
               <ThemedText style={styles.neutral}>{summary.uncertain} uncertain</ThemedText>
             </ThemedView>
+            <Link href={`/matches/${fixture.id}` as Href}>
+              <ThemedText type="link">Open fixture</ThemedText>
+            </Link>
           </ThemedView>
         );
       })}

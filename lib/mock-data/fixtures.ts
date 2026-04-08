@@ -4,6 +4,7 @@ export const fixtures: Fixture[] = [
   {
     id: 'fx1',
     opponent: 'North Park',
+    grade: 'Seniors',
     date: '2026-04-11T14:10:00+10:00',
     venue: 'Central Oval',
     isHome: true,
@@ -11,6 +12,7 @@ export const fixtures: Fixture[] = [
   {
     id: 'fx2',
     opponent: 'Southside',
+    grade: 'Reserves',
     date: '2026-04-18T14:10:00+10:00',
     venue: 'Southside Reserve',
     isHome: false,
@@ -18,6 +20,7 @@ export const fixtures: Fixture[] = [
   {
     id: 'fx3',
     opponent: 'Westbrook',
+    grade: 'Seniors',
     date: '2026-04-25T14:10:00+10:00',
     venue: 'Central Oval',
     isHome: true,

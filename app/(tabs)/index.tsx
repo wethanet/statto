@@ -1,12 +1,12 @@
 import { Image } from 'expo-image';
-import { Link } from 'expo-router';
+import { Href, Link } from 'expo-router';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useClubData } from '@/lib/club-data-context';
 import { getNextTrainingSession, getAttendanceSummary } from '@/lib/attendance';
 import { getNextFixture, getAvailabilitySummary } from '@/lib/availability';
-import { attendanceRecords, availabilityRecords, fixtures, players, trainingSessions } from '@/lib/mock-data';
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
@@ -19,10 +19,16 @@ function formatDate(value: string) {
 }
 
 export default function HomeScreen() {
+  const { attendanceRecords, availabilityRecords, fixtures, isHydrated, players, trainingSessions } =
+    useClubData();
   const nextTraining = getNextTrainingSession(trainingSessions);
   const nextMatch = getNextFixture(fixtures);
-  const trainingSummary = getAttendanceSummary(nextTraining.id, players, attendanceRecords);
-  const matchSummary = getAvailabilitySummary(nextMatch.id, players, availabilityRecords);
+  const trainingSummary = nextTraining
+    ? getAttendanceSummary(nextTraining.id, players, attendanceRecords)
+    : null;
+  const matchSummary = nextMatch
+    ? getAvailabilitySummary(nextMatch.id, players, availabilityRecords)
+    : null;
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -42,30 +48,61 @@ export default function HomeScreen() {
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Next training</ThemedText>
-        <ThemedText>{nextTraining.title}</ThemedText>
-        <ThemedText>{formatDate(nextTraining.date)}</ThemedText>
-        <ThemedText>{nextTraining.location}</ThemedText>
-        <ThemedView style={styles.row}>
-          <ThemedText style={styles.positive}>{trainingSummary.present} present</ThemedText>
-          <ThemedText style={styles.negative}>{trainingSummary.absent} absent</ThemedText>
-          <ThemedText style={styles.neutral}>{trainingSummary.unknown} to confirm</ThemedText>
-        </ThemedView>
+        {nextTraining && trainingSummary ? (
+          <>
+            <ThemedText>{nextTraining.title}</ThemedText>
+            <ThemedText>{formatDate(nextTraining.date)}</ThemedText>
+            <ThemedText>{nextTraining.location}</ThemedText>
+            <ThemedView style={styles.row}>
+              <ThemedText style={styles.positive}>{trainingSummary.present} present</ThemedText>
+              <ThemedText style={styles.negative}>{trainingSummary.absent} absent</ThemedText>
+              <ThemedText style={styles.neutral}>{trainingSummary.unknown} to confirm</ThemedText>
+            </ThemedView>
+            <Link href={`/training/${nextTraining.id}` as Href}>
+              <ThemedText type="link">Manage this session</ThemedText>
+            </Link>
+          </>
+        ) : (
+          <>
+            <ThemedText>No training sessions have been added yet.</ThemedText>
+            <Link href="/training">
+              <ThemedText type="link">Create your first session</ThemedText>
+            </Link>
+          </>
+        )}
       </ThemedView>
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Next match</ThemedText>
-        <ThemedText>vs {nextMatch.opponent}</ThemedText>
-        <ThemedText>{formatDate(nextMatch.date)}</ThemedText>
-        <ThemedText>{nextMatch.venue}</ThemedText>
-        <ThemedView style={styles.row}>
-          <ThemedText style={styles.positive}>{matchSummary.available} available</ThemedText>
-          <ThemedText style={styles.negative}>{matchSummary.unavailable} unavailable</ThemedText>
-          <ThemedText style={styles.neutral}>{matchSummary.uncertain} uncertain</ThemedText>
-        </ThemedView>
+        {nextMatch && matchSummary ? (
+          <>
+            <ThemedText>{nextMatch.grade ? `${nextMatch.grade} • ` : ''}vs {nextMatch.opponent}</ThemedText>
+            <ThemedText>{formatDate(nextMatch.date)}</ThemedText>
+            <ThemedText>{nextMatch.venue}</ThemedText>
+            <ThemedView style={styles.row}>
+              <ThemedText style={styles.positive}>{matchSummary.available} available</ThemedText>
+              <ThemedText style={styles.negative}>{matchSummary.unavailable} unavailable</ThemedText>
+              <ThemedText style={styles.neutral}>{matchSummary.uncertain} uncertain</ThemedText>
+            </ThemedView>
+            <Link href={`/matches/${nextMatch.id}` as Href}>
+              <ThemedText type="link">Manage availability</ThemedText>
+            </Link>
+          </>
+        ) : (
+          <>
+            <ThemedText>No fixtures have been added yet.</ThemedText>
+            <Link href="/admin/matches">
+              <ThemedText type="link">Create your first match</ThemedText>
+            </Link>
+          </>
+        )}
       </ThemedView>
 
       <ThemedView style={styles.card}>
         <ThemedText type="subtitle">Quick links</ThemedText>
+        <ThemedText style={styles.helperText}>
+          {isHydrated ? 'Local changes are being saved on this device.' : 'Loading saved club data...'}
+        </ThemedText>
         <Link href="/training">
           <ThemedText type="link">Open training attendance</ThemedText>
         </Link>
@@ -121,6 +158,9 @@ const styles = StyleSheet.create({
     color: '#A43D2A',
   },
   neutral: {
+    color: '#6B7280',
+  },
+  helperText: {
     color: '#6B7280',
   },
 });

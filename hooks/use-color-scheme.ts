@@ -1,1 +1,5 @@
-export { useColorScheme } from 'react-native';
+import { useSettings } from '@/lib/settings-context';
+
+export function useColorScheme() {
+  return useSettings().resolvedColorScheme;
+}

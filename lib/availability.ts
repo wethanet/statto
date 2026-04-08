@@ -16,10 +16,73 @@ export function getSortedFixtures(fixtures: Fixture[]) {
   return byDateAscending(fixtures);
 }
 
+export function getFixtureById(fixtureId: string, fixtures: Fixture[]) {
+  return fixtures.find((fixture) => {
+    return fixture.id === fixtureId;
+  });
+}
+
 export function getNextFixture(fixtures: Fixture[]) {
-  return getSortedFixtures(fixtures).find((fixture) => {
+  const sortedFixtures = getSortedFixtures(fixtures);
+
+  return sortedFixtures.find((fixture) => {
     return new Date(fixture.date).getTime() >= Date.now();
-  }) ?? getSortedFixtures(fixtures)[0];
+  }) ?? sortedFixtures[0];
+}
+
+export function addFixture(
+  fixtures: Fixture[],
+  input: {
+    opponent: string;
+    grade?: string | null;
+    date: string;
+    venue: string;
+    isHome: boolean;
+  }
+) {
+  const fixture: Fixture = {
+    id: `fx-${Date.now()}`,
+    opponent: input.opponent.trim(),
+    grade: input.grade?.trim() || null,
+    date: input.date,
+    venue: input.venue.trim(),
+    isHome: input.isHome,
+  };
+
+  return [...fixtures, fixture];
+}
+
+export function updateFixture(
+  fixtures: Fixture[],
+  fixtureId: string,
+  input: {
+    opponent: string;
+    grade?: string | null;
+    date: string;
+    venue: string;
+    isHome: boolean;
+  }
+) {
+  return fixtures.map((fixture) => {
+    if (fixture.id !== fixtureId) {
+      return fixture;
+    }
+
+    return {
+      ...fixture,
+      opponent: input.opponent.trim(),
+      grade: input.grade?.trim() || null,
+      date: input.date,
+      venue: input.venue.trim(),
+      isHome: input.isHome,
+    };
+  });
+}
+
+export function deleteFixture(fixtures: Fixture[], fixtureId: string) {
+  return fixtures.filter((fixture) => {
+    return fixture.id !== fixtureId;
+  });
 }
 
 export function getAvailabilityStatusForPlayer(
@@ -57,5 +120,32 @@ export function getPlayersForFixture(
       ...player,
       availabilityStatus: getAvailabilityStatusForPlayer(fixtureId, player.id, records),
     };
+  });
+}
+
+export function upsertAvailabilityRecord(
+  records: AvailabilityRecord[],
+  fixtureId: string,
+  playerId: string,
+  status: AvailabilityStatus
+) {
+  const nextRecords = records.filter((record) => {
+    return !(record.fixtureId === fixtureId && record.playerId === playerId);
+  });
+
+  nextRecords.push({ fixtureId, playerId, status });
+
+  return nextRecords;
+}
+
+export function deleteAvailabilityRecordsForPlayer(records: AvailabilityRecord[], playerId: string) {
+  return records.filter((record) => {
+    return record.playerId !== playerId;
+  });
+}
+
+export function deleteAvailabilityRecordsForFixture(records: AvailabilityRecord[], fixtureId: string) {
+  return records.filter((record) => {
+    return record.fixtureId !== fixtureId;
   });
 }

@@ -8,7 +8,16 @@ import { Platform } from 'react-native';
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
-export const Colors = {
+type ThemePalette = {
+  text: string;
+  background: string;
+  tint: string;
+  icon: string;
+  tabIconDefault: string;
+  tabIconSelected: string;
+};
+
+export const Colors: Record<'light' | 'dark', ThemePalette> = {
   light: {
     text: '#11181C',
     background: '#fff',
