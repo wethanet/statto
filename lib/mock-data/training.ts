@@ -1,0 +1,55 @@
+import type { AttendanceRecord, TrainingSession } from '@/lib/types';
+
+export const trainingSessions: TrainingSession[] = [
+  {
+    id: 'ts1',
+    title: 'Skills and Ball Movement',
+    date: '2026-04-07T18:00:00+10:00',
+    location: 'Central Oval',
+  },
+  {
+    id: 'ts2',
+    title: "Captain's Run",
+    date: '2026-04-09T18:30:00+10:00',
+    location: 'Central Oval',
+  },
+  {
+    id: 'ts3',
+    title: 'Recovery and Review',
+    date: '2026-04-14T18:00:00+10:00',
+    location: 'Clubrooms',
+  },
+];
+
+export const attendanceRecords: AttendanceRecord[] = [
+  { sessionId: 'ts1', playerId: 'p1', status: 'present' },
+  { sessionId: 'ts1', playerId: 'p2', status: 'present' },
+  { sessionId: 'ts1', playerId: 'p3', status: 'present' },
+  { sessionId: 'ts1', playerId: 'p4', status: 'absent' },
+  { sessionId: 'ts1', playerId: 'p5', status: 'present' },
+  { sessionId: 'ts1', playerId: 'p6', status: 'present' },
+  { sessionId: 'ts1', playerId: 'p7', status: 'unknown' },
+  { sessionId: 'ts1', playerId: 'p8', status: 'present' },
+  { sessionId: 'ts1', playerId: 'p9', status: 'present' },
+  { sessionId: 'ts1', playerId: 'p10', status: 'absent' },
+  { sessionId: 'ts2', playerId: 'p1', status: 'present' },
+  { sessionId: 'ts2', playerId: 'p2', status: 'unknown' },
+  { sessionId: 'ts2', playerId: 'p3', status: 'present' },
+  { sessionId: 'ts2', playerId: 'p4', status: 'present' },
+  { sessionId: 'ts2', playerId: 'p5', status: 'present' },
+  { sessionId: 'ts2', playerId: 'p6', status: 'unknown' },
+  { sessionId: 'ts2', playerId: 'p7', status: 'present' },
+  { sessionId: 'ts2', playerId: 'p8', status: 'present' },
+  { sessionId: 'ts2', playerId: 'p9', status: 'unknown' },
+  { sessionId: 'ts2', playerId: 'p10', status: 'present' },
+  { sessionId: 'ts3', playerId: 'p1', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p2', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p3', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p4', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p5', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p6', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p7', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p8', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p9', status: 'unknown' },
+  { sessionId: 'ts3', playerId: 'p10', status: 'unknown' },
+];

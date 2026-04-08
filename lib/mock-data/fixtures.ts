@@ -1,0 +1,58 @@
+import type { AvailabilityRecord, Fixture } from '@/lib/types';
+
+export const fixtures: Fixture[] = [
+  {
+    id: 'fx1',
+    opponent: 'North Park',
+    date: '2026-04-11T14:10:00+10:00',
+    venue: 'Central Oval',
+    isHome: true,
+  },
+  {
+    id: 'fx2',
+    opponent: 'Southside',
+    date: '2026-04-18T14:10:00+10:00',
+    venue: 'Southside Reserve',
+    isHome: false,
+  },
+  {
+    id: 'fx3',
+    opponent: 'Westbrook',
+    date: '2026-04-25T14:10:00+10:00',
+    venue: 'Central Oval',
+    isHome: true,
+  },
+];
+
+export const availabilityRecords: AvailabilityRecord[] = [
+  { fixtureId: 'fx1', playerId: 'p1', status: 'available' },
+  { fixtureId: 'fx1', playerId: 'p2', status: 'available' },
+  { fixtureId: 'fx1', playerId: 'p3', status: 'available' },
+  { fixtureId: 'fx1', playerId: 'p4', status: 'uncertain' },
+  { fixtureId: 'fx1', playerId: 'p5', status: 'available' },
+  { fixtureId: 'fx1', playerId: 'p6', status: 'unavailable' },
+  { fixtureId: 'fx1', playerId: 'p7', status: 'available' },
+  { fixtureId: 'fx1', playerId: 'p8', status: 'available' },
+  { fixtureId: 'fx1', playerId: 'p9', status: 'uncertain' },
+  { fixtureId: 'fx1', playerId: 'p10', status: 'available' },
+  { fixtureId: 'fx2', playerId: 'p1', status: 'available' },
+  { fixtureId: 'fx2', playerId: 'p2', status: 'available' },
+  { fixtureId: 'fx2', playerId: 'p3', status: 'uncertain' },
+  { fixtureId: 'fx2', playerId: 'p4', status: 'available' },
+  { fixtureId: 'fx2', playerId: 'p5', status: 'available' },
+  { fixtureId: 'fx2', playerId: 'p6', status: 'available' },
+  { fixtureId: 'fx2', playerId: 'p7', status: 'uncertain' },
+  { fixtureId: 'fx2', playerId: 'p8', status: 'available' },
+  { fixtureId: 'fx2', playerId: 'p9', status: 'available' },
+  { fixtureId: 'fx2', playerId: 'p10', status: 'available' },
+  { fixtureId: 'fx3', playerId: 'p1', status: 'uncertain' },
+  { fixtureId: 'fx3', playerId: 'p2', status: 'uncertain' },
+  { fixtureId: 'fx3', playerId: 'p3', status: 'uncertain' },
+  { fixtureId: 'fx3', playerId: 'p4', status: 'available' },
+  { fixtureId: 'fx3', playerId: 'p5', status: 'available' },
+  { fixtureId: 'fx3', playerId: 'p6', status: 'uncertain' },
+  { fixtureId: 'fx3', playerId: 'p7', status: 'available' },
+  { fixtureId: 'fx3', playerId: 'p8', status: 'available' },
+  { fixtureId: 'fx3', playerId: 'p9', status: 'available' },
+  { fixtureId: 'fx3', playerId: 'p10', status: 'uncertain' },
+];
