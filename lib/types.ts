@@ -64,3 +64,15 @@ export type VoteEntry = {
   playerId: string;
   points: number;
 };
+
+export type FitnessMetric = 'time-trial-1.2km' | 'agility' | 'speed';
+
+export type FitnessPhase = 'start-of-season' | 'mid-season' | 'end-of-season';
+
+export type FitnessResult = {
+  playerId: string;
+  metric: FitnessMetric;
+  phase: FitnessPhase;
+  value: number;
+  recordedAt: string;
+};

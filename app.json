@@ -44,6 +44,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7ff9da66-975c-41f0-b635-87683b69344e"
+      }
+    },
+    "owner": "wethanets-organization"
   }
 }

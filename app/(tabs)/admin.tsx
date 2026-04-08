@@ -6,18 +6,22 @@ import { ThemedView } from '@/components/themed-view';
 import { getNextTrainingSession } from '@/lib/attendance';
 import { useClubData } from '@/lib/club-data-context';
 import { getFineSummary } from '@/lib/fines';
+import { fitnessPhases, getFitnessSummary } from '@/lib/fitness';
 import { useSettings } from '@/lib/settings-context';
 import { getTeamSummary } from '@/lib/team';
 import { getVoteLeaderboard } from '@/lib/votes';
 
 export default function AdminScreen() {
-  const { fines, players, trainingSessions, voteEntries } = useClubData();
+  const { fines, fitnessResults, players, trainingSessions, voteEntries } = useClubData();
   const { themePreference } = useSettings();
   const fineSummary = getFineSummary(fines);
   const leaderboard = getVoteLeaderboard(players, voteEntries);
   const teamSummary = getTeamSummary(players);
   const voteLeader = leaderboard[0];
   const nextTraining = getNextTrainingSession(trainingSessions);
+  const fitnessSummary = fitnessPhases.reduce((total, phase) => {
+    return total + getFitnessSummary(players, fitnessResults, phase.id).completed;
+  }, 0);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -75,6 +79,18 @@ export default function AdminScreen() {
         <ThemedText>Set up new fixtures before collecting player availability.</ThemedText>
         <Link href={'/admin/matches' as Href}>
           <ThemedText type="link">Add match</ThemedText>
+        </Link>
+      </ThemedView>
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Fitness tracking</ThemedText>
+        <ThemedText>
+          {fitnessSummary > 0
+            ? `${fitnessSummary} fitness results recorded across the season checkpoints.`
+            : 'No fitness results recorded yet.'}
+        </ThemedText>
+        <Link href={'/admin/fitness' as Href}>
+          <ThemedText type="link">Open fitness tracking</ThemedText>
         </Link>
       </ThemedView>
 

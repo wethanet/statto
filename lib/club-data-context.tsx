@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { loadFines, saveFines } from '@/lib/storage/fines-storage';
 import { loadAttendanceRecords, saveAttendanceRecords } from '@/lib/storage/attendance-storage';
 import { loadAvailabilityRecords, saveAvailabilityRecords } from '@/lib/storage/availability-storage';
+import { loadFitnessResults, saveFitnessResults } from '@/lib/storage/fitness-results-storage';
 import { loadCloudCoreData, saveCloudCoreData } from '@/lib/storage/cloud-core-data-storage';
 import { loadFixtures, saveFixtures } from '@/lib/storage/fixtures-storage';
 import { loadPlayers, savePlayers } from '@/lib/storage/players-storage';
@@ -14,6 +15,7 @@ import { loadVoteEntries, saveVoteEntries } from '@/lib/storage/votes-storage';
 import type {
   AttendanceRecord,
   AvailabilityRecord,
+  FitnessResult,
   Fine,
   Fixture,
   Player,
@@ -32,6 +34,8 @@ type ClubDataContextValue = {
   setPlayers: React.Dispatch<React.SetStateAction<Player[]>>;
   availabilityRecords: AvailabilityRecord[];
   setAvailabilityRecords: React.Dispatch<React.SetStateAction<AvailabilityRecord[]>>;
+  fitnessResults: FitnessResult[];
+  setFitnessResults: React.Dispatch<React.SetStateAction<FitnessResult[]>>;
   fines: Fine[];
   setFines: React.Dispatch<React.SetStateAction<Fine[]>>;
   voteEntries: VoteEntry[];
@@ -50,6 +54,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const [attendanceRecords, setAttendanceRecords] = useState(seedClubDataSnapshot.attendanceRecords);
   const [players, setPlayers] = useState(seedClubDataSnapshot.players);
   const [availabilityRecords, setAvailabilityRecords] = useState(seedClubDataSnapshot.availabilityRecords);
+  const [fitnessResults, setFitnessResults] = useState(seedClubDataSnapshot.fitnessResults);
   const [fines, setFines] = useState(seedClubDataSnapshot.fines);
   const [voteEntries, setVoteEntries] = useState(seedClubDataSnapshot.voteEntries);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -60,6 +65,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setAttendanceRecords(snapshot.attendanceRecords);
     setPlayers(snapshot.players);
     setAvailabilityRecords(snapshot.availabilityRecords);
+    setFitnessResults(snapshot.fitnessResults);
     setFines(snapshot.fines);
     setVoteEntries(snapshot.voteEntries);
   }
@@ -80,6 +86,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           storedAttendance,
           storedPlayers,
           storedAvailability,
+          storedFitnessResults,
           storedFines,
           storedVoteEntries,
         ] = await Promise.all([
@@ -88,6 +95,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           loadAttendanceRecords(),
           loadPlayers(),
           loadAvailabilityRecords(),
+          loadFitnessResults(),
           loadFines(),
           loadVoteEntries(),
         ]);
@@ -98,6 +106,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           attendanceRecords: storedAttendance,
           players: storedPlayers,
           availabilityRecords: storedAvailability,
+          fitnessResults: storedFitnessResults,
           fines: storedFines,
           voteEntries: storedVoteEntries,
         });
@@ -193,6 +202,16 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    saveFitnessResults(fitnessResults).catch((error: unknown) => {
+      console.warn('Failed to save fitness results', error);
+    });
+  }, [fitnessResults, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
     saveFines(fines).catch((error: unknown) => {
       console.warn('Failed to save fines', error);
     });
@@ -216,8 +235,9 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       fixtures,
       availabilityRecords,
       voteEntries,
+      fitnessResults,
     };
-  }, [players, trainingSessions, attendanceRecords, fixtures, availabilityRecords, voteEntries]);
+  }, [players, trainingSessions, attendanceRecords, fixtures, availabilityRecords, voteEntries, fitnessResults]);
 
   useEffect(() => {
     if (!isHydrated || !isConfigured || !activeClubId) {
@@ -241,6 +261,8 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setPlayers,
       availabilityRecords,
       setAvailabilityRecords,
+      fitnessResults,
+      setFitnessResults,
       fines,
       setFines,
       voteEntries,
@@ -254,6 +276,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     attendanceRecords,
     players,
     availabilityRecords,
+    fitnessResults,
     fines,
     voteEntries,
     isHydrated,

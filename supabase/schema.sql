@@ -81,6 +81,16 @@ create table if not exists public.club_vote_entries (
   primary key (club_id, fixture_id, player_id)
 );
 
+create table if not exists public.club_fitness_results (
+  club_id text not null references public.clubs (id) on delete cascade,
+  player_id text not null,
+  metric text not null,
+  phase text not null,
+  value numeric not null,
+  recorded_at timestamptz not null default timezone('utc', now()),
+  primary key (club_id, player_id, metric, phase)
+);
+
 alter table public.club_data_snapshots enable row level security;
 alter table public.clubs enable row level security;
 alter table public.club_memberships enable row level security;
@@ -90,6 +100,7 @@ alter table public.club_attendance_records enable row level security;
 alter table public.club_fixtures enable row level security;
 alter table public.club_availability_records enable row level security;
 alter table public.club_vote_entries enable row level security;
+alter table public.club_fitness_results enable row level security;
 
 create policy "Users can read their own club data"
 on public.club_data_snapshots
@@ -497,6 +508,66 @@ using (
     select 1
     from public.club_memberships
     where club_memberships.club_id = club_vote_entries.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can read fitness results"
+on public.club_fitness_results
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_fitness_results.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can insert fitness results"
+on public.club_fitness_results
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_fitness_results.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can update fitness results"
+on public.club_fitness_results
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_fitness_results.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_fitness_results.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can delete fitness results"
+on public.club_fitness_results
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_fitness_results.club_id
       and club_memberships.user_id = auth.uid()
   )
 );

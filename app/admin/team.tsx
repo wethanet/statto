@@ -11,6 +11,7 @@ import { useClubData } from '@/lib/club-data-context';
 import { deleteAttendanceRecordsForPlayer } from '@/lib/attendance';
 import { deleteAvailabilityRecordsForPlayer } from '@/lib/availability';
 import { deleteFinesForPlayer } from '@/lib/fines';
+import { deleteFitnessResultsForPlayer } from '@/lib/fitness';
 import { parsePlayersCsv } from '@/lib/team-csv';
 import {
   addPlayer,
@@ -29,6 +30,7 @@ export default function TeamScreen() {
     players,
     setAttendanceRecords,
     setAvailabilityRecords,
+    setFitnessResults,
     setFines,
     setPlayers,
     setVoteEntries,
@@ -178,6 +180,9 @@ export default function TeamScreen() {
     });
     setAvailabilityRecords((current) => {
       return deleteAvailabilityRecordsForPlayer(current, playerId);
+    });
+    setFitnessResults((current) => {
+      return deleteFitnessResultsForPlayer(current, playerId);
     });
     setFines((current) => {
       return deleteFinesForPlayer(current, playerId);
