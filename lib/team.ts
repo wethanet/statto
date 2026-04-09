@@ -83,6 +83,27 @@ export function addPlayer(
   return [...players, player];
 }
 
+export function updatePlayerDetails(
+  players: Player[],
+  playerId: string,
+  input: {
+    number?: number | null;
+    position?: string | null;
+  }
+) {
+  return players.map((player) => {
+    if (player.id !== playerId) {
+      return player;
+    }
+
+    return {
+      ...player,
+      number: input.number ?? null,
+      position: input.position?.trim() || null,
+    };
+  });
+}
+
 export function cyclePlayerRole(players: Player[], playerId: string) {
   return players.map((player) => {
     if (player.id !== playerId) {

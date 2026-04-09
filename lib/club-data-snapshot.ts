@@ -9,6 +9,7 @@ import {
   trainingSessions,
   voteEntries,
 } from '@/lib/mock-data';
+import { normalizeVoteEntries } from '@/lib/votes';
 import type {
   AttendanceRecord,
   AvailabilityRecord,
@@ -59,6 +60,6 @@ export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | 
     matchStats: asList(snapshot?.matchStats, seedClubDataSnapshot.matchStats),
     fitnessResults: asList(snapshot?.fitnessResults, seedClubDataSnapshot.fitnessResults),
     fines: asList(snapshot?.fines, seedClubDataSnapshot.fines),
-    voteEntries: asList(snapshot?.voteEntries, seedClubDataSnapshot.voteEntries),
+    voteEntries: normalizeVoteEntries(asList(snapshot?.voteEntries, seedClubDataSnapshot.voteEntries)),
   } satisfies ClubDataSnapshot;
 }

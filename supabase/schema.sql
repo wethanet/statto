@@ -86,9 +86,10 @@ create table if not exists public.club_vote_entries (
   club_id text not null references public.clubs (id) on delete cascade,
   fixture_id text not null,
   player_id text not null,
+  vote_type text not null default 'players',
   points integer not null default 0,
   updated_at timestamptz not null default timezone('utc', now()),
-  primary key (club_id, fixture_id, player_id)
+  primary key (club_id, fixture_id, player_id, vote_type)
 );
 
 create table if not exists public.club_fitness_results (

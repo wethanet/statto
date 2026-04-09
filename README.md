@@ -63,21 +63,32 @@ Statto now supports:
 To enable Supabase:
 
 1. Create a Supabase project.
-2. Copy [.env.example](/Users/andrewmccallum/Development/statto/.env.example) to `.env` and fill in:
+2. Copy [.env.example](/Users/andrewmccallum/Development/statto/.env.example) to `.env` for the Expo app and copy [web/.env.example](/Users/andrewmccallum/Development/statto/web/.env.example) to `web/.env.local` for the new React web app.
+3. Fill in the client-side Supabase values:
 
 ```env
+# Expo app
 EXPO_PUBLIC_SUPABASE_URL=...
 EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+
+# React web app
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
 ```
 
-3. In the Supabase SQL editor, run [supabase/schema.sql](/Users/andrewmccallum/Development/statto/supabase/schema.sql).
-4. In Supabase Auth, enable email/password sign-in.
-5. Restart the Expo dev server.
+4. In the Supabase SQL editor, run [supabase/schema.sql](/Users/andrewmccallum/Development/statto/supabase/schema.sql).
+5. In Supabase Auth, enable email/password sign-in.
+6. Restart the Expo dev server or the Vite web dev server after changing env vars.
 
 For EAS deploys and builds, set the same `EXPO_PUBLIC_SUPABASE_URL` and
 `EXPO_PUBLIC_SUPABASE_ANON_KEY` values in your EAS environment as well. Local
 `.env` files help during development, but remote EAS deploys need those values
 provided in the export environment too.
+
+For the new React web app, Vite reads `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` from `web/.env.local` during local development. Use the
+same public Supabase project URL and anon key there. Do not use the Supabase
+service role key in either client app.
 
 For web deploys, do not rely on `eas deploy` by itself. The browser bundle needs
 to be exported with the right environment first, then deployed. In this project
@@ -174,13 +185,19 @@ Depending on your setup, your `package.json` scripts may vary.
 
 ## Environment Variables
 
-If your app uses environment variables, create a `.env` file in the project root.
+If your app uses environment variables, create a `.env` file in the project root for Expo and
+`web/.env.local` for the Vite web app.
 
 Example:
 
 ```env
+# Expo app
 EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+# React web app
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 Never commit secrets to version control.

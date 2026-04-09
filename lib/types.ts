@@ -62,8 +62,11 @@ export type Fine = {
 export type VoteEntry = {
   fixtureId: string;
   playerId: string;
+  voteType: VoteType;
   points: number;
 };
+
+export type VoteType = 'players' | 'coaches' | 'best-and-fairest';
 
 export type MatchStatMetric =
   | 'clearances'

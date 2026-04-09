@@ -9,7 +9,8 @@ import type {
   VoteEntry,
 } from '@/lib/types';
 import { normalizeVoteEntries, normalizeVoteType } from '@/lib/votes';
-import { supabase } from '@/lib/supabase';
+
+import { supabase } from '@web/lib/supabase';
 
 export type CloudCoreData = {
   players: Player[];
@@ -236,8 +237,8 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           club_id: clubId,
           id: player.id,
           name: player.name,
-          number: player.number ?? null,
-          position: player.position?.trim() || null,
+          number: player.number,
+          position: player.position,
           role: player.role,
           active: player.active,
         };
@@ -279,7 +280,7 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           club_id: clubId,
           id: fixture.id,
           opponent: fixture.opponent,
-          grade: fixture.grade?.trim() || null,
+          grade: fixture.grade,
           date: fixture.date,
           venue: fixture.venue,
           is_home: fixture.isHome,

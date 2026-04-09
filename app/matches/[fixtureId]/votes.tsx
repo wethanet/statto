@@ -57,7 +57,9 @@ export default function MatchVotesScreen() {
             player={player}
             points={player.points}
             onChange={(points) => {
-              setVoteEntries((current) => upsertVoteEntry(current, fixture.id, player.id, points));
+              setVoteEntries((current) =>
+                upsertVoteEntry(current, fixture.id, player.id, 'players', points)
+              );
             }}
           />
         );
