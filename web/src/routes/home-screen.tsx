@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 
 import { getAttendanceSummary, getNextTrainingSession } from '@/lib/attendance';
 import { getAvailabilitySummary, getNextFixture } from '@/lib/availability';
@@ -17,11 +18,33 @@ function formatDate(value: string) {
 }
 
 export function HomeScreen() {
-  const { attendanceRecords, availabilityRecords, fixtures, isHydrated, players, trainingSessions } =
-    useClubData();
+  const {
+    attendanceRecords,
+    availabilityRecords,
+    fixtures,
+    fitnessResults,
+    fines,
+    isHydrated,
+    loadDemoData,
+    matchStats,
+    players,
+    trainingSessions,
+    voteEntries,
+  } = useClubData();
+  const [demoMessage, setDemoMessage] = useState<string | null>(null);
 
   const nextTraining = getNextTrainingSession(trainingSessions);
   const nextMatch = getNextFixture(fixtures);
+  const hasAnyData =
+    trainingSessions.length > 0 ||
+    fixtures.length > 0 ||
+    players.length > 0 ||
+    attendanceRecords.length > 0 ||
+    availabilityRecords.length > 0 ||
+    matchStats.length > 0 ||
+    fitnessResults.length > 0 ||
+    fines.length > 0 ||
+    voteEntries.length > 0;
   const trainingSummary = nextTraining
     ? getAttendanceSummary(nextTraining.id, players, attendanceRecords)
     : null;
@@ -104,6 +127,24 @@ export function HomeScreen() {
           <p className="muted">
             {isHydrated ? 'Club data is now hydrating in the web shell.' : 'Loading saved club data...'}
           </p>
+          {!hasAnyData ? (
+            <div className="stack-sm">
+              <button
+                className="button button--secondary"
+                disabled={!isHydrated}
+                onClick={() => {
+                  loadDemoData();
+                  setDemoMessage('Dummy data loaded into this club workspace.');
+                }}
+                type="button">
+                Load dummy data
+              </button>
+              <p className="muted">
+                Use this to explore the app with sample players, sessions, matches, and stats.
+              </p>
+              {demoMessage ? <p className="muted">{demoMessage}</p> : null}
+            </div>
+          ) : null}
           <Link className="text-link" to="/training">
             Open training attendance
           </Link>

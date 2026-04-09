@@ -10,8 +10,9 @@ import {
 } from 'react';
 
 import {
+  createDemoClubDataSnapshot,
+  emptyClubDataSnapshot,
   normalizeClubDataSnapshot,
-  seedClubDataSnapshot,
   type ClubDataSnapshot,
 } from '@/lib/club-data-snapshot';
 import type {
@@ -54,6 +55,7 @@ type ClubDataContextValue = {
   setFines: Dispatch<SetStateAction<Fine[]>>;
   voteEntries: VoteEntry[];
   setVoteEntries: Dispatch<SetStateAction<VoteEntry[]>>;
+  loadDemoData: () => void;
   isHydrated: boolean;
   storageMode: 'local' | 'cloud';
 };
@@ -125,15 +127,15 @@ async function saveLocalSnapshot(snapshot: ClubDataSnapshot) {
 export function ClubDataProvider({ children }: PropsWithChildren) {
   const { isConfigured, isLoading: isAuthLoading } = useAuth();
   const { activeClubId, isLoading: isClubAccessLoading } = useClubAccess();
-  const [fixtures, setFixtures] = useState(seedClubDataSnapshot.fixtures);
-  const [trainingSessions, setTrainingSessions] = useState(seedClubDataSnapshot.trainingSessions);
-  const [attendanceRecords, setAttendanceRecords] = useState(seedClubDataSnapshot.attendanceRecords);
-  const [players, setPlayers] = useState(seedClubDataSnapshot.players);
-  const [availabilityRecords, setAvailabilityRecords] = useState(seedClubDataSnapshot.availabilityRecords);
-  const [matchStats, setMatchStats] = useState(seedClubDataSnapshot.matchStats);
-  const [fitnessResults, setFitnessResults] = useState(seedClubDataSnapshot.fitnessResults);
-  const [fines, setFines] = useState(seedClubDataSnapshot.fines);
-  const [voteEntries, setVoteEntries] = useState(seedClubDataSnapshot.voteEntries);
+  const [fixtures, setFixtures] = useState(emptyClubDataSnapshot.fixtures);
+  const [trainingSessions, setTrainingSessions] = useState(emptyClubDataSnapshot.trainingSessions);
+  const [attendanceRecords, setAttendanceRecords] = useState(emptyClubDataSnapshot.attendanceRecords);
+  const [players, setPlayers] = useState(emptyClubDataSnapshot.players);
+  const [availabilityRecords, setAvailabilityRecords] = useState(emptyClubDataSnapshot.availabilityRecords);
+  const [matchStats, setMatchStats] = useState(emptyClubDataSnapshot.matchStats);
+  const [fitnessResults, setFitnessResults] = useState(emptyClubDataSnapshot.fitnessResults);
+  const [fines, setFines] = useState(emptyClubDataSnapshot.fines);
+  const [voteEntries, setVoteEntries] = useState(emptyClubDataSnapshot.voteEntries);
   const [isHydrated, setIsHydrated] = useState(false);
   const [isCloudSyncReady, setIsCloudSyncReady] = useState(!isConfigured);
 
@@ -147,6 +149,10 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setFitnessResults(snapshot.fitnessResults);
     setFines(snapshot.fines);
     setVoteEntries(snapshot.voteEntries);
+  }
+
+  function loadDemoData() {
+    applySnapshot(createDemoClubDataSnapshot());
   }
 
   useEffect(() => {
@@ -293,6 +299,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setFines,
       voteEntries,
       setVoteEntries,
+      loadDemoData,
       isHydrated,
       storageMode: isConfigured && activeClubId ? 'cloud' : 'local',
     };
@@ -306,6 +313,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     fitnessResults,
     fines,
     voteEntries,
+    loadDemoData,
     isHydrated,
     activeClubId,
     isConfigured,

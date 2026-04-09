@@ -35,17 +35,41 @@ export type ClubDataSnapshot = {
   voteEntries: VoteEntry[];
 };
 
-export const seedClubDataSnapshot: ClubDataSnapshot = {
-  fixtures,
-  trainingSessions,
-  attendanceRecords,
-  players,
-  availabilityRecords,
-  matchStats,
-  fitnessResults,
-  fines,
-  voteEntries,
+export const emptyClubDataSnapshot: ClubDataSnapshot = {
+  fixtures: [],
+  trainingSessions: [],
+  attendanceRecords: [],
+  players: [],
+  availabilityRecords: [],
+  matchStats: [],
+  fitnessResults: [],
+  fines: [],
+  voteEntries: [],
 };
+
+function cloneList<T>(items: T[]) {
+  return items.map((item) => {
+    if (item && typeof item === 'object') {
+      return { ...(item as Record<string, unknown>) } as T;
+    }
+
+    return item;
+  });
+}
+
+export function createDemoClubDataSnapshot(): ClubDataSnapshot {
+  return {
+    fixtures: cloneList(fixtures),
+    trainingSessions: cloneList(trainingSessions),
+    attendanceRecords: cloneList(attendanceRecords),
+    players: normalizePlayers(cloneList(players)),
+    availabilityRecords: cloneList(availabilityRecords),
+    matchStats: cloneList(matchStats),
+    fitnessResults: cloneList(fitnessResults),
+    fines: cloneList(fines),
+    voteEntries: normalizeVoteEntries(cloneList(voteEntries)),
+  };
+}
 
 function asList<T>(value: unknown, fallback: T[]) {
   return Array.isArray(value) ? (value as T[]) : fallback;
@@ -53,14 +77,14 @@ function asList<T>(value: unknown, fallback: T[]) {
 
 export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | null | undefined) {
   return {
-    fixtures: asList(snapshot?.fixtures, seedClubDataSnapshot.fixtures),
-    trainingSessions: asList(snapshot?.trainingSessions, seedClubDataSnapshot.trainingSessions),
-    attendanceRecords: asList(snapshot?.attendanceRecords, seedClubDataSnapshot.attendanceRecords),
-    players: normalizePlayers(asList(snapshot?.players, seedClubDataSnapshot.players)),
-    availabilityRecords: asList(snapshot?.availabilityRecords, seedClubDataSnapshot.availabilityRecords),
-    matchStats: asList(snapshot?.matchStats, seedClubDataSnapshot.matchStats),
-    fitnessResults: asList(snapshot?.fitnessResults, seedClubDataSnapshot.fitnessResults),
-    fines: asList(snapshot?.fines, seedClubDataSnapshot.fines),
-    voteEntries: normalizeVoteEntries(asList(snapshot?.voteEntries, seedClubDataSnapshot.voteEntries)),
+    fixtures: asList(snapshot?.fixtures, emptyClubDataSnapshot.fixtures),
+    trainingSessions: asList(snapshot?.trainingSessions, emptyClubDataSnapshot.trainingSessions),
+    attendanceRecords: asList(snapshot?.attendanceRecords, emptyClubDataSnapshot.attendanceRecords),
+    players: normalizePlayers(asList(snapshot?.players, emptyClubDataSnapshot.players)),
+    availabilityRecords: asList(snapshot?.availabilityRecords, emptyClubDataSnapshot.availabilityRecords),
+    matchStats: asList(snapshot?.matchStats, emptyClubDataSnapshot.matchStats),
+    fitnessResults: asList(snapshot?.fitnessResults, emptyClubDataSnapshot.fitnessResults),
+    fines: asList(snapshot?.fines, emptyClubDataSnapshot.fines),
+    voteEntries: normalizeVoteEntries(asList(snapshot?.voteEntries, emptyClubDataSnapshot.voteEntries)),
   } satisfies ClubDataSnapshot;
 }
