@@ -87,6 +87,15 @@ Set these environment variables in Vercel:
 
 SPA rewrites are configured in [web/vercel.json](/Users/andrewmccallum/Development/statto/web/vercel.json).
 
+## Security Checks
+
+GitHub Actions runs a security workflow from [.github/workflows/security.yml](/Users/andrewmccallum/Development/statto/.github/workflows/security.yml) that covers:
+
+- `npm audit` against the `web/` app dependencies
+- Gitleaks secret scanning across the repository
+
+The workflow runs on pull requests, pushes to `main`, manual dispatch, and a weekly schedule.
+
 ## Project Structure
 
 ```text
