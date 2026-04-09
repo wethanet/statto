@@ -13,13 +13,8 @@ const themeOptions: {
   value: ThemePreference;
 }[] = [
   {
-    label: 'System',
-    description: 'Follow the device appearance automatically.',
-    value: 'system',
-  },
-  {
     label: 'Light',
-    description: 'Always use the light theme.',
+    description: 'Use the light theme by default.',
     value: 'light',
   },
   {

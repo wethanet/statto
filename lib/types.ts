@@ -12,11 +12,13 @@ export type Player = {
   name: string;
   number: number | null;
   position: string | null;
+  squad: PlayerSquad | null;
   role: PlayerRole;
   active: boolean;
 };
 
 export type PlayerRole = 'player' | 'captain' | 'vice-captain' | 'leader';
+export type PlayerSquad = 'cup' | 'plate';
 
 export type TrainingSession = {
   id: string;

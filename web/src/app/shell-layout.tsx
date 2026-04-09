@@ -18,7 +18,7 @@ export function ShellLayout() {
   const { activeClub } = useClubAccess();
   const { signOut } = useAuth();
   const { storageMode } = useClubData();
-  const { resolvedColorScheme, setThemePreference, themePreference } = useSettings();
+  const { setThemePreference, themePreference } = useSettings();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   async function handleSignOut() {
@@ -82,14 +82,10 @@ export function ShellLayout() {
               type="button"
               onClick={() => {
                 setThemePreference((current) => {
-                  if (current === 'system') {
-                    return resolvedColorScheme === 'dark' ? 'light' : 'dark';
-                  }
-
                   return current === 'dark' ? 'light' : 'dark';
                 });
               }}>
-              Theme: {themePreference === 'system' ? `System (${resolvedColorScheme})` : themePreference}
+              Theme: {themePreference}
             </button>
 
             <button className="button button--ghost" type="button" onClick={handleSignOut}>

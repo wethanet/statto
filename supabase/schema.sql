@@ -26,6 +26,7 @@ create table if not exists public.club_players (
   name text not null,
   number integer,
   position text,
+  squad text check (squad in ('cup', 'plate')),
   role text not null,
   active boolean not null default true,
   updated_at timestamptz not null default timezone('utc', now()),
@@ -101,6 +102,22 @@ create table if not exists public.club_fitness_results (
   recorded_at timestamptz not null default timezone('utc', now()),
   primary key (club_id, player_id, metric, phase)
 );
+
+alter table public.club_players
+add column if not exists squad text;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_players_squad_check'
+  ) then
+    alter table public.club_players
+    add constraint club_players_squad_check
+    check (squad in ('cup', 'plate') or squad is null);
+  end if;
+end $$;
 
 alter table public.club_data_snapshots enable row level security;
 alter table public.clubs enable row level security;

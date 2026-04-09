@@ -1,4 +1,4 @@
-import type { Player, PlayerRole } from '@/lib/types';
+import type { Player, PlayerRole, PlayerSquad } from '@/lib/types';
 
 const playerRoleOrder: PlayerRole[] = ['player', 'leader', 'vice-captain', 'captain'];
 
@@ -7,6 +7,9 @@ type TeamSummary = {
   active: number;
   inactive: number;
   leaders: number;
+  cup: number;
+  plate: number;
+  unassigned: number;
 };
 
 export function getTeamSummary(players: Player[]): TeamSummary {
@@ -24,9 +27,17 @@ export function getTeamSummary(players: Player[]): TeamSummary {
         summary.leaders += 1;
       }
 
+      if (player.squad === 'cup') {
+        summary.cup += 1;
+      } else if (player.squad === 'plate') {
+        summary.plate += 1;
+      } else {
+        summary.unassigned += 1;
+      }
+
       return summary;
     },
-    { total: 0, active: 0, inactive: 0, leaders: 0 }
+    { total: 0, active: 0, inactive: 0, leaders: 0, cup: 0, plate: 0, unassigned: 0 }
   );
 }
 
@@ -69,6 +80,7 @@ export function addPlayer(
     name: string;
     number?: number | null;
     position?: string | null;
+    squad?: PlayerSquad | null;
   }
 ) {
   const player: Player = {
@@ -76,6 +88,7 @@ export function addPlayer(
     name: input.name.trim(),
     number: input.number ?? null,
     position: input.position?.trim() || null,
+    squad: input.squad ?? null,
     role: 'player',
     active: true,
   };
@@ -89,6 +102,7 @@ export function updatePlayerDetails(
   input: {
     number?: number | null;
     position?: string | null;
+    squad?: PlayerSquad | null;
   }
 ) {
   return players.map((player) => {
@@ -100,6 +114,7 @@ export function updatePlayerDetails(
       ...player,
       number: input.number ?? null,
       position: input.position?.trim() || null,
+      squad: input.squad ?? null,
     };
   });
 }
@@ -143,4 +158,37 @@ export function getPlayerDisplayName(player: Pick<Player, 'name' | 'number'>) {
 
 export function getPlayerSortValue(number: Player['number']) {
   return number ?? Number.MAX_SAFE_INTEGER;
+}
+
+export function normalizePlayerSquad(value: string | null | undefined): PlayerSquad | null {
+  const normalizedValue = value?.trim().toLowerCase();
+
+  if (normalizedValue === 'cup' || normalizedValue === 'plate') {
+    return normalizedValue;
+  }
+
+  return null;
+}
+
+export function normalizePlayers(
+  players: Array<Omit<Player, 'squad'> & { squad?: string | null }>
+): Player[] {
+  return players.map((player) => {
+    return {
+      ...player,
+      squad: normalizePlayerSquad(player.squad),
+    };
+  });
+}
+
+export function getPlayerSquadLabel(squad: PlayerSquad | null) {
+  if (squad === 'cup') {
+    return 'Cup';
+  }
+
+  if (squad === 'plate') {
+    return 'Plate';
+  }
+
+  return 'Unassigned';
 }

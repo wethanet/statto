@@ -1,4 +1,4 @@
-import type { AvailabilityRecord, AvailabilityStatus, Fixture, Player } from '@/lib/types';
+import type { AvailabilityRecord, AvailabilityStatus, Fixture, Player, PlayerSquad } from '@/lib/types';
 
 type AvailabilitySummary = {
   available: number;
@@ -136,6 +136,45 @@ export function upsertAvailabilityRecord(
   nextRecords.push({ fixtureId, playerId, status });
 
   return nextRecords;
+}
+
+export function getDefaultFixtureSquad(grade: Fixture['grade']): PlayerSquad | null {
+  const normalizedGrade = grade?.trim().toLowerCase() ?? '';
+
+  if (normalizedGrade.includes('cup')) {
+    return 'cup';
+  }
+
+  if (normalizedGrade.includes('plate')) {
+    return 'plate';
+  }
+
+  return null;
+}
+
+export function applyDefaultAvailabilityForFixture(
+  records: AvailabilityRecord[],
+  fixture: Fixture,
+  players: Player[]
+) {
+  const squad = getDefaultFixtureSquad(fixture.grade);
+
+  if (!squad) {
+    return { records, squad: null, selectedCount: 0 };
+  }
+
+  const nextRecords = players.reduce<AvailabilityRecord[]>((current, player) => {
+    const status: AvailabilityStatus =
+      !player.active ? 'uncertain' : player.squad === squad ? 'available' : 'uncertain';
+
+    return upsertAvailabilityRecord(current, fixture.id, player.id, status);
+  }, records);
+
+  const selectedCount = players.filter((player) => {
+    return player.active && player.squad === squad;
+  }).length;
+
+  return { records: nextRecords, squad, selectedCount };
 }
 
 export function deleteAvailabilityRecordsForPlayer(records: AvailabilityRecord[], playerId: string) {

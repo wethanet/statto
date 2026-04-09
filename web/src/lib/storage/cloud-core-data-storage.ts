@@ -8,6 +8,7 @@ import type {
   TrainingSession,
   VoteEntry,
 } from '@/lib/types';
+import { normalizePlayers } from '@/lib/team';
 import { normalizeVoteEntries, normalizeVoteType } from '@/lib/votes';
 
 import { supabase } from '@web/lib/supabase';
@@ -93,7 +94,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
   ] = await Promise.all([
     supabase
       .from('club_players')
-      .select('id, name, number, position, role, active')
+      .select('id, name, number, position, squad, role, active')
       .eq('club_id', clubId)
       .order('number', { ascending: true }),
     supabase
@@ -143,7 +144,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     throw errors[0];
   }
 
-  const players = (playersResult.data ?? []) as Player[];
+  const players = normalizePlayers((playersResult.data ?? []) as Player[]);
   const trainingSessions = (trainingSessionsResult.data ?? []) as TrainingSession[];
   const attendanceRecords = (attendanceRecordsResult.data ?? []).map((record) => {
     return {
@@ -239,6 +240,7 @@ export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
           name: player.name,
           number: player.number,
           position: player.position,
+          squad: player.squad,
           role: player.role,
           active: player.active,
         };

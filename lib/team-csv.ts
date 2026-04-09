@@ -1,4 +1,5 @@
 import type { Player, PlayerRole } from '@/lib/types';
+import { normalizePlayerSquad } from '@/lib/team';
 
 const validRoles: PlayerRole[] = ['player', 'captain', 'vice-captain', 'leader'];
 
@@ -87,6 +88,7 @@ export function parsePlayersCsv(csvContent: string): Player[] {
   const nameIndex = headers.indexOf('name');
   const numberIndex = headers.indexOf('number');
   const positionIndex = headers.indexOf('position');
+  const squadIndex = headers.findIndex((header) => header === 'squad' || header === 'designation');
   const roleIndex = headers.indexOf('role');
   const activeIndex = headers.indexOf('active');
 
@@ -99,6 +101,7 @@ export function parsePlayersCsv(csvContent: string): Player[] {
     const name = values[nameIndex];
     const numberValue = numberIndex === -1 ? undefined : values[numberIndex];
     const positionValue = positionIndex === -1 ? undefined : values[positionIndex];
+    const squadValue = squadIndex === -1 ? undefined : values[squadIndex];
     const normalizedNumberValue = numberValue?.trim();
     const number = normalizedNumberValue ? Number(normalizedNumberValue) : null;
     const position = positionValue?.trim() || null;
@@ -119,6 +122,7 @@ export function parsePlayersCsv(csvContent: string): Player[] {
       name,
       number,
       position,
+      squad: normalizePlayerSquad(squadValue),
       role: normalizeRole(roleIndex === -1 ? undefined : values[roleIndex]),
       active: normalizeActive(activeIndex === -1 ? undefined : values[activeIndex]),
     };

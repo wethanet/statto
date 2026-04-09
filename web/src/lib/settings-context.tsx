@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 import { readJsonStorage, writeJsonStorage } from '@web/lib/storage/local-storage';
-import { getSystemColorScheme, type ResolvedColorScheme, type ThemePreference } from '@web/lib/theme';
+import type { ResolvedColorScheme, ThemePreference } from '@web/lib/theme';
 
 type SettingsContextValue = {
   themePreference: ThemePreference;
@@ -24,8 +24,7 @@ const THEME_PREFERENCE_STORAGE_KEY = 'theme-preference.json';
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: PropsWithChildren) {
-  const [themePreference, setThemePreference] = useState<ThemePreference>('system');
-  const [systemScheme, setSystemScheme] = useState<ResolvedColorScheme>(getSystemColorScheme);
+  const [themePreference, setThemePreference] = useState<ThemePreference>('light');
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -38,7 +37,7 @@ export function SettingsProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      setThemePreference(storedPreference ?? 'system');
+      setThemePreference(storedPreference === 'dark' ? 'dark' : 'light');
       setIsHydrated(true);
     }
 
@@ -46,24 +45,6 @@ export function SettingsProvider({ children }: PropsWithChildren) {
 
     return () => {
       isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      setSystemScheme(mediaQuery.matches ? 'dark' : 'light');
-    };
-
-    handleChange();
-    mediaQuery.addEventListener('change', handleChange);
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange);
     };
   }, []);
 
@@ -77,7 +58,7 @@ export function SettingsProvider({ children }: PropsWithChildren) {
     });
   }, [isHydrated, themePreference]);
 
-  const resolvedColorScheme = themePreference === 'system' ? systemScheme : themePreference;
+  const resolvedColorScheme: ResolvedColorScheme = themePreference;
 
   useEffect(() => {
     if (typeof document === 'undefined') {

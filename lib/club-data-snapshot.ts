@@ -21,6 +21,7 @@ import type {
   TrainingSession,
   VoteEntry,
 } from '@/lib/types';
+import { normalizePlayers } from '@/lib/team';
 
 export type ClubDataSnapshot = {
   fixtures: Fixture[];
@@ -55,7 +56,7 @@ export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | 
     fixtures: asList(snapshot?.fixtures, seedClubDataSnapshot.fixtures),
     trainingSessions: asList(snapshot?.trainingSessions, seedClubDataSnapshot.trainingSessions),
     attendanceRecords: asList(snapshot?.attendanceRecords, seedClubDataSnapshot.attendanceRecords),
-    players: asList(snapshot?.players, seedClubDataSnapshot.players),
+    players: normalizePlayers(asList(snapshot?.players, seedClubDataSnapshot.players)),
     availabilityRecords: asList(snapshot?.availabilityRecords, seedClubDataSnapshot.availabilityRecords),
     matchStats: asList(snapshot?.matchStats, seedClubDataSnapshot.matchStats),
     fitnessResults: asList(snapshot?.fitnessResults, seedClubDataSnapshot.fitnessResults),
