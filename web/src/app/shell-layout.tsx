@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
@@ -18,6 +19,7 @@ export function ShellLayout() {
   const { signOut } = useAuth();
   const { storageMode } = useClubData();
   const { resolvedColorScheme, setThemePreference, themePreference } = useSettings();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   async function handleSignOut() {
     const message = await signOut();
@@ -29,13 +31,24 @@ export function ShellLayout() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="topbar__inner">
-          <div className="topbar__brand">
-            <img alt="Warners Bay Bulldogs logo" className="topbar__logo" src={bulldogsLogo} />
-            <div>
+      <button
+        aria-controls="primary-navigation"
+        aria-expanded={isDrawerOpen}
+        className="drawer-toggle"
+        type="button"
+        onClick={() => {
+          setIsDrawerOpen((current) => !current);
+        }}>
+        {isDrawerOpen ? 'Close' : 'Menu'}
+      </button>
+
+      <aside className={isDrawerOpen ? 'shell-drawer shell-drawer--open' : 'shell-drawer'}>
+        <div className="shell-drawer__panel">
+          <div className="shell-drawer__brand">
+            <img alt="Warners Bay Bulldogs logo" className="shell-drawer__logo" src={bulldogsLogo} />
+            <div className="stack-sm">
               <p className="eyebrow">Warners Bay Bulldogs</p>
-              <h1 className="topbar__title">{activeClub?.name ?? 'Local club workspace'}</h1>
+              <h1 className="shell-drawer__title">{activeClub?.name ?? 'Local club workspace'}</h1>
               <p className="muted">
                 {storageMode === 'cloud'
                   ? 'Supabase sync is active for this club.'
@@ -44,7 +57,26 @@ export function ShellLayout() {
             </div>
           </div>
 
-          <div className="topbar__actions">
+          <nav className="drawer-nav" id="primary-navigation" aria-label="Primary">
+            {NAV_ITEMS.map((item) => {
+              return (
+                <NavLink
+                  key={item.to}
+                  className={({ isActive }) => {
+                    return isActive ? 'drawer-link drawer-link--active' : 'drawer-link';
+                  }}
+                  end={item.end}
+                  to={item.to}
+                  onClick={() => {
+                    setIsDrawerOpen(false);
+                  }}>
+                  {item.label}
+                </NavLink>
+              );
+            })}
+          </nav>
+
+          <div className="shell-drawer__actions">
             <button
               className="button button--secondary"
               type="button"
@@ -65,27 +97,31 @@ export function ShellLayout() {
             </button>
           </div>
         </div>
+      </aside>
 
-        <nav className="tab-nav" aria-label="Primary">
-          {NAV_ITEMS.map((item) => {
-            return (
-              <NavLink
-                key={item.to}
-                className={({ isActive }) => {
-                  return isActive ? 'tab-link tab-link--active' : 'tab-link';
-                }}
-                end={item.end}
-                to={item.to}>
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
-      </header>
+      {isDrawerOpen ? (
+        <button
+          aria-hidden="true"
+          className="drawer-backdrop"
+          type="button"
+          onClick={() => {
+            setIsDrawerOpen(false);
+          }}
+        />
+      ) : null}
 
-      <main className="page-shell">
-        <Outlet />
-      </main>
+      <div className="shell-main">
+        <header className="mobile-topbar">
+          <div className="stack-sm">
+            <p className="eyebrow">Warners Bay Bulldogs</p>
+            <h1 className="mobile-topbar__title">{activeClub?.name ?? 'Local club workspace'}</h1>
+          </div>
+        </header>
+
+        <main className="page-shell">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
