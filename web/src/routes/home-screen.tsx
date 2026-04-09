@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
-import { getAttendanceSummary, getNextTrainingSession } from '@/lib/attendance';
-import { getAvailabilitySummary, getNextFixture } from '@/lib/availability';
+import { getAttendanceSummary, getSortedTrainingSessions } from '@/lib/attendance';
+import { getAvailabilitySummary, getSortedFixtures } from '@/lib/availability';
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { useClubData } from '@web/lib/club-data-context';
@@ -15,6 +15,15 @@ function formatDate(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function getLocalDateKey(value: string | Date) {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 export function HomeScreen() {
@@ -32,9 +41,11 @@ export function HomeScreen() {
     voteEntries,
   } = useClubData();
   const [demoMessage, setDemoMessage] = useState<string | null>(null);
+  const now = new Date();
+  const todayKey = getLocalDateKey(now);
+  const sortedTrainingSessions = getSortedTrainingSessions(trainingSessions);
+  const sortedFixtures = getSortedFixtures(fixtures);
 
-  const nextTraining = getNextTrainingSession(trainingSessions);
-  const nextMatch = getNextFixture(fixtures);
   const hasAnyData =
     trainingSessions.length > 0 ||
     fixtures.length > 0 ||
@@ -45,12 +56,28 @@ export function HomeScreen() {
     fitnessResults.length > 0 ||
     fines.length > 0 ||
     voteEntries.length > 0;
-  const trainingSummary = nextTraining
-    ? getAttendanceSummary(nextTraining.id, players, attendanceRecords)
+  const todaysTraining = sortedTrainingSessions.filter((session) => {
+    return getLocalDateKey(session.date) === todayKey;
+  });
+  const displayedTraining =
+    todaysTraining[0] ??
+    sortedTrainingSessions.find((session) => {
+      return new Date(session.date).getTime() >= now.getTime();
+    }) ??
+    null;
+  const displayedMatchesToday = sortedFixtures.filter((fixture) => {
+    return getLocalDateKey(fixture.date) === todayKey;
+  });
+  const upcomingMatches = sortedFixtures.filter((fixture) => {
+    return new Date(fixture.date).getTime() >= now.getTime();
+  });
+  const displayedMatches =
+    (displayedMatchesToday.length > 0 ? displayedMatchesToday : upcomingMatches).slice(0, 2);
+  const trainingSummary = displayedTraining
+    ? getAttendanceSummary(displayedTraining.id, players, attendanceRecords)
     : null;
-  const matchSummary = nextMatch
-    ? getAvailabilitySummary(nextMatch.id, players, availabilityRecords)
-    : null;
+  const trainingHeading = todaysTraining.length > 0 ? 'Today’s training' : 'Next training';
+  const matchesHeading = displayedMatchesToday.length > 0 ? 'Today’s matches' : 'Next matches';
 
   return (
     <section className="page-grid">
@@ -70,57 +97,61 @@ export function HomeScreen() {
       </section>
 
       <div className="three-up">
-        <section className="card stack">
-          <h3>Next training</h3>
-          {nextTraining && trainingSummary ? (
-            <>
-              <p>{nextTraining.title}</p>
-              <p className="muted">{formatDate(nextTraining.date)}</p>
-              <p className="muted">{nextTraining.location}</p>
-              <div className="metric-row">
-                <span className="metric metric--positive">{trainingSummary.present} present</span>
-                <span className="metric metric--negative">{trainingSummary.absent} absent</span>
-                <span className="metric metric--neutral">{trainingSummary.unknown} to confirm</span>
-              </div>
-              <Link className="text-link" to={`/training/${nextTraining.id}`}>
-                Manage this session
-              </Link>
-            </>
-          ) : (
-            <>
-              <p className="muted">No training sessions have been added yet.</p>
-              <Link className="text-link" to="/training">
-                Create your first session
-              </Link>
-            </>
-          )}
-        </section>
+        {displayedTraining && trainingSummary ? (
+          <section className="card stack">
+            <h3>{trainingHeading}</h3>
+            <p>{displayedTraining.title}</p>
+            <p className="muted">{formatDate(displayedTraining.date)}</p>
+            <p className="muted">{displayedTraining.location}</p>
+            <div className="metric-row">
+              <span className="metric metric--positive">{trainingSummary.present} present</span>
+              <span className="metric metric--negative">{trainingSummary.absent} absent</span>
+              <span className="metric metric--neutral">{trainingSummary.unknown} to confirm</span>
+            </div>
+            <Link className="text-link" to={`/training/${displayedTraining.id}`}>
+              Manage this session
+            </Link>
+          </section>
+        ) : (
+          <section className="card stack">
+            <h3>{trainingHeading}</h3>
+            <p className="muted">No training sessions are scheduled yet.</p>
+            <Link className="text-link" to="/training">
+              Create your first session
+            </Link>
+          </section>
+        )}
 
-        <section className="card stack">
-          <h3>Next match</h3>
-          {nextMatch && matchSummary ? (
-            <>
-              <p>{nextMatch.grade ? `${nextMatch.grade} • ` : ''}vs {nextMatch.opponent}</p>
-              <p className="muted">{formatDate(nextMatch.date)}</p>
-              <p className="muted">{nextMatch.venue}</p>
-              <div className="metric-row">
-                <span className="metric metric--positive">{matchSummary.available} available</span>
-                <span className="metric metric--negative">{matchSummary.unavailable} unavailable</span>
-                <span className="metric metric--neutral">{matchSummary.uncertain} uncertain</span>
-              </div>
-              <Link className="text-link" to={`/matches/${nextMatch.id}`}>
-                Manage availability
-              </Link>
-            </>
-          ) : (
-            <>
-              <p className="muted">No fixtures have been added yet.</p>
-              <Link className="text-link" to="/admin/matches">
-                Create your first match
-              </Link>
-            </>
-          )}
-        </section>
+        {displayedMatches.length > 0 ? (
+          displayedMatches.map((fixture, index) => {
+            const matchSummary = getAvailabilitySummary(fixture.id, players, availabilityRecords);
+
+            return (
+              <section key={fixture.id} className="card stack">
+                <h3>{index === 0 ? matchesHeading : 'Also coming up'}</h3>
+                <p>{fixture.grade ? `${fixture.grade} • ` : ''}vs {fixture.opponent}</p>
+                <p className="muted">{formatDate(fixture.date)}</p>
+                <p className="muted">{fixture.venue}</p>
+                <div className="metric-row">
+                  <span className="metric metric--positive">{matchSummary.available} available</span>
+                  <span className="metric metric--negative">{matchSummary.unavailable} unavailable</span>
+                  <span className="metric metric--neutral">{matchSummary.uncertain} uncertain</span>
+                </div>
+                <Link className="text-link" to={`/matches/${fixture.id}`}>
+                  Manage availability
+                </Link>
+              </section>
+            );
+          })
+        ) : (
+          <section className="card stack">
+            <h3>{matchesHeading}</h3>
+            <p className="muted">No upcoming fixtures are scheduled yet.</p>
+            <Link className="text-link" to="/admin/matches">
+              Create your first match
+            </Link>
+          </section>
+        )}
 
         <section className="card stack">
           <h3>Quick links</h3>
