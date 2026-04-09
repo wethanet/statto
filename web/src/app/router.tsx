@@ -26,11 +26,9 @@ function LoadingGate() {
   return (
     <main className="gate-shell">
       <section className="panel panel--centered">
-        <span className="eyebrow">Migration in progress</span>
+        <span className="eyebrow">Statto Web</span>
         <h1>Loading your club data...</h1>
-        <p className="muted">
-          The new web shell is booting with the same auth and club-access rules as the Expo app.
-        </p>
+        <p className="muted">Preparing your club workspace and syncing the latest data.</p>
       </section>
     </main>
   );

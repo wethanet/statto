@@ -21,15 +21,15 @@ Do not optimize for:
 
 ## Project Overview
 
-This is an Expo application built with:
-- Expo
-- React Native
+This is a browser-first application built with:
+- Vite
+- React
 - TypeScript
-- Expo Router
+- React Router
 
 Primary goals:
 - keep the app simple to run locally
-- preserve a clean mobile-first developer experience
+- preserve a clean browser-first developer experience
 - maintain clear routing, component structure, and predictable state flow
 
 ---
@@ -87,8 +87,7 @@ Prefer this mental model:
 Follow the existing structure if it differs.
 
 ### Routing
-Use Expo Router conventions.
-- Prefer file-based routing
+Use the existing React Router setup in `web/src/app/router.tsx`.
 - Keep route files focused on screen composition
 - Move reusable logic/UI out of route files when it improves clarity
 
@@ -150,7 +149,7 @@ If adding a dependency:
 ## Environment and Configuration
 
 When working with environment variables:
-- use `EXPO_PUBLIC_` only for values intended for client exposure
+- use `VITE_` only for values intended for client exposure
 - never hardcode secrets
 - update `.env.example` when adding new environment variables
 - prefer safe fallbacks where appropriate

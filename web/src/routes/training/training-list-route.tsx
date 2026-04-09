@@ -30,9 +30,7 @@ export function TrainingListRoute() {
       <section className="panel stack">
         <span className="eyebrow">Training</span>
         <h2>Track weekly attendance</h2>
-        <p className="muted">
-          This route is now migrated from Expo and uses the same attendance summaries as the current app.
-        </p>
+        <p className="muted">Keep training sessions organized and attendance up to date each week.</p>
       </section>
 
       {sessions.length === 0 ? (

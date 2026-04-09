@@ -44,8 +44,7 @@ export function AuthScreen() {
         <span className="eyebrow">Supabase access</span>
         <h1>Sign in to Statto</h1>
         <p className="muted">
-          This browser shell uses the same account model as the Expo app so club data can keep syncing
-          across devices.
+          Sign in to access your club workspace and keep team data synced across devices.
         </p>
 
         <form className="stack" onSubmit={handleSubmit}>

@@ -1,231 +1,115 @@
 # Statto
 
-An AFL team stats and admin app built with Expo.
+A browser-first AFL team stats and club admin app built with Vite, React, TypeScript, and Supabase.
 
-Statto helps clubs, coaches, and team managers keep the weekly chaos under control in one place — from training attendance and game availability through to match stats, player votes, and fines.
-
-## Features
-
-* **Training attendance** tracking for players across sessions
-* **Game availability** management for upcoming matches
-* **Game stats** recording and review
-* **Player votes** entry and tallying
-* **Player fines** logging and tracking
-
-## Why Statto?
-
-Local footy admin can get messy fast. Statto is designed to give clubs a simple way to manage the player data that usually ends up scattered across group chats, notebooks, spreadsheets, and someone’s memory.
+Statto helps clubs, coaches, and team managers keep the weekly chaos under control in one place, from training attendance and match availability through to live stats, votes, fitness tracking, and fines.
 
 ## Tech Stack
 
-* **Expo**
-* **React Native**
-* **TypeScript**
-* **Supabase** for auth and online storage
+- Vite
+- React
+- TypeScript
+- Supabase
+
+## Features
+
+- Training attendance tracking
+- Match availability management
+- Live match stats entry
+- Match voting across players, coaches, and B&F
+- Team management with CSV import
+- Fitness tracking
+- Player fines and payment tracking
+- Shared club access with invite codes
 
 ## Getting Started
 
 ### Prerequisites
 
-Make sure you have installed:
-
-* [Node.js](https://nodejs.org/)
-* npm, yarn, pnpm, or bun
-* Expo Go on your mobile device, or an iOS/Android simulator
+- Node.js
+- npm
 
 ### Install dependencies
 
 ```bash
-npm install
+npm --prefix web install
 ```
 
-### Start the development server
+### Start the web app
 
 ```bash
-npx expo start
+npm run dev
 ```
 
-This will open the Expo developer tools in your terminal or browser. From there you can run the app on:
+### Build the web app
 
-* **iOS simulator**
-* **Android emulator**
-* **Expo Go** on a physical device
-* **Web**
+```bash
+npm run build
+```
 
-### Supabase setup
+### Typecheck
 
-Statto now supports:
+```bash
+npm run typecheck
+```
 
-* email/password auth with Supabase Auth
-* shared club/team access in Supabase
-* local fallback storage when Supabase is not configured yet
-
-To enable Supabase:
+## Supabase Setup
 
 1. Create a Supabase project.
-2. Copy [.env.example](/Users/andrewmccallum/Development/statto/.env.example) to `.env` for the Expo app and copy [web/.env.example](/Users/andrewmccallum/Development/statto/web/.env.example) to `web/.env.local` for the new React web app.
-3. Fill in the client-side Supabase values:
+2. Copy [web/.env.example](/Users/andrewmccallum/Development/statto/web/.env.example) to `web/.env.local`.
+3. Fill in:
 
 ```env
-# Expo app
-EXPO_PUBLIC_SUPABASE_URL=...
-EXPO_PUBLIC_SUPABASE_ANON_KEY=...
-
-# React web app
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-4. In the Supabase SQL editor, run [supabase/schema.sql](/Users/andrewmccallum/Development/statto/supabase/schema.sql).
-5. In Supabase Auth, enable email/password sign-in.
-6. Restart the Expo dev server or the Vite web dev server after changing env vars.
+4. Run [supabase/schema.sql](/Users/andrewmccallum/Development/statto/supabase/schema.sql) in the Supabase SQL editor.
+5. Enable email/password sign-in in Supabase Auth.
+6. Restart the Vite dev server after changing environment variables.
 
-For EAS deploys and builds, set the same `EXPO_PUBLIC_SUPABASE_URL` and
-`EXPO_PUBLIC_SUPABASE_ANON_KEY` values in your EAS environment as well. Local
-`.env` files help during development, but remote EAS deploys need those values
-provided in the export environment too.
+Use only the public anon key in the client app. Do not use the Supabase service role key in `web/.env.local` or in Vercel.
 
-For the new React web app, Vite reads `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY` from `web/.env.local` during local development. Use the
-same public Supabase project URL and anon key there. Do not use the Supabase
-service role key in either client app.
+## Deployment
 
-For web deploys, do not rely on `eas deploy` by itself. The browser bundle needs
-to be exported with the right environment first, then deployed. In this project
-the safe production path is:
+Recommended Vercel settings:
 
-```bash
-npm run deploy
-```
+- Framework Preset: `Vite`
+- Root Directory: `web`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Install Command: `npm install`
 
-That script pulls the production EAS environment locally, exports the web app,
-and then deploys the generated bundle.
+Set these environment variables in Vercel:
 
-Once configured, the app will require sign-in before opening the main tabs. Users can create a club or join an existing one with an invite code, and team data, training sessions, attendance, fixtures, availability, and votes are stored against that shared club so multiple people can manage the same team.
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+SPA rewrites are configured in [web/vercel.json](/Users/andrewmccallum/Development/statto/web/vercel.json).
 
 ## Project Structure
 
 ```text
 statto/
-├── app/
-├── components/
-│   ├── ui/
-├── features/
-│   ├── attendance/
-│   ├── availability/
-│   ├── stats/
-│   ├── votes/
-│   └── fines/
-├── constants/
-├── hooks/
-├── services/
-├── store/
-├── assets/
+├── lib/                # shared domain logic and data helpers
+├── supabase/           # schema and database assets
+├── web/                # Vite + React application
+│   ├── src/
+│   │   ├── app/
+│   │   ├── components/
+│   │   ├── lib/
+│   │   ├── routes/
+│   │   └── styles/
+│   └── package.json
 └── README.md
 ```
 
-## Core Modules
+## Notes
 
-### Attendance
-
-Track who turns up to training and build a reliable attendance history across the season.
-
-### Availability
-
-Let players mark whether they are available, unavailable, or uncertain for upcoming games.
-
-### Game Stats
-
-Capture match-day performance data for players and teams.
-
-Possible stat categories could include:
-
-* Kicks
-* Handballs
-* Marks
-* Tackles
-* Goals
-* Behinds
-* Hitouts
-* Clearances
-* Inside 50s
-
-### Player Votes
-
-Record votes after each match and keep a running leaderboard across the season.
-
-### Player Fines
-
-Track team fines with reasons, amounts, and payment status.
-
-## Roadmap
-
-Potential future features:
-
-* Team selection tools
-* Season ladders and player leaderboards
-* Push notifications for training and match reminders
-* Coach and admin roles
-* Data export to CSV
-* Match reports and summaries
-* Club payments integration
-
-## Scripts
-
-Common Expo scripts:
-
-```bash
-npm run start
-npm run android
-npm run ios
-npm run web
-```
-
-Depending on your setup, your `package.json` scripts may vary.
-
-## Environment Variables
-
-If your app uses environment variables, create a `.env` file in the project root for Expo and
-`web/.env.local` for the Vite web app.
-
-Example:
-
-```env
-# Expo app
-EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-
-# React web app
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
-
-Never commit secrets to version control.
-
-## Contributing
-
-Contributions, ideas, and feedback are welcome.
-
-To contribute:
-
-1. Fork the repo
-2. Create a feature branch
-3. Commit your changes
-4. Open a pull request
-
-## Design Principles
-
-Statto aims to be:
-
-* **Fast** enough for match day
-* **Simple** enough for volunteers and team managers
-* **Useful** enough that coaches actually keep using it
-* **Flexible** enough to work across local clubs and competitions
+- The Expo app has been removed. `web/` is now the only supported runtime.
+- Root npm scripts proxy into `web/`, but dependency installation should be run against `web/`.
+- Shared business logic remains in root `lib/` so the web app can stay thin and focused on browser concerns.
 
 ## License
 
 Add your preferred license here.
-
----
-
-Built for footy clubs who are tired of running the season off spreadsheets, whiteboards, and pure optimism.

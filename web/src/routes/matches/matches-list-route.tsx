@@ -28,9 +28,7 @@ export function MatchesListRoute() {
       <section className="panel stack">
         <span className="eyebrow">Matches</span>
         <h2>Track availability before selection night</h2>
-        <p className="muted">
-          The match list is now migrated and powered by the shared availability summaries from the Expo app.
-        </p>
+        <p className="muted">Manage weekly match availability and keep selection conversations moving.</p>
       </section>
 
       {upcomingFixtures.length === 0 ? (
