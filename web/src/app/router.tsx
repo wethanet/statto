@@ -14,6 +14,7 @@ import { VotesAdminRoute } from '@web/routes/admin/votes-admin-route';
 import { MatchDetailRoute } from '@web/routes/matches/match-detail-route';
 import { MatchesListRoute } from '@web/routes/matches/matches-list-route';
 import { MatchStatsRoute } from '@web/routes/matches/match-stats-route';
+import { TeamSelectionGraphicRoute } from '@web/routes/matches/team-selection-graphic-route';
 import { MatchVotesRoute } from '@web/routes/matches/match-votes-route';
 import { TrainingAdminRoute } from '@web/routes/admin/training-admin-route';
 import { TrainingDetailRoute } from '@web/routes/training/training-detail-route';
@@ -62,6 +63,7 @@ export function AppRouter() {
           <Route path="/training/:sessionId" element={<TrainingDetailRoute />} />
           <Route path="/matches" element={<MatchesListRoute />} />
           <Route path="/matches/:fixtureId" element={<MatchDetailRoute />} />
+          <Route path="/matches/:fixtureId/announcement" element={<TeamSelectionGraphicRoute />} />
           <Route path="/matches/:fixtureId/stats" element={<MatchStatsRoute />} />
           <Route path="/matches/:fixtureId/votes" element={<MatchVotesRoute />} />
           <Route path="/admin" element={<AdminHomeRoute />} />

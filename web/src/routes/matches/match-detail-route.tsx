@@ -174,6 +174,9 @@ export function MatchDetailRoute() {
         <Link className="text-link" to={`/matches/${fixture.id}/votes`}>
           Open player votes
         </Link>
+        <Link className="text-link" to={`/matches/${fixture.id}/announcement`}>
+          Open team announcement graphic
+        </Link>
       </section>
 
       {groupedPlayers.map((group) => (

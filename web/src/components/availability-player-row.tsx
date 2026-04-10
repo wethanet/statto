@@ -46,22 +46,25 @@ export function AvailabilityPlayerRow({
         </div>
       </div>
 
-      <div className="inline-actions selection-row__pills selection-row__pills--compact selection-row__positions">
-        {matchLinePositions.map((position) => {
-          const isSelected = selectedPosition === position;
+      {status === 'available' ? (
+        <div className="inline-actions selection-row__pills selection-row__pills--compact selection-row__positions">
+          {matchLinePositions.map((position) => {
+            const isSelected = selectedPosition === position;
 
-          return (
-            <button
-              key={position}
-              className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
-              disabled={status !== 'available'}
-              onClick={() => onSelectPosition(position)}
-              type="button">
-              {position}
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                key={position}
+                className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+                onClick={() => onSelectPosition(position)}
+                type="button">
+                {position}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="selection-row__positions" />
+      )}
 
       <div className="selection-row__actions">
         <div className="inline-actions selection-row__pills selection-row__pills--compact">
