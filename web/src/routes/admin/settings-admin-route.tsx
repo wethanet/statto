@@ -26,7 +26,7 @@ const themeOptions: {
 
 export function SettingsAdminRoute() {
   const { isConfigured, signOut, user } = useAuth();
-  const { storageMode } = useClubData();
+  const { storageMode, syncDebug } = useClubData();
   const { activeClub, clubs } = useClubAccess();
   const { isHydrated, resolvedColorScheme, setThemePreference, themePreference } = useSettings();
   const accountDescription = isConfigured
@@ -81,6 +81,13 @@ export function SettingsAdminRoute() {
             Sign out
           </button>
         ) : null}
+      </section>
+
+      <section className="card stack">
+        <h3>Sync Debug</h3>
+        <p className="muted">Temporary diagnostic for cloud vs local hydration.</p>
+        <p>Attendance source: {syncDebug.attendanceSource}</p>
+        <p>Availability source: {syncDebug.availabilitySource}</p>
       </section>
 
       {themeOptions.map((option) => {

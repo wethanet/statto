@@ -88,6 +88,10 @@ type ClubDataContextValue = {
   loadDemoData: () => void;
   isHydrated: boolean;
   storageMode: 'local' | 'cloud';
+  syncDebug: {
+    attendanceSource: 'cloud' | 'local' | 'empty';
+    availabilitySource: 'cloud' | 'local' | 'empty';
+  };
 };
 
 const LOCAL_STORAGE_NAMESPACE = 'club-data';
@@ -139,6 +143,16 @@ function getScopedStorageKey(storageScope: string, key: string) {
   return `${LOCAL_STORAGE_NAMESPACE}:${storageScope}:${key}`;
 }
 
+async function readScopedStorageWithLegacyFallback<T>(storageScope: string, key: string) {
+  const scopedValue = await readJsonStorage<T>(getScopedStorageKey(storageScope, key));
+
+  if (scopedValue !== null) {
+    return scopedValue;
+  }
+
+  return readJsonStorage<T>(key);
+}
+
 async function loadLocalSnapshot(storageScope: string) {
   const [
     fixtures,
@@ -152,18 +166,19 @@ async function loadLocalSnapshot(storageScope: string) {
     fines,
     voteEntries,
   ] = await Promise.all([
-    readJsonStorage<Fixture[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.fixtures)),
-    readJsonStorage<TrainingSession[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.trainingSessions)),
-    readJsonStorage<AttendanceRecord[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.attendanceRecords)),
-    readJsonStorage<Player[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.players)),
-    readJsonStorage<AvailabilityRecord[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.availabilityRecords)),
-    readJsonStorage<MatchStatEntry[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.matchStats)),
-    readJsonStorage<MatchLineupAssignment[]>(
-      getScopedStorageKey(storageScope, STORAGE_KEYS.matchLineupAssignments)
+    readScopedStorageWithLegacyFallback<Fixture[]>(storageScope, STORAGE_KEYS.fixtures),
+    readScopedStorageWithLegacyFallback<TrainingSession[]>(storageScope, STORAGE_KEYS.trainingSessions),
+    readScopedStorageWithLegacyFallback<AttendanceRecord[]>(storageScope, STORAGE_KEYS.attendanceRecords),
+    readScopedStorageWithLegacyFallback<Player[]>(storageScope, STORAGE_KEYS.players),
+    readScopedStorageWithLegacyFallback<AvailabilityRecord[]>(storageScope, STORAGE_KEYS.availabilityRecords),
+    readScopedStorageWithLegacyFallback<MatchStatEntry[]>(storageScope, STORAGE_KEYS.matchStats),
+    readScopedStorageWithLegacyFallback<MatchLineupAssignment[]>(
+      storageScope,
+      STORAGE_KEYS.matchLineupAssignments
     ),
-    readJsonStorage<FitnessResult[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.fitnessResults)),
-    readJsonStorage<Fine[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.fines)),
-    readJsonStorage<VoteEntry[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.voteEntries)),
+    readScopedStorageWithLegacyFallback<FitnessResult[]>(storageScope, STORAGE_KEYS.fitnessResults),
+    readScopedStorageWithLegacyFallback<Fine[]>(storageScope, STORAGE_KEYS.fines),
+    readScopedStorageWithLegacyFallback<VoteEntry[]>(storageScope, STORAGE_KEYS.voteEntries),
   ]);
 
   return normalizeClubDataSnapshot({
@@ -262,6 +277,10 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const [finesState, setFinesState] = useState(emptyClubDataSnapshot.fines);
   const [voteEntriesState, setVoteEntriesState] = useState(emptyClubDataSnapshot.voteEntries);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [syncDebug, setSyncDebug] = useState<ClubDataContextValue['syncDebug']>({
+    attendanceSource: 'empty',
+    availabilitySource: 'empty',
+  });
   const pendingCloudSyncCountRef = useRef(0);
   const pendingCloudRefreshRequestedRef = useRef(false);
   const refreshFromCloudTimeoutRef = useRef<number | null>(null);
@@ -293,7 +312,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const storageScope = useMemo(() => {
     if (isConfigured) {
       if (activeClubId) {
-        return `cloud:${user?.id ?? 'anonymous'}:${activeClubId}`;
+        return `cloud:${activeClubId}`;
       }
 
       return `cloud:${user?.id ?? 'anonymous'}:no-club`;
@@ -340,6 +359,31 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       voteEntries: voteEntriesRef.current,
     };
   }, []);
+
+  const setSyncDebugFromSources = useCallback(
+    (localSnapshot: ClubDataSnapshot, remoteCoreData: Partial<ClubDataSnapshot> | null) => {
+      const hasRemoteAttendance = Boolean(
+        remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'attendanceRecords')
+      );
+      const hasRemoteAvailability = Boolean(
+        remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'availabilityRecords')
+      );
+
+      setSyncDebug({
+        attendanceSource: hasRemoteAttendance
+          ? 'cloud'
+          : localSnapshot.attendanceRecords.length > 0
+            ? 'local'
+            : 'empty',
+        availabilitySource: hasRemoteAvailability
+          ? 'cloud'
+          : localSnapshot.availabilityRecords.length > 0
+            ? 'local'
+            : 'empty',
+      });
+    },
+    []
+  );
 
   function createCollectionSetter<T>(
     ref: { current: T[] },
@@ -490,16 +534,18 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
         return;
       }
 
+      const currentSnapshot = getSnapshotFromRefs();
+      setSyncDebugFromSources(currentSnapshot, remoteCoreData);
       applySnapshot(
         normalizeClubDataSnapshot({
-          ...getSnapshotFromRefs(),
+          ...currentSnapshot,
           ...remoteCoreData,
         })
       );
     } catch (error: unknown) {
       console.warn('Failed to refresh cloud club data', error);
     }
-  }, [activeClubId, getSnapshotFromRefs, isConfigured]);
+  }, [activeClubId, getSnapshotFromRefs, isConfigured, setSyncDebugFromSources]);
 
   refreshFromCloudRef.current = refreshFromCloud;
 
@@ -539,14 +585,20 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
             const remoteCoreData = await loadCloudCoreData(activeClubId);
 
             if (remoteCoreData) {
+              setSyncDebugFromSources(localSnapshot, remoteCoreData);
               nextSnapshot = normalizeClubDataSnapshot({
                 ...localSnapshot,
                 ...remoteCoreData,
               });
+            } else {
+              setSyncDebugFromSources(localSnapshot, null);
             }
           } catch (error: unknown) {
             console.warn('Failed to load cloud club data', error);
+            setSyncDebugFromSources(localSnapshot, null);
           }
+        } else {
+          setSyncDebugFromSources(localSnapshot, null);
         }
 
         if (!isMounted) {
@@ -691,6 +743,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       loadDemoData,
       isHydrated,
       storageMode: isConfigured && activeClubId ? 'cloud' : 'local',
+      syncDebug,
     };
   }, [
     activeClubId,
@@ -704,6 +757,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     matchLineupAssignmentsState,
     matchStatsState,
     playersState,
+    syncDebug,
     trainingSessionsState,
     voteEntriesState,
   ]);
