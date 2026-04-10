@@ -36,7 +36,6 @@ export function TeamAdminRoute() {
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
   const [number, setNumber] = useState('');
-  const [position, setPosition] = useState('');
   const [squad, setSquad] = useState('');
   const [pastedCsv, setPastedCsv] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -74,7 +73,6 @@ export function TeamAdminRoute() {
     const normalizedNickname = nickname.trim() || null;
     const normalizedNumberInput = number.trim();
     const normalizedNumber = normalizedNumberInput ? Number(normalizedNumberInput) : null;
-    const normalizedPosition = position.trim() || null;
     const normalizedSquad = normalizePlayerSquad(squad);
 
     if (!normalizedName) {
@@ -106,14 +104,12 @@ export function TeamAdminRoute() {
         name: normalizedName,
         nickname: normalizedNickname,
         number: normalizedNumber,
-        position: normalizedPosition,
         squad: normalizedSquad,
       });
     });
     setName('');
     setNickname('');
     setNumber('');
-    setPosition('');
     setSquad('');
     setPlayerFormMessage(`${normalizedName} was added to the roster.`);
   }
@@ -196,12 +192,11 @@ export function TeamAdminRoute() {
   function handleSavePlayerDetails(
     playerId: string,
     playerName: string,
-    input: { nickname: string; number: string; position: string; squad: string }
+    input: { nickname: string; number: string; squad: string }
   ) {
     const normalizedNickname = input.nickname.trim() || null;
     const normalizedNumberInput = input.number.trim();
     const normalizedNumber = normalizedNumberInput ? Number(normalizedNumberInput) : null;
-    const normalizedPosition = input.position.trim() || null;
     const normalizedSquad = normalizePlayerSquad(input.squad);
 
     if (
@@ -225,7 +220,6 @@ export function TeamAdminRoute() {
       return updatePlayerDetails(current, playerId, {
         nickname: normalizedNickname,
         number: normalizedNumber,
-        position: normalizedPosition,
         squad: normalizedSquad,
       });
     });
@@ -302,32 +296,20 @@ export function TeamAdminRoute() {
             />
           </label>
           <label className="field">
-            <span>Position</span>
-            <input
+            <span>Squad</span>
+            <select
               className="input"
               onChange={(event) => {
-                setPosition(event.target.value);
+                setSquad(event.target.value);
                 setPlayerFormMessage(null);
               }}
-              placeholder="Optional"
-              value={position}
-            />
+              value={squad}>
+              <option value="">Unassigned</option>
+              <option value="cup">Cup</option>
+              <option value="plate">Plate</option>
+            </select>
           </label>
         </div>
-        <label className="field">
-          <span>Squad</span>
-          <select
-            className="input"
-            onChange={(event) => {
-              setSquad(event.target.value);
-              setPlayerFormMessage(null);
-            }}
-            value={squad}>
-            <option value="">Unassigned</option>
-            <option value="cup">Cup</option>
-            <option value="plate">Plate</option>
-          </select>
-        </label>
         <div className="inline-actions">
           <button className="button" type="submit">
             Add player
@@ -339,8 +321,8 @@ export function TeamAdminRoute() {
       <section className="card stack">
         <h3>CSV upload</h3>
         <p className="muted">
-          Upload or paste CSV with a `name` column. Optional columns: `nickname`, `number`,
-          `position`, `squad` or `designation`, `role`, `active`.
+          Upload or paste CSV with a `name` column. Optional columns: `nickname`, `number`, `squad`
+          or `designation`, `role`, `active`.
         </p>
         <p className="muted">Importing replaces the current roster in the browser app.</p>
 
@@ -370,7 +352,7 @@ export function TeamAdminRoute() {
               setPastedCsv(event.target.value);
               setImportMessage(null);
             }}
-            placeholder={'name,number,position\nJane Smith,12,Rover\nAlex Green,,Wing'}
+            placeholder={'name,number,squad\nJane Smith,12,cup\nAlex Green,,plate'}
             value={pastedCsv}
           />
         </label>

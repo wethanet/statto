@@ -3,6 +3,7 @@ import {
   type Dispatch,
   type PropsWithChildren,
   type SetStateAction,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -61,6 +62,7 @@ import {
   upsertCloudVoteEntry,
 } from '@web/lib/storage/cloud-core-data-storage';
 import { readJsonStorage, writeJsonStorage } from '@web/lib/storage/local-storage';
+import { supabase } from '@web/lib/supabase';
 
 type ClubDataContextValue = {
   fixtures: Fixture[];
@@ -102,6 +104,20 @@ const STORAGE_KEYS = {
 } as const;
 
 const ClubDataContext = createContext<ClubDataContextValue | null>(null);
+
+const CLOUD_REFRESH_INTERVAL_MS = 60000;
+const REALTIME_REFRESH_DEBOUNCE_MS = 400;
+const REALTIME_TABLES = [
+  'club_players',
+  'club_training_sessions',
+  'club_attendance_records',
+  'club_fixtures',
+  'club_availability_records',
+  'club_match_stats',
+  'club_match_lineup_assignments',
+  'club_vote_entries',
+  'club_fitness_results',
+] as const;
 
 type CollectionConfig<T> = {
   label: string;
@@ -224,6 +240,10 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const [finesState, setFinesState] = useState(emptyClubDataSnapshot.fines);
   const [voteEntriesState, setVoteEntriesState] = useState(emptyClubDataSnapshot.voteEntries);
   const [isHydrated, setIsHydrated] = useState(false);
+  const pendingCloudSyncCountRef = useRef(0);
+  const pendingCloudRefreshRequestedRef = useRef(false);
+  const refreshFromCloudTimeoutRef = useRef<number | null>(null);
+  const refreshFromCloudRef = useRef<() => Promise<void>>(async () => {});
 
   const fixturesRef = useRef(fixturesState);
   const trainingSessionsRef = useRef(trainingSessionsState);
@@ -271,6 +291,21 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setVoteEntriesState(snapshot.voteEntries);
   }
 
+  const getSnapshotFromRefs = useCallback((): ClubDataSnapshot => {
+    return {
+      fixtures: fixturesRef.current,
+      trainingSessions: trainingSessionsRef.current,
+      attendanceRecords: attendanceRecordsRef.current,
+      players: playersRef.current,
+      availabilityRecords: availabilityRecordsRef.current,
+      matchStats: matchStatsRef.current,
+      matchLineupAssignments: matchLineupAssignmentsRef.current,
+      fitnessResults: fitnessResultsRef.current,
+      fines: finesRef.current,
+      voteEntries: voteEntriesRef.current,
+    };
+  }, []);
+
   function createCollectionSetter<T>(
     ref: { current: T[] },
     setState: Dispatch<SetStateAction<T[]>>,
@@ -287,9 +322,21 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      syncCollectionDiff(activeClubId, current, next, config).catch((error: unknown) => {
-        console.warn(`Failed to sync ${config.label}`, error);
-      });
+      pendingCloudSyncCountRef.current += 1;
+      syncCollectionDiff(activeClubId, current, next, config)
+        .catch((error: unknown) => {
+          console.warn(`Failed to sync ${config.label}`, error);
+        })
+        .finally(() => {
+          pendingCloudSyncCountRef.current = Math.max(0, pendingCloudSyncCountRef.current - 1);
+
+          if (
+            pendingCloudSyncCountRef.current === 0 &&
+            pendingCloudRefreshRequestedRef.current
+          ) {
+            void refreshFromCloudRef.current();
+          }
+        });
     };
   }
 
@@ -390,6 +437,54 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setVoteEntries(snapshot.voteEntries);
   }
 
+  const refreshFromCloud = useCallback(async () => {
+    if (!isConfigured || !activeClubId) {
+      return;
+    }
+
+    if (pendingCloudSyncCountRef.current > 0) {
+      pendingCloudRefreshRequestedRef.current = true;
+      return;
+    }
+
+    try {
+      pendingCloudRefreshRequestedRef.current = false;
+      const remoteCoreData = await loadCloudCoreData(activeClubId);
+
+      if (!remoteCoreData) {
+        return;
+      }
+
+      applySnapshot(
+        normalizeClubDataSnapshot({
+          ...getSnapshotFromRefs(),
+          ...remoteCoreData,
+        })
+      );
+    } catch (error: unknown) {
+      console.warn('Failed to refresh cloud club data', error);
+    }
+  }, [activeClubId, getSnapshotFromRefs, isConfigured]);
+
+  refreshFromCloudRef.current = refreshFromCloud;
+
+  const scheduleRefreshFromCloud = useCallback(() => {
+    if (!isConfigured || !activeClubId) {
+      return;
+    }
+
+    pendingCloudRefreshRequestedRef.current = true;
+
+    if (refreshFromCloudTimeoutRef.current != null) {
+      return;
+    }
+
+    refreshFromCloudTimeoutRef.current = window.setTimeout(() => {
+      refreshFromCloudTimeoutRef.current = null;
+      void refreshFromCloud();
+    }, REALTIME_REFRESH_DEBOUNCE_MS);
+  }, [activeClubId, isConfigured, refreshFromCloud]);
+
   useEffect(() => {
     if (isAuthLoading || isClubAccessLoading) {
       return;
@@ -436,6 +531,67 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       isMounted = false;
     };
   }, [activeClubId, isAuthLoading, isClubAccessLoading, isConfigured]);
+
+  useEffect(() => {
+    if (!isHydrated || !isConfigured || !activeClubId) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      scheduleRefreshFromCloud();
+    }, CLOUD_REFRESH_INTERVAL_MS);
+
+    function handleFocus() {
+      scheduleRefreshFromCloud();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        scheduleRefreshFromCloud();
+      }
+    }
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      if (refreshFromCloudTimeoutRef.current != null) {
+        window.clearTimeout(refreshFromCloudTimeoutRef.current);
+        refreshFromCloudTimeoutRef.current = null;
+      }
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeClubId, isConfigured, isHydrated, scheduleRefreshFromCloud]);
+
+  useEffect(() => {
+    if (!isHydrated || !isConfigured || !activeClubId || !supabase) {
+      return;
+    }
+
+    const client = supabase;
+    const channel = REALTIME_TABLES.reduce((currentChannel, table) => {
+      return currentChannel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table,
+          filter: `club_id=eq.${activeClubId}`,
+        },
+        () => {
+          scheduleRefreshFromCloud();
+        }
+      );
+    }, client.channel(`club-data:${activeClubId}`));
+
+    channel.subscribe();
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [activeClubId, isConfigured, isHydrated, scheduleRefreshFromCloud]);
 
   const snapshot = useMemo<ClubDataSnapshot>(() => {
     return {

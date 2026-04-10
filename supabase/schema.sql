@@ -26,7 +26,6 @@ create table if not exists public.club_players (
   name text not null,
   nickname text,
   number integer,
-  position text,
   squad text check (squad in ('cup', 'plate')),
   role text not null,
   active boolean not null default true,
@@ -119,6 +118,9 @@ add column if not exists squad text;
 alter table public.club_players
 add column if not exists nickname text;
 
+alter table public.club_players
+drop column if exists position;
+
 do $$
 begin
   if not exists (
@@ -144,6 +146,44 @@ alter table public.club_match_stats enable row level security;
 alter table public.club_match_lineup_assignments enable row level security;
 alter table public.club_vote_entries enable row level security;
 alter table public.club_fitness_results enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication
+    where pubname = 'supabase_realtime'
+  ) then
+    create publication supabase_realtime;
+  end if;
+end $$;
+
+do $$
+declare
+  realtime_table text;
+begin
+  foreach realtime_table in array array[
+    'club_players',
+    'club_training_sessions',
+    'club_attendance_records',
+    'club_fixtures',
+    'club_availability_records',
+    'club_match_stats',
+    'club_match_lineup_assignments',
+    'club_vote_entries',
+    'club_fitness_results'
+  ] loop
+    begin
+      execute format(
+        'alter publication supabase_realtime add table public.%I',
+        realtime_table
+      );
+    exception
+      when duplicate_object then
+        null;
+    end;
+  end loop;
+end $$;
 
 create policy "Users can read their own club data"
 on public.club_data_snapshots

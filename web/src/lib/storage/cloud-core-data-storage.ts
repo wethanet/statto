@@ -58,7 +58,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
   ] = await Promise.all([
     supabase
       .from('club_players')
-      .select('id, name, nickname, number, position, squad, role, active')
+      .select('id, name, nickname, number, squad, role, active')
       .eq('club_id', clubId)
       .order('number', { ascending: true }),
     supabase
@@ -211,7 +211,6 @@ export async function upsertCloudPlayer(clubId: string, player: Player) {
       name: player.name,
       nickname: player.nickname,
       number: player.number,
-      position: player.position,
       squad: player.squad,
       role: player.role,
       active: player.active,

@@ -7,7 +7,7 @@ type TeamPlayerRowProps = {
   onToggleActive: () => void;
   onCycleRole: () => void;
   onDelete: () => void;
-  onSaveDetails: (input: { nickname: string; number: string; position: string; squad: string }) => string | null;
+  onSaveDetails: (input: { nickname: string; number: string; squad: string }) => string | null;
 };
 
 export function TeamPlayerRow({
@@ -20,13 +20,12 @@ export function TeamPlayerRow({
   const [isEditing, setIsEditing] = useState(false);
   const [nickname, setNickname] = useState(player.nickname ?? '');
   const [number, setNumber] = useState(player.number?.toString() ?? '');
-  const [position, setPosition] = useState(player.position ?? '');
   const [squad, setSquad] = useState(player.squad ?? '');
   const [message, setMessage] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextMessage = onSaveDetails({ nickname, number, position, squad });
+    const nextMessage = onSaveDetails({ nickname, number, squad });
 
     if (nextMessage) {
       setMessage(nextMessage);
@@ -44,7 +43,6 @@ export function TeamPlayerRow({
           <h3>{getPlayerDisplayName(player)}</h3>
           <p className="muted">
             {player.nickname ? `"${player.nickname}" • ` : ''}
-            {player.position ? `${player.position} • ` : ''}
             {getPlayerRoleLabel(player.role)} • {getPlayerSquadLabel(player.squad)}
           </p>
         </div>
@@ -80,17 +78,6 @@ export function TeamPlayerRow({
               />
             </label>
             <label className="field">
-              <span>Position</span>
-              <input
-                className="input"
-                onChange={(event) => {
-                  setPosition(event.target.value);
-                  setMessage(null);
-                }}
-                value={position}
-              />
-            </label>
-            <label className="field">
               <span>Squad</span>
               <select
                 className="input"
@@ -115,7 +102,6 @@ export function TeamPlayerRow({
               onClick={() => {
                 setNickname(player.nickname ?? '');
                 setNumber(player.number?.toString() ?? '');
-                setPosition(player.position ?? '');
                 setSquad(player.squad ?? '');
                 setMessage(null);
                 setIsEditing(false);
@@ -143,7 +129,6 @@ export function TeamPlayerRow({
           onClick={() => {
             setNickname(player.nickname ?? '');
             setNumber(player.number?.toString() ?? '');
-            setPosition(player.position ?? '');
             setSquad(player.squad ?? '');
             setMessage(null);
             setIsEditing((current) => !current);

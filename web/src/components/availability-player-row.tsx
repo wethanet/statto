@@ -30,10 +30,7 @@ export function AvailabilityPlayerRow({
   onSelectPosition,
   selectedPosition,
 }: AvailabilityPlayerRowProps) {
-  const metaParts = [
-    player.number != null ? `#${player.number}` : null,
-    player.position,
-  ].filter(Boolean);
+  const metaParts = [player.number != null ? `#${player.number}` : null].filter(Boolean);
 
   return (
     <section className="selection-row">

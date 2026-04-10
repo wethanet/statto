@@ -80,7 +80,6 @@ export function addPlayer(
     name: string;
     nickname?: string | null;
     number?: number | null;
-    position?: string | null;
     squad?: PlayerSquad | null;
   }
 ) {
@@ -89,7 +88,6 @@ export function addPlayer(
     name: input.name.trim(),
     nickname: input.nickname?.trim() || null,
     number: input.number ?? null,
-    position: input.position?.trim() || null,
     squad: input.squad ?? null,
     role: 'player',
     active: true,
@@ -104,7 +102,6 @@ export function updatePlayerDetails(
   input: {
     nickname?: string | null;
     number?: number | null;
-    position?: string | null;
     squad?: PlayerSquad | null;
   }
 ) {
@@ -117,7 +114,6 @@ export function updatePlayerDetails(
       ...player,
       nickname: input.nickname?.trim() || null,
       number: input.number ?? null,
-      position: input.position?.trim() || null,
       squad: input.squad ?? null,
     };
   });
@@ -178,10 +174,16 @@ export function normalizePlayers(
   players: Array<Omit<Player, 'squad' | 'nickname'> & { squad?: string | null; nickname?: string | null }>
 ): Player[] {
   return players.map((player) => {
+    const { id, name, number, role, active } = player;
+
     return {
-      ...player,
+      id,
+      name,
       nickname: player.nickname?.trim() || null,
+      number,
       squad: normalizePlayerSquad(player.squad),
+      role,
+      active,
     };
   });
 }

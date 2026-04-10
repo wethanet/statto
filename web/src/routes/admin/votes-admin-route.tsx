@@ -39,10 +39,7 @@ export function VotesAdminRoute() {
                     <strong>
                       {index + 1}. {getPlayerDisplayName(player)}
                     </strong>
-                    <span className="muted">
-                      {player.totalPoints} pts
-                      {player.position ? ` • ${player.position}` : ''}
-                    </span>
+                    <span className="muted">{player.totalPoints} pts</span>
                   </section>
                 );
               })

@@ -12,7 +12,6 @@ export type Player = {
   name: string;
   nickname: string | null;
   number: number | null;
-  position: string | null;
   squad: PlayerSquad | null;
   role: PlayerRole;
   active: boolean;

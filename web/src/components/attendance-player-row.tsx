@@ -21,10 +21,7 @@ function getAttendanceTone(status: AttendanceStatus) {
 }
 
 export function AttendancePlayerRow({ player, status, onChange }: AttendancePlayerRowProps) {
-  const metaParts = [
-    player.number != null ? `#${player.number}` : null,
-    player.position,
-  ].filter(Boolean);
+  const metaParts = [player.number != null ? `#${player.number}` : null].filter(Boolean);
 
   return (
     <section className="selection-row">

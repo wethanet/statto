@@ -88,7 +88,6 @@ export function parsePlayersCsv(csvContent: string): Player[] {
   const nameIndex = headers.indexOf('name');
   const nicknameIndex = headers.indexOf('nickname');
   const numberIndex = headers.indexOf('number');
-  const positionIndex = headers.indexOf('position');
   const squadIndex = headers.findIndex((header) => header === 'squad' || header === 'designation');
   const roleIndex = headers.indexOf('role');
   const activeIndex = headers.indexOf('active');
@@ -102,11 +101,9 @@ export function parsePlayersCsv(csvContent: string): Player[] {
     const name = values[nameIndex];
     const nicknameValue = nicknameIndex === -1 ? undefined : values[nicknameIndex];
     const numberValue = numberIndex === -1 ? undefined : values[numberIndex];
-    const positionValue = positionIndex === -1 ? undefined : values[positionIndex];
     const squadValue = squadIndex === -1 ? undefined : values[squadIndex];
     const normalizedNumberValue = numberValue?.trim();
     const number = normalizedNumberValue ? Number(normalizedNumberValue) : null;
-    const position = positionValue?.trim() || null;
 
     if (!name) {
       throw new Error(`Row ${rowIndex + 2} is missing a valid name.`);
@@ -124,7 +121,6 @@ export function parsePlayersCsv(csvContent: string): Player[] {
       name,
       nickname: nicknameValue?.trim() || null,
       number,
-      position,
       squad: normalizePlayerSquad(squadValue),
       role: normalizeRole(roleIndex === -1 ? undefined : values[roleIndex]),
       active: normalizeActive(activeIndex === -1 ? undefined : values[activeIndex]),

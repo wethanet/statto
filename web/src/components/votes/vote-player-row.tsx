@@ -12,7 +12,6 @@ export function VotePlayerRow({ player, points, onChange }: VotePlayerRowProps) 
     <section className="card vote-row">
       <div className="stack-sm">
         <h3>{getPlayerDisplayName(player)}</h3>
-        {player.position ? <p className="muted">{player.position}</p> : null}
       </div>
 
       <div className="vote-row__controls">
