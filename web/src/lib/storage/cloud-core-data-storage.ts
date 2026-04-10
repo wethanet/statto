@@ -40,7 +40,13 @@ async function throwOnError(error: { message?: string } | null) {
   }
 }
 
-export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData | null> {
+function logCloudCollectionError(label: string, error: { message?: string } | null) {
+  if (error) {
+    console.warn(`Failed to load ${label} from Supabase`, error);
+  }
+}
+
+export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCoreData> | null> {
   if (!supabase) {
     return null;
   }
@@ -97,109 +103,124 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
       .eq('club_id', clubId),
   ]);
 
-  const errors = [
-    playersResult.error,
-    trainingSessionsResult.error,
-    attendanceRecordsResult.error,
-    fixturesResult.error,
-    availabilityRecordsResult.error,
-    matchStatsResult.error,
-    matchLineupAssignmentsResult.error,
-    voteEntriesResult.error,
-    fitnessResultsResult.error,
-  ].filter(Boolean);
+  const snapshot: Partial<CloudCoreData> = {};
+  let hasSuccessfulRead = false;
 
-  if (errors.length > 0) {
-    throw errors[0];
+  if (playersResult.error) {
+    logCloudCollectionError('players', playersResult.error);
+  } else {
+    snapshot.players = normalizePlayers((playersResult.data ?? []) as Player[]);
+    hasSuccessfulRead = true;
   }
 
-  const players = normalizePlayers((playersResult.data ?? []) as Player[]);
-  const trainingSessions = (trainingSessionsResult.data ?? []) as TrainingSession[];
-  const attendanceRecords = (attendanceRecordsResult.data ?? []).map((record) => {
-    return {
-      sessionId: record.session_id as string,
-      playerId: record.player_id as string,
-      status: record.status as AttendanceRecord['status'],
-    };
-  });
-  const fixtures = (fixturesResult.data ?? []).map((fixture) => {
-    return {
-      id: fixture.id as string,
-      opponent: fixture.opponent as string,
-      grade: (fixture.grade as string | null | undefined) ?? null,
-      date: fixture.date as string,
-      venue: fixture.venue as string,
-      isHome: fixture.is_home as boolean,
-    };
-  });
-  const availabilityRecords = (availabilityRecordsResult.data ?? []).map((record) => {
-    return {
-      fixtureId: record.fixture_id as string,
-      playerId: record.player_id as string,
-      status: record.status as AvailabilityRecord['status'],
-    };
-  });
-  const matchStats = (matchStatsResult.data ?? []).map((entry) => {
-    return {
-      fixtureId: entry.fixture_id as string,
-      metric: entry.metric as MatchStatEntry['metric'],
-      team: entry.team as MatchStatEntry['team'],
-      value: Number(entry.value),
-    };
-  });
-  const matchLineupAssignments = (matchLineupAssignmentsResult.data ?? []).map((assignment) => {
-    return {
-      fixtureId: assignment.fixture_id as string,
-      playerId: assignment.player_id as string,
-      position: assignment.position as MatchLineupAssignment['position'],
-    };
-  });
-  const voteEntries = normalizeVoteEntries(
-    (voteEntriesResult.data ?? []).map((entry) => {
+  if (trainingSessionsResult.error) {
+    logCloudCollectionError('training sessions', trainingSessionsResult.error);
+  } else {
+    snapshot.trainingSessions = (trainingSessionsResult.data ?? []) as TrainingSession[];
+    hasSuccessfulRead = true;
+  }
+
+  if (attendanceRecordsResult.error) {
+    logCloudCollectionError('attendance records', attendanceRecordsResult.error);
+  } else {
+    snapshot.attendanceRecords = (attendanceRecordsResult.data ?? []).map((record) => {
+      return {
+        sessionId: record.session_id as string,
+        playerId: record.player_id as string,
+        status: record.status as AttendanceRecord['status'],
+      };
+    });
+    hasSuccessfulRead = true;
+  }
+
+  if (fixturesResult.error) {
+    logCloudCollectionError('fixtures', fixturesResult.error);
+  } else {
+    snapshot.fixtures = (fixturesResult.data ?? []).map((fixture) => {
+      return {
+        id: fixture.id as string,
+        opponent: fixture.opponent as string,
+        grade: (fixture.grade as string | null | undefined) ?? null,
+        date: fixture.date as string,
+        venue: fixture.venue as string,
+        isHome: fixture.is_home as boolean,
+      };
+    });
+    hasSuccessfulRead = true;
+  }
+
+  if (availabilityRecordsResult.error) {
+    logCloudCollectionError('availability records', availabilityRecordsResult.error);
+  } else {
+    snapshot.availabilityRecords = (availabilityRecordsResult.data ?? []).map((record) => {
+      return {
+        fixtureId: record.fixture_id as string,
+        playerId: record.player_id as string,
+        status: record.status as AvailabilityRecord['status'],
+      };
+    });
+    hasSuccessfulRead = true;
+  }
+
+  if (matchStatsResult.error) {
+    logCloudCollectionError('match stats', matchStatsResult.error);
+  } else {
+    snapshot.matchStats = (matchStatsResult.data ?? []).map((entry) => {
       return {
         fixtureId: entry.fixture_id as string,
-        playerId: entry.player_id as string,
-        voteType: normalizeVoteType(entry.vote_type),
-        points: entry.points as number,
+        metric: entry.metric as MatchStatEntry['metric'],
+        team: entry.team as MatchStatEntry['team'],
+        value: Number(entry.value),
       };
-    })
-  );
-  const fitnessResults = (fitnessResultsResult.data ?? []).map((result) => {
-    return {
-      playerId: result.player_id as string,
-      metric: result.metric as FitnessResult['metric'],
-      phase: result.phase as FitnessResult['phase'],
-      value: Number(result.value),
-      recordedAt: result.recorded_at as string,
-    };
-  });
-
-  const hasData =
-    players.length > 0 ||
-    trainingSessions.length > 0 ||
-    attendanceRecords.length > 0 ||
-    fixtures.length > 0 ||
-    availabilityRecords.length > 0 ||
-    matchStats.length > 0 ||
-    matchLineupAssignments.length > 0 ||
-    voteEntries.length > 0 ||
-    fitnessResults.length > 0;
-
-  if (!hasData) {
-    return null;
+    });
+    hasSuccessfulRead = true;
   }
 
-  return {
-    players,
-    trainingSessions,
-    attendanceRecords,
-    fixtures,
-    availabilityRecords,
-    matchStats,
-    matchLineupAssignments,
-    voteEntries,
-    fitnessResults,
-  };
+  if (matchLineupAssignmentsResult.error) {
+    logCloudCollectionError('match lineup assignments', matchLineupAssignmentsResult.error);
+  } else {
+    snapshot.matchLineupAssignments = (matchLineupAssignmentsResult.data ?? []).map((assignment) => {
+      return {
+        fixtureId: assignment.fixture_id as string,
+        playerId: assignment.player_id as string,
+        position: assignment.position as MatchLineupAssignment['position'],
+      };
+    });
+    hasSuccessfulRead = true;
+  }
+
+  if (voteEntriesResult.error) {
+    logCloudCollectionError('vote entries', voteEntriesResult.error);
+  } else {
+    snapshot.voteEntries = normalizeVoteEntries(
+      (voteEntriesResult.data ?? []).map((entry) => {
+        return {
+          fixtureId: entry.fixture_id as string,
+          playerId: entry.player_id as string,
+          voteType: normalizeVoteType(entry.vote_type),
+          points: entry.points as number,
+        };
+      })
+    );
+    hasSuccessfulRead = true;
+  }
+
+  if (fitnessResultsResult.error) {
+    logCloudCollectionError('fitness results', fitnessResultsResult.error);
+  } else {
+    snapshot.fitnessResults = (fitnessResultsResult.data ?? []).map((result) => {
+      return {
+        playerId: result.player_id as string,
+        metric: result.metric as FitnessResult['metric'],
+        phase: result.phase as FitnessResult['phase'],
+        value: Number(result.value),
+        recordedAt: result.recorded_at as string,
+      };
+    });
+    hasSuccessfulRead = true;
+  }
+
+  return hasSuccessfulRead ? snapshot : null;
 }
 
 export async function upsertCloudPlayer(clubId: string, player: Player) {

@@ -90,6 +90,7 @@ type ClubDataContextValue = {
   storageMode: 'local' | 'cloud';
 };
 
+const LOCAL_STORAGE_NAMESPACE = 'club-data';
 const STORAGE_KEYS = {
   fixtures: 'fixtures.json',
   trainingSessions: 'training-sessions.json',
@@ -134,7 +135,11 @@ function itemChanged<T>(left: T, right: T) {
   return JSON.stringify(left) !== JSON.stringify(right);
 }
 
-async function loadLocalSnapshot() {
+function getScopedStorageKey(storageScope: string, key: string) {
+  return `${LOCAL_STORAGE_NAMESPACE}:${storageScope}:${key}`;
+}
+
+async function loadLocalSnapshot(storageScope: string) {
   const [
     fixtures,
     trainingSessions,
@@ -147,16 +152,18 @@ async function loadLocalSnapshot() {
     fines,
     voteEntries,
   ] = await Promise.all([
-    readJsonStorage<Fixture[]>(STORAGE_KEYS.fixtures),
-    readJsonStorage<TrainingSession[]>(STORAGE_KEYS.trainingSessions),
-    readJsonStorage<AttendanceRecord[]>(STORAGE_KEYS.attendanceRecords),
-    readJsonStorage<Player[]>(STORAGE_KEYS.players),
-    readJsonStorage<AvailabilityRecord[]>(STORAGE_KEYS.availabilityRecords),
-    readJsonStorage<MatchStatEntry[]>(STORAGE_KEYS.matchStats),
-    readJsonStorage<MatchLineupAssignment[]>(STORAGE_KEYS.matchLineupAssignments),
-    readJsonStorage<FitnessResult[]>(STORAGE_KEYS.fitnessResults),
-    readJsonStorage<Fine[]>(STORAGE_KEYS.fines),
-    readJsonStorage<VoteEntry[]>(STORAGE_KEYS.voteEntries),
+    readJsonStorage<Fixture[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.fixtures)),
+    readJsonStorage<TrainingSession[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.trainingSessions)),
+    readJsonStorage<AttendanceRecord[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.attendanceRecords)),
+    readJsonStorage<Player[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.players)),
+    readJsonStorage<AvailabilityRecord[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.availabilityRecords)),
+    readJsonStorage<MatchStatEntry[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.matchStats)),
+    readJsonStorage<MatchLineupAssignment[]>(
+      getScopedStorageKey(storageScope, STORAGE_KEYS.matchLineupAssignments)
+    ),
+    readJsonStorage<FitnessResult[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.fitnessResults)),
+    readJsonStorage<Fine[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.fines)),
+    readJsonStorage<VoteEntry[]>(getScopedStorageKey(storageScope, STORAGE_KEYS.voteEntries)),
   ]);
 
   return normalizeClubDataSnapshot({
@@ -173,18 +180,33 @@ async function loadLocalSnapshot() {
   });
 }
 
-async function saveLocalSnapshot(snapshot: ClubDataSnapshot) {
+async function saveLocalSnapshot(snapshot: ClubDataSnapshot, storageScope: string) {
   await Promise.all([
-    writeJsonStorage(STORAGE_KEYS.fixtures, snapshot.fixtures),
-    writeJsonStorage(STORAGE_KEYS.trainingSessions, snapshot.trainingSessions),
-    writeJsonStorage(STORAGE_KEYS.attendanceRecords, snapshot.attendanceRecords),
-    writeJsonStorage(STORAGE_KEYS.players, snapshot.players),
-    writeJsonStorage(STORAGE_KEYS.availabilityRecords, snapshot.availabilityRecords),
-    writeJsonStorage(STORAGE_KEYS.matchStats, snapshot.matchStats),
-    writeJsonStorage(STORAGE_KEYS.matchLineupAssignments, snapshot.matchLineupAssignments),
-    writeJsonStorage(STORAGE_KEYS.fitnessResults, snapshot.fitnessResults),
-    writeJsonStorage(STORAGE_KEYS.fines, snapshot.fines),
-    writeJsonStorage(STORAGE_KEYS.voteEntries, snapshot.voteEntries),
+    writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.fixtures), snapshot.fixtures),
+    writeJsonStorage(
+      getScopedStorageKey(storageScope, STORAGE_KEYS.trainingSessions),
+      snapshot.trainingSessions
+    ),
+    writeJsonStorage(
+      getScopedStorageKey(storageScope, STORAGE_KEYS.attendanceRecords),
+      snapshot.attendanceRecords
+    ),
+    writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.players), snapshot.players),
+    writeJsonStorage(
+      getScopedStorageKey(storageScope, STORAGE_KEYS.availabilityRecords),
+      snapshot.availabilityRecords
+    ),
+    writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.matchStats), snapshot.matchStats),
+    writeJsonStorage(
+      getScopedStorageKey(storageScope, STORAGE_KEYS.matchLineupAssignments),
+      snapshot.matchLineupAssignments
+    ),
+    writeJsonStorage(
+      getScopedStorageKey(storageScope, STORAGE_KEYS.fitnessResults),
+      snapshot.fitnessResults
+    ),
+    writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.fines), snapshot.fines),
+    writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.voteEntries), snapshot.voteEntries),
   ]);
 }
 
@@ -222,7 +244,7 @@ async function syncCollectionDiff<T>(
 }
 
 export function ClubDataProvider({ children }: PropsWithChildren) {
-  const { isConfigured, isLoading: isAuthLoading } = useAuth();
+  const { isConfigured, isLoading: isAuthLoading, user } = useAuth();
   const { activeClubId, isLoading: isClubAccessLoading } = useClubAccess();
 
   const [fixturesState, setFixturesState] = useState(emptyClubDataSnapshot.fixtures);
@@ -244,6 +266,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const pendingCloudRefreshRequestedRef = useRef(false);
   const refreshFromCloudTimeoutRef = useRef<number | null>(null);
   const refreshFromCloudRef = useRef<() => Promise<void>>(async () => {});
+  const hydratedStorageScopeRef = useRef<string | null>(null);
 
   const fixturesRef = useRef(fixturesState);
   const trainingSessionsRef = useRef(trainingSessionsState);
@@ -266,6 +289,18 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   fitnessResultsRef.current = fitnessResultsState;
   finesRef.current = finesState;
   voteEntriesRef.current = voteEntriesState;
+
+  const storageScope = useMemo(() => {
+    if (isConfigured) {
+      if (activeClubId) {
+        return `cloud:${user?.id ?? 'anonymous'}:${activeClubId}`;
+      }
+
+      return `cloud:${user?.id ?? 'anonymous'}:no-club`;
+    }
+
+    return `local:${user?.id ?? 'anonymous'}`;
+  }, [activeClubId, isConfigured, user?.id]);
 
   function applySnapshot(snapshot: ClubDataSnapshot) {
     fixturesRef.current = snapshot.fixtures;
@@ -491,11 +526,12 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     }
 
     let isMounted = true;
+    hydratedStorageScopeRef.current = null;
     setIsHydrated(false);
 
     async function hydrate() {
       try {
-        const localSnapshot = await loadLocalSnapshot();
+        const localSnapshot = await loadLocalSnapshot(storageScope);
         let nextSnapshot = localSnapshot;
 
         if (isConfigured && activeClubId) {
@@ -518,6 +554,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
         }
 
         applySnapshot(nextSnapshot);
+        hydratedStorageScopeRef.current = storageScope;
       } finally {
         if (isMounted) {
           setIsHydrated(true);
@@ -530,7 +567,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     return () => {
       isMounted = false;
     };
-  }, [activeClubId, isAuthLoading, isClubAccessLoading, isConfigured]);
+  }, [activeClubId, isAuthLoading, isClubAccessLoading, isConfigured, storageScope]);
 
   useEffect(() => {
     if (!isHydrated || !isConfigured || !activeClubId) {
@@ -620,14 +657,14 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   ]);
 
   useEffect(() => {
-    if (!isHydrated) {
+    if (!isHydrated || hydratedStorageScopeRef.current !== storageScope) {
       return;
     }
 
-    saveLocalSnapshot(snapshot).catch((error: unknown) => {
+    saveLocalSnapshot(snapshot, storageScope).catch((error: unknown) => {
       console.warn('Failed to save local club data', error);
     });
-  }, [isHydrated, snapshot]);
+  }, [isHydrated, snapshot, storageScope]);
 
   const value = useMemo<ClubDataContextValue>(() => {
     return {
