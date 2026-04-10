@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { toPng } from 'html-to-image';
 
 import { getFixtureById, getPlayersForFixture } from '@/lib/availability';
 import { getPlayersForFixtureLineup } from '@/lib/match-lineup';
@@ -63,6 +64,9 @@ export function TeamSelectionGraphicRoute() {
   const { fixtureId = '' } = useParams();
   const { activeClub } = useClubAccess();
   const { availabilityRecords, fixtures, matchLineupAssignments, players } = useClubData();
+  const teamSheetRef = useRef<HTMLElement | null>(null);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const fixture = getFixtureById(fixtureId, fixtures);
 
   const lineupPlayers = useMemo(() => {
@@ -121,69 +125,111 @@ export function TeamSelectionGraphicRoute() {
         <span className="eyebrow">Team Announcement</span>
         <h2>Lineup announcement</h2>
         <p className="muted">
-          This screen is designed to be screenshotted and shared once your match lineup is set.
+          This screen keeps a fixed desktop layout so you can download the same social-ready image from a phone or desktop.
         </p>
+        <div className="inline-actions announcement-actions">
+          <button
+            className="button"
+            disabled={isDownloading}
+            type="button"
+            onClick={async () => {
+              if (!teamSheetRef.current) {
+                setDownloadMessage('The team sheet is not ready to download yet.');
+                return;
+              }
+
+              try {
+                setIsDownloading(true);
+                setDownloadMessage(null);
+
+                const dataUrl = await toPng(teamSheetRef.current, {
+                  backgroundColor: '#0f3cc9',
+                  cacheBust: true,
+                  pixelRatio: 2,
+                });
+                const link = document.createElement('a');
+
+                link.href = dataUrl;
+                link.download = `team-selection-${fixture.id}.png`;
+                link.click();
+                setDownloadMessage('PNG downloaded.');
+              } catch (error: unknown) {
+                setDownloadMessage(
+                  error instanceof Error ? error.message : 'Unable to download the team sheet right now.'
+                );
+              } finally {
+                setIsDownloading(false);
+              }
+            }}>
+            {isDownloading ? 'Downloading...' : 'Download image'}
+          </button>
+        </div>
+        {downloadMessage ? <p className="muted">{downloadMessage}</p> : null}
         <Link className="text-link" to={`/matches/${fixture.id}`}>
           Back to match team selection
         </Link>
       </section>
 
-      <section className="team-sheet">
-        <header className="team-sheet__header">
-          <div className="team-sheet__header-copy">
-            <span className="team-sheet__eyebrow">Warners Bay Bulldogs</span>
-            <h1 className="team-sheet__title">Team Selection</h1>
-            <div className="team-sheet__meta-row">
-              <span className="team-sheet__badge">{fixture.grade?.trim() || 'Match day'}</span>
-              <span className="team-sheet__meta">
-                {fixture.isHome ? 'v' : '@'} {fixture.opponent}
-              </span>
-            </div>
-            <p className="team-sheet__detail">
-              {activeClub?.name ?? 'Warners Bay Bulldogs'} • {formatFixtureDate(fixture.date)} • {fixture.venue}
-            </p>
-          </div>
-          <div className="team-sheet__logo-wrap">
-            <img alt="Warners Bay Bulldogs logo" className="team-sheet__logo" src={bulldogsLogo} />
-          </div>
-        </header>
-
-        <div className="team-sheet__body">
-          {groupedSelection.map((group) => (
-            <section className="team-sheet__section" key={group.position}>
-              <div className="team-sheet__position">{group.position === 'Int' ? 'INT' : group.position}</div>
-              <div className="team-sheet__section-body">
-                {group.rows.length > 0 ? (
-                  group.rows.map((row, rowIndex) => (
-                    <div className="team-sheet__row" key={`${group.position}-${rowIndex}`}>
-                      {row.map((player) => (
-                        <article className="team-sheet__player" key={player.id}>
-                          <span className="team-sheet__number">{player.number ?? '--'}</span>
-                          <span className="team-sheet__name">{getPlayerLabel(player)}</span>
-                        </article>
-                      ))}
-                    </div>
-                  ))
-                ) : (
-                  <p className="team-sheet__empty">No players selected in this line yet.</p>
-                )}
+      <section className="card team-sheet-stage">
+        <div className="team-sheet-stage__scroll">
+          <section className="team-sheet" ref={teamSheetRef}>
+            <header className="team-sheet__header">
+              <div className="team-sheet__header-copy">
+                <span className="team-sheet__eyebrow">Warners Bay Bulldogs</span>
+                <h1 className="team-sheet__title">Team Selection</h1>
+                <div className="team-sheet__meta-row">
+                  <span className="team-sheet__badge">{fixture.grade?.trim() || 'Match day'}</span>
+                  <span className="team-sheet__meta">
+                    {fixture.isHome ? 'v' : '@'} {fixture.opponent}
+                  </span>
+                </div>
+                <p className="team-sheet__detail">
+                  {activeClub?.name ?? 'Warners Bay Bulldogs'} • {formatFixtureDate(fixture.date)} • {fixture.venue}
+                </p>
               </div>
-            </section>
-          ))}
-        </div>
+              <div className="team-sheet__logo-wrap">
+                <img alt="Warners Bay Bulldogs logo" className="team-sheet__logo" src={bulldogsLogo} />
+              </div>
+            </header>
 
-        {emergencies.length > 0 ? (
-          <footer className="team-sheet__footer">
-            <span className="team-sheet__footer-label">EMG</span>
-            <p className="team-sheet__footer-copy">
-              {emergencies
-                .map((player) => {
-                  return `${player.number ?? '--'} ${getPlayerLabel(player)}`;
-                })
-                .join('   •   ')}
-            </p>
-          </footer>
-        ) : null}
+            <div className="team-sheet__body">
+              {groupedSelection.map((group) => (
+                <section className="team-sheet__section" key={group.position}>
+                  <div className="team-sheet__position">{group.position === 'Int' ? 'INT' : group.position}</div>
+                  <div className="team-sheet__section-body">
+                    {group.rows.length > 0 ? (
+                      group.rows.map((row, rowIndex) => (
+                        <div className="team-sheet__row" key={`${group.position}-${rowIndex}`}>
+                          {row.map((player) => (
+                            <article className="team-sheet__player" key={player.id}>
+                              <span className="team-sheet__number">{player.number ?? '--'}</span>
+                              <span className="team-sheet__name">{getPlayerLabel(player)}</span>
+                            </article>
+                          ))}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="team-sheet__empty">No players selected in this line yet.</p>
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            {emergencies.length > 0 ? (
+              <footer className="team-sheet__footer">
+                <span className="team-sheet__footer-label">EMG</span>
+                <p className="team-sheet__footer-copy">
+                  {emergencies
+                    .map((player) => {
+                      return `${player.number ?? '--'} ${getPlayerLabel(player)}`;
+                    })
+                    .join('   •   ')}
+                </p>
+              </footer>
+            ) : null}
+          </section>
+        </div>
       </section>
     </section>
   );
