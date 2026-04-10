@@ -71,6 +71,13 @@ export function TrainingDetailRoute() {
   }
 
   const summary = getAttendanceSummary(session.id, players, attendanceRecords);
+  const totalPlayers = players.length;
+  const respondedCount = summary.present + summary.absent;
+  const responseRate = totalPlayers > 0 ? Math.round((respondedCount / totalPlayers) * 100) : 0;
+  const responseLabel =
+    respondedCount > 0
+      ? `${respondedCount} of ${totalPlayers} players have checked in`
+      : `Waiting on ${totalPlayers} players to respond`;
 
   return (
     <section className="page-grid">
@@ -82,30 +89,80 @@ export function TrainingDetailRoute() {
       </section>
 
       <section className="card stack">
-        <h3>Session summary</h3>
-        <div className="metric-row">
-          <span className="metric metric--positive">{summary.present} present</span>
-          <span className="metric metric--negative">{summary.absent} absent</span>
-          <span className="metric metric--neutral">{summary.unknown} to confirm</span>
+        <div className="split-row availability-summary__header">
+          <div className="stack-sm">
+            <h3>Session summary</h3>
+            <p className="muted">
+              {isHydrated
+                ? 'Attendance saves immediately for everyone in the club workspace.'
+                : 'Loading saved attendance...'}
+            </p>
+          </div>
+          <div className="availability-summary__response">
+            <span className="availability-summary__response-value">{responseRate}%</span>
+            <span className="availability-summary__response-label">Attendance rate</span>
+          </div>
         </div>
-        <div className="inline-actions">
-          <span className="muted">Order by</span>
-          <button
-            className={sortBy === 'number' ? 'pill-button pill-button--selected' : 'pill-button'}
-            onClick={() => setSortBy('number')}
-            type="button">
-            Number
-          </button>
-          <button
-            className={sortBy === 'name' ? 'pill-button pill-button--selected' : 'pill-button'}
-            onClick={() => setSortBy('name')}
-            type="button">
-            Name
-          </button>
+
+        <div className="availability-summary__tiles">
+          <article className="availability-tile availability-tile--positive">
+            <span className="availability-tile__label">Present</span>
+            <strong className="availability-tile__value">{summary.present}</strong>
+            <span className="availability-tile__caption">Ready for training</span>
+          </article>
+          <article className="availability-tile availability-tile--negative">
+            <span className="availability-tile__label">Absent</span>
+            <strong className="availability-tile__value">{summary.absent}</strong>
+            <span className="availability-tile__caption">Unavailable tonight</span>
+          </article>
+          <article className="availability-tile availability-tile--neutral">
+            <span className="availability-tile__label">Unknown</span>
+            <strong className="availability-tile__value">{summary.unknown}</strong>
+            <span className="availability-tile__caption">Still to confirm</span>
+          </article>
         </div>
-        <p className="muted">
-          {isHydrated ? 'Attendance changes are saving in the browser app.' : 'Loading saved attendance...'}
-        </p>
+
+        <div className="availability-summary__progress">
+          <div className="split-row">
+            <span>{responseLabel}</span>
+            <span className="muted">{totalPlayers} total players</span>
+          </div>
+          <div className="availability-summary__progress-track" aria-hidden="true">
+            <div className="availability-summary__progress-fill" style={{ width: `${responseRate}%` }} />
+          </div>
+        </div>
+
+        <div className="availability-summary__controls">
+          <div className="stack-sm">
+            <span className="eyebrow">Roster order</span>
+            <div className="inline-actions">
+              <button
+                className={sortBy === 'number' ? 'pill-button pill-button--selected' : 'pill-button'}
+                onClick={() => setSortBy('number')}
+                type="button">
+                Number
+              </button>
+              <button
+                className={sortBy === 'name' ? 'pill-button pill-button--selected' : 'pill-button'}
+                onClick={() => setSortBy('name')}
+                type="button">
+                Name
+              </button>
+            </div>
+          </div>
+
+          <div className="training-summary__status stack-sm">
+            <span className="eyebrow">Session status</span>
+            <p className="muted">
+              Mark players as present or absent to keep a clean roll-up before training starts.
+            </p>
+            <p className="training-summary__status-value">
+              {summary.unknown > 0
+                ? `${summary.unknown} players still need a response`
+                : 'All players have responded'}
+            </p>
+          </div>
+        </div>
       </section>
 
       <section className="card selection-table">

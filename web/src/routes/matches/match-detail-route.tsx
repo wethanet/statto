@@ -105,6 +105,13 @@ export function MatchDetailRoute() {
 
   const summary = getAvailabilitySummary(fixture.id, players, availabilityRecords);
   const defaultSquad = getDefaultFixtureSquad(fixture.grade);
+  const totalPlayers = players.length;
+  const respondedCount = summary.available + summary.unavailable;
+  const responseRate = totalPlayers > 0 ? Math.round((respondedCount / totalPlayers) * 100) : 0;
+  const responseLabel =
+    respondedCount > 0
+      ? `${respondedCount} of ${totalPlayers} players have responded`
+      : `Waiting on ${totalPlayers} players to respond`;
 
   return (
     <section className="page-grid">
@@ -117,66 +124,114 @@ export function MatchDetailRoute() {
       </section>
 
       <section className="card stack">
-        <h3>Availability summary</h3>
-        <div className="metric-row">
-          <span className="metric metric--positive">{summary.available} available</span>
-          <span className="metric metric--negative">{summary.unavailable} unavailable</span>
-          <span className="metric metric--neutral">{summary.uncertain} uncertain</span>
+        <div className="split-row availability-summary__header">
+          <div className="stack-sm">
+            <h3>Availability summary</h3>
+            <p className="muted">
+              {isHydrated
+                ? 'Selections save immediately for everyone in the club workspace.'
+                : 'Loading saved availability...'}
+            </p>
+          </div>
+          <div className="availability-summary__response">
+            <span className="availability-summary__response-value">{responseRate}%</span>
+            <span className="availability-summary__response-label">Response rate</span>
+          </div>
         </div>
-        <div className="inline-actions">
-          <span className="muted">Order by</span>
-          <button
-            className={sortBy === 'number' ? 'pill-button pill-button--selected' : 'pill-button'}
-            onClick={() => setSortBy('number')}
-            type="button">
-            Number
-          </button>
-          <button
-            className={sortBy === 'name' ? 'pill-button pill-button--selected' : 'pill-button'}
-            onClick={() => setSortBy('name')}
-            type="button">
-            Name
-          </button>
-        </div>
-        <p className="muted">
-          {isHydrated ? 'Availability changes are saving in the browser app.' : 'Loading saved availability...'}
-        </p>
-        <div className="stack-sm">
-          <button
-            className="button button--secondary"
-            disabled={!defaultSquad}
-            onClick={() => {
-              const nextSelection = applyDefaultAvailabilityForFixture(availabilityRecords, fixture, players);
 
-              if (!nextSelection.squad) {
-                setDefaultTeamMessage('Add Cup or Plate to the fixture grade to use the default team fill.');
-                return;
-              }
-
-              setAvailabilityRecords(nextSelection.records);
-              setDefaultTeamMessage(
-                `Selected the ${nextSelection.squad} team by default. ${nextSelection.selectedCount} players marked available.`
-              );
-            }}
-            type="button">
-            Select default team
-          </button>
-          <p className="muted">
-            {defaultSquad
-              ? `This fixture will use ${defaultSquad} designations from the player list.`
-              : 'Add Cup or Plate to the fixture grade to enable default team selection.'}
-          </p>
-          {defaultTeamMessage ? <p className="muted">{defaultTeamMessage}</p> : null}
+        <div className="availability-summary__tiles">
+          <article className="availability-tile availability-tile--positive">
+            <span className="availability-tile__label">Available</span>
+            <strong className="availability-tile__value">{summary.available}</strong>
+            <span className="availability-tile__caption">Ready to select</span>
+          </article>
+          <article className="availability-tile availability-tile--negative">
+            <span className="availability-tile__label">Unavailable</span>
+            <strong className="availability-tile__value">{summary.unavailable}</strong>
+            <span className="availability-tile__caption">Out this week</span>
+          </article>
+          <article className="availability-tile availability-tile--neutral">
+            <span className="availability-tile__label">Uncertain</span>
+            <strong className="availability-tile__value">{summary.uncertain}</strong>
+            <span className="availability-tile__caption">Still waiting</span>
+          </article>
         </div>
-        <Link className="text-link" to={`/matches/${fixture.id}/stats`}>
-          Open match stats
-        </Link>
-        <Link className="text-link" to={`/matches/${fixture.id}/votes`}>
-          Open player votes
-        </Link>
-        <Link className="text-link" to={`/matches/${fixture.id}/announcement`}>
-          Open team announcement graphic
-        </Link>
+
+        <div className="availability-summary__progress">
+          <div className="split-row">
+            <span>{responseLabel}</span>
+            <span className="muted">{totalPlayers} total players</span>
+          </div>
+          <div className="availability-summary__progress-track" aria-hidden="true">
+            <div className="availability-summary__progress-fill" style={{ width: `${responseRate}%` }} />
+          </div>
+        </div>
+
+        <div className="availability-summary__controls">
+          <div className="stack-sm">
+            <span className="eyebrow">Roster order</span>
+            <div className="inline-actions">
+              <button
+                className={sortBy === 'number' ? 'pill-button pill-button--selected' : 'pill-button'}
+                onClick={() => setSortBy('number')}
+                type="button">
+                Number
+              </button>
+              <button
+                className={sortBy === 'name' ? 'pill-button pill-button--selected' : 'pill-button'}
+                onClick={() => setSortBy('name')}
+                type="button">
+                Name
+              </button>
+            </div>
+          </div>
+
+          <div className="availability-summary__default-team stack-sm">
+            <span className="eyebrow">Quick action</span>
+            <button
+              className="button button--secondary"
+              disabled={!defaultSquad}
+              onClick={() => {
+                const nextSelection = applyDefaultAvailabilityForFixture(availabilityRecords, fixture, players);
+
+                if (!nextSelection.squad) {
+                  setDefaultTeamMessage('Add Cup or Plate to the fixture grade to use the default team fill.');
+                  return;
+                }
+
+                setAvailabilityRecords(nextSelection.records);
+                setDefaultTeamMessage(
+                  `Selected the ${nextSelection.squad} team by default. ${nextSelection.selectedCount} players marked available.`
+                );
+              }}
+              type="button">
+              Select default team
+            </button>
+            <p className="muted">
+              {defaultSquad
+                ? `Uses ${defaultSquad} designations from the player list to mark the likely side quickly.`
+                : 'Add Cup or Plate to the fixture grade to enable default team selection.'}
+            </p>
+          </div>
+        </div>
+
+        {defaultTeamMessage ? (
+          <div className="availability-summary__message">
+            <p>{defaultTeamMessage}</p>
+          </div>
+        ) : null}
+
+        <div className="availability-summary__links">
+          <Link className="schedule-card__action text-link" to={`/matches/${fixture.id}/stats`}>
+            Open match stats
+          </Link>
+          <Link className="schedule-card__action text-link" to={`/matches/${fixture.id}/votes`}>
+            Open player votes
+          </Link>
+          <Link className="schedule-card__action text-link" to={`/matches/${fixture.id}/announcement`}>
+            Open team announcement graphic
+          </Link>
+        </div>
       </section>
 
       {groupedPlayers.map((group) => (
