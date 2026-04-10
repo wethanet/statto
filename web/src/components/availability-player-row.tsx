@@ -11,6 +11,18 @@ type AvailabilityPlayerRowProps = {
 
 const AVAILABILITY_OPTIONS: AvailabilityStatus[] = ['available', 'unavailable', 'uncertain'];
 
+function getAvailabilityLabel(status: AvailabilityStatus) {
+  if (status === 'available') {
+    return 'selected';
+  }
+
+  if (status === 'uncertain') {
+    return 'not selected';
+  }
+
+  return 'unavailable';
+}
+
 function getAvailabilityTone(status: AvailabilityStatus) {
   if (status === 'available') {
     return 'positive';
@@ -79,7 +91,7 @@ export function AvailabilityPlayerRow({
                 }
                 onClick={() => onChange(option)}
                 type="button">
-                {option}
+                {getAvailabilityLabel(option)}
               </button>
             );
           })}

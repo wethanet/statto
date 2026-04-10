@@ -133,9 +133,9 @@ export function HomeScreen() {
                 <p className="muted">{formatDate(fixture.date)}</p>
                 <p className="muted">{fixture.venue}</p>
                 <div className="metric-row">
-                  <span className="metric metric--positive">{matchSummary.available} available</span>
+                  <span className="metric metric--positive">{matchSummary.available} selected</span>
                   <span className="metric metric--negative">{matchSummary.unavailable} unavailable</span>
-                  <span className="metric metric--neutral">{matchSummary.uncertain} uncertain</span>
+                  <span className="metric metric--neutral">{matchSummary.uncertain} not selected</span>
                 </div>
                 <Link className="text-link" to={`/matches/${fixture.id}`}>
                   Manage availability

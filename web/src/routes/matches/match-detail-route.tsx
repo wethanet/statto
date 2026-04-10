@@ -23,8 +23,8 @@ type PlayerSort = 'name' | 'number';
 type AvailabilityGroup = 'available' | 'uncertain' | 'unavailable';
 
 const AVAILABILITY_GROUPS: { key: AvailabilityGroup; title: string }[] = [
-  { key: 'available', title: 'Available' },
-  { key: 'uncertain', title: 'Uncertain' },
+  { key: 'available', title: 'Selected' },
+  { key: 'uncertain', title: 'Not selected' },
   { key: 'unavailable', title: 'Unavailable' },
 ];
 
@@ -141,9 +141,9 @@ export function MatchDetailRoute() {
 
         <div className="availability-summary__tiles">
           <article className="availability-tile availability-tile--positive">
-            <span className="availability-tile__label">Available</span>
+            <span className="availability-tile__label">Selected</span>
             <strong className="availability-tile__value">{summary.available}</strong>
-            <span className="availability-tile__caption">Ready to select</span>
+            <span className="availability-tile__caption">Included right now</span>
           </article>
           <article className="availability-tile availability-tile--negative">
             <span className="availability-tile__label">Unavailable</span>
@@ -151,9 +151,9 @@ export function MatchDetailRoute() {
             <span className="availability-tile__caption">Out this week</span>
           </article>
           <article className="availability-tile availability-tile--neutral">
-            <span className="availability-tile__label">Uncertain</span>
+            <span className="availability-tile__label">Not selected</span>
             <strong className="availability-tile__value">{summary.uncertain}</strong>
-            <span className="availability-tile__caption">Still waiting</span>
+            <span className="availability-tile__caption">Not in the side yet</span>
           </article>
         </div>
 
@@ -201,7 +201,7 @@ export function MatchDetailRoute() {
 
                 setAvailabilityRecords(nextSelection.records);
                 setDefaultTeamMessage(
-                  `Selected the ${nextSelection.squad} team by default. ${nextSelection.selectedCount} players marked available.`
+                  `Selected the ${nextSelection.squad} team by default. ${nextSelection.selectedCount} players marked selected.`
                 );
               }}
               type="button">

@@ -77,9 +77,9 @@ export function MatchesListRoute() {
                     </span>
                   ) : null}
                   <div className="schedule-card__metrics">
-                    <span className="metric metric--positive">{summary.available} available</span>
+                    <span className="metric metric--positive">{summary.available} selected</span>
                     <span className="metric metric--negative">{summary.unavailable} unavailable</span>
-                    <span className="metric metric--neutral">{summary.uncertain} uncertain</span>
+                    <span className="metric metric--neutral">{summary.uncertain} not selected</span>
                   </div>
                 </div>
               </div>
