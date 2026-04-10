@@ -7,7 +7,7 @@ type TeamPlayerRowProps = {
   onToggleActive: () => void;
   onCycleRole: () => void;
   onDelete: () => void;
-  onSaveDetails: (input: { number: string; position: string; squad: string }) => string | null;
+  onSaveDetails: (input: { nickname: string; number: string; position: string; squad: string }) => string | null;
 };
 
 export function TeamPlayerRow({
@@ -18,6 +18,7 @@ export function TeamPlayerRow({
   onSaveDetails,
 }: TeamPlayerRowProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [nickname, setNickname] = useState(player.nickname ?? '');
   const [number, setNumber] = useState(player.number?.toString() ?? '');
   const [position, setPosition] = useState(player.position ?? '');
   const [squad, setSquad] = useState(player.squad ?? '');
@@ -25,7 +26,7 @@ export function TeamPlayerRow({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextMessage = onSaveDetails({ number, position, squad });
+    const nextMessage = onSaveDetails({ nickname, number, position, squad });
 
     if (nextMessage) {
       setMessage(nextMessage);
@@ -42,6 +43,7 @@ export function TeamPlayerRow({
         <div className="stack-sm">
           <h3>{getPlayerDisplayName(player)}</h3>
           <p className="muted">
+            {player.nickname ? `"${player.nickname}" • ` : ''}
             {player.position ? `${player.position} • ` : ''}
             {getPlayerRoleLabel(player.role)} • {getPlayerSquadLabel(player.squad)}
           </p>
@@ -54,6 +56,17 @@ export function TeamPlayerRow({
       {isEditing ? (
         <form className="stack-sm" onSubmit={handleSubmit}>
           <div className="two-column">
+            <label className="field">
+              <span>Nickname</span>
+              <input
+                className="input"
+                onChange={(event) => {
+                  setNickname(event.target.value);
+                  setMessage(null);
+                }}
+                value={nickname}
+              />
+            </label>
             <label className="field">
               <span>Guernsey number</span>
               <input
@@ -100,6 +113,7 @@ export function TeamPlayerRow({
             <button
               className="button button--ghost"
               onClick={() => {
+                setNickname(player.nickname ?? '');
                 setNumber(player.number?.toString() ?? '');
                 setPosition(player.position ?? '');
                 setSquad(player.squad ?? '');
@@ -127,6 +141,7 @@ export function TeamPlayerRow({
         <button
           className="button button--secondary"
           onClick={() => {
+            setNickname(player.nickname ?? '');
             setNumber(player.number?.toString() ?? '');
             setPosition(player.position ?? '');
             setSquad(player.squad ?? '');

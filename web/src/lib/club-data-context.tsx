@@ -22,6 +22,7 @@ import type {
   FitnessResult,
   Fine,
   Fixture,
+  MatchLineupAssignment,
   MatchStatEntry,
   Player,
   TrainingSession,
@@ -41,6 +42,9 @@ import {
   deleteCloudFitnessResult,
   deleteCloudFixture,
   deleteCloudMatchStatEntry,
+  deleteCloudMatchLineupAssignment,
+  deleteCloudMatchLineupAssignmentsForFixture,
+  deleteCloudMatchLineupAssignmentsForPlayer,
   deleteCloudPlayer,
   deleteCloudTrainingSession,
   deleteCloudVoteEntriesForPlayer,
@@ -51,6 +55,7 @@ import {
   upsertCloudFitnessResult,
   upsertCloudFixture,
   upsertCloudMatchStatEntry,
+  upsertCloudMatchLineupAssignment,
   upsertCloudPlayer,
   upsertCloudTrainingSession,
   upsertCloudVoteEntry,
@@ -70,6 +75,8 @@ type ClubDataContextValue = {
   setAvailabilityRecords: Dispatch<SetStateAction<AvailabilityRecord[]>>;
   matchStats: MatchStatEntry[];
   setMatchStats: Dispatch<SetStateAction<MatchStatEntry[]>>;
+  matchLineupAssignments: MatchLineupAssignment[];
+  setMatchLineupAssignments: Dispatch<SetStateAction<MatchLineupAssignment[]>>;
   fitnessResults: FitnessResult[];
   setFitnessResults: Dispatch<SetStateAction<FitnessResult[]>>;
   fines: Fine[];
@@ -88,6 +95,7 @@ const STORAGE_KEYS = {
   players: 'players.json',
   availabilityRecords: 'availability-records.json',
   matchStats: 'match-stats.json',
+  matchLineupAssignments: 'match-lineup-assignments.json',
   fitnessResults: 'fitness-results.json',
   fines: 'fines.json',
   voteEntries: 'vote-entries.json',
@@ -118,6 +126,7 @@ async function loadLocalSnapshot() {
     players,
     availabilityRecords,
     matchStats,
+    matchLineupAssignments,
     fitnessResults,
     fines,
     voteEntries,
@@ -128,6 +137,7 @@ async function loadLocalSnapshot() {
     readJsonStorage<Player[]>(STORAGE_KEYS.players),
     readJsonStorage<AvailabilityRecord[]>(STORAGE_KEYS.availabilityRecords),
     readJsonStorage<MatchStatEntry[]>(STORAGE_KEYS.matchStats),
+    readJsonStorage<MatchLineupAssignment[]>(STORAGE_KEYS.matchLineupAssignments),
     readJsonStorage<FitnessResult[]>(STORAGE_KEYS.fitnessResults),
     readJsonStorage<Fine[]>(STORAGE_KEYS.fines),
     readJsonStorage<VoteEntry[]>(STORAGE_KEYS.voteEntries),
@@ -140,6 +150,7 @@ async function loadLocalSnapshot() {
     players: players ?? undefined,
     availabilityRecords: availabilityRecords ?? undefined,
     matchStats: matchStats ?? undefined,
+    matchLineupAssignments: matchLineupAssignments ?? undefined,
     fitnessResults: fitnessResults ?? undefined,
     fines: fines ?? undefined,
     voteEntries: voteEntries ?? undefined,
@@ -154,6 +165,7 @@ async function saveLocalSnapshot(snapshot: ClubDataSnapshot) {
     writeJsonStorage(STORAGE_KEYS.players, snapshot.players),
     writeJsonStorage(STORAGE_KEYS.availabilityRecords, snapshot.availabilityRecords),
     writeJsonStorage(STORAGE_KEYS.matchStats, snapshot.matchStats),
+    writeJsonStorage(STORAGE_KEYS.matchLineupAssignments, snapshot.matchLineupAssignments),
     writeJsonStorage(STORAGE_KEYS.fitnessResults, snapshot.fitnessResults),
     writeJsonStorage(STORAGE_KEYS.fines, snapshot.fines),
     writeJsonStorage(STORAGE_KEYS.voteEntries, snapshot.voteEntries),
@@ -205,6 +217,9 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     emptyClubDataSnapshot.availabilityRecords
   );
   const [matchStatsState, setMatchStatsState] = useState(emptyClubDataSnapshot.matchStats);
+  const [matchLineupAssignmentsState, setMatchLineupAssignmentsState] = useState(
+    emptyClubDataSnapshot.matchLineupAssignments
+  );
   const [fitnessResultsState, setFitnessResultsState] = useState(emptyClubDataSnapshot.fitnessResults);
   const [finesState, setFinesState] = useState(emptyClubDataSnapshot.fines);
   const [voteEntriesState, setVoteEntriesState] = useState(emptyClubDataSnapshot.voteEntries);
@@ -216,6 +231,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const playersRef = useRef(playersState);
   const availabilityRecordsRef = useRef(availabilityRecordsState);
   const matchStatsRef = useRef(matchStatsState);
+  const matchLineupAssignmentsRef = useRef(matchLineupAssignmentsState);
   const fitnessResultsRef = useRef(fitnessResultsState);
   const finesRef = useRef(finesState);
   const voteEntriesRef = useRef(voteEntriesState);
@@ -226,6 +242,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   playersRef.current = playersState;
   availabilityRecordsRef.current = availabilityRecordsState;
   matchStatsRef.current = matchStatsState;
+  matchLineupAssignmentsRef.current = matchLineupAssignmentsState;
   fitnessResultsRef.current = fitnessResultsState;
   finesRef.current = finesState;
   voteEntriesRef.current = voteEntriesState;
@@ -237,6 +254,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     playersRef.current = snapshot.players;
     availabilityRecordsRef.current = snapshot.availabilityRecords;
     matchStatsRef.current = snapshot.matchStats;
+    matchLineupAssignmentsRef.current = snapshot.matchLineupAssignments;
     fitnessResultsRef.current = snapshot.fitnessResults;
     finesRef.current = snapshot.fines;
     voteEntriesRef.current = snapshot.voteEntries;
@@ -247,6 +265,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setPlayersState(snapshot.players);
     setAvailabilityRecordsState(snapshot.availabilityRecords);
     setMatchStatsState(snapshot.matchStats);
+    setMatchLineupAssignmentsState(snapshot.matchLineupAssignments);
     setFitnessResultsState(snapshot.fitnessResults);
     setFinesState(snapshot.fines);
     setVoteEntriesState(snapshot.voteEntries);
@@ -302,6 +321,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     deleteRemote: async (clubId, player) => {
       await deleteCloudAttendanceRecordsForPlayer(clubId, player.id);
       await deleteCloudAvailabilityRecordsForPlayer(clubId, player.id);
+      await deleteCloudMatchLineupAssignmentsForPlayer(clubId, player.id);
       await deleteCloudFitnessResultsForPlayer(clubId, player.id);
       await deleteCloudVoteEntriesForPlayer(clubId, player.id);
       await deleteCloudPlayer(clubId, player.id);
@@ -325,6 +345,18 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     upsertRemote: upsertCloudMatchStatEntry,
     deleteRemote: (clubId, entry) => deleteCloudMatchStatEntry(clubId, entry.fixtureId, entry.metric, entry.team),
   });
+
+  const setMatchLineupAssignments = createCollectionSetter(
+    matchLineupAssignmentsRef,
+    setMatchLineupAssignmentsState,
+    {
+      label: 'match lineup assignments',
+      keyOf: (assignment) => `${assignment.fixtureId}::${assignment.playerId}`,
+      upsertRemote: upsertCloudMatchLineupAssignment,
+      deleteRemote: (clubId, assignment) =>
+        deleteCloudMatchLineupAssignment(clubId, assignment.fixtureId, assignment.playerId),
+    }
+  );
 
   const setFitnessResults = createCollectionSetter(fitnessResultsRef, setFitnessResultsState, {
     label: 'fitness results',
@@ -352,6 +384,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setPlayers(snapshot.players);
     setAvailabilityRecords(snapshot.availabilityRecords);
     setMatchStats(snapshot.matchStats);
+    setMatchLineupAssignments(snapshot.matchLineupAssignments);
     setFitnessResults(snapshot.fitnessResults);
     setFines(snapshot.fines);
     setVoteEntries(snapshot.voteEntries);
@@ -412,6 +445,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       players: playersState,
       availabilityRecords: availabilityRecordsState,
       matchStats: matchStatsState,
+      matchLineupAssignments: matchLineupAssignmentsState,
       fitnessResults: fitnessResultsState,
       fines: finesState,
       voteEntries: voteEntriesState,
@@ -422,6 +456,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     finesState,
     fitnessResultsState,
     fixturesState,
+    matchLineupAssignmentsState,
     matchStatsState,
     playersState,
     trainingSessionsState,
@@ -452,6 +487,8 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setAvailabilityRecords,
       matchStats: matchStatsState,
       setMatchStats,
+      matchLineupAssignments: matchLineupAssignmentsState,
+      setMatchLineupAssignments,
       fitnessResults: fitnessResultsState,
       setFitnessResults,
       fines: finesState,
@@ -471,6 +508,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     fixturesState,
     isConfigured,
     isHydrated,
+    matchLineupAssignmentsState,
     matchStatsState,
     playersState,
     trainingSessionsState,

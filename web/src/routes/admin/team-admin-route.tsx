@@ -34,6 +34,7 @@ export function TeamAdminRoute() {
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [playerFormMessage, setPlayerFormMessage] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [number, setNumber] = useState('');
   const [position, setPosition] = useState('');
   const [squad, setSquad] = useState('');
@@ -70,6 +71,7 @@ export function TeamAdminRoute() {
   function handleAddPlayer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedName = name.trim();
+    const normalizedNickname = nickname.trim() || null;
     const normalizedNumberInput = number.trim();
     const normalizedNumber = normalizedNumberInput ? Number(normalizedNumberInput) : null;
     const normalizedPosition = position.trim() || null;
@@ -102,12 +104,14 @@ export function TeamAdminRoute() {
     setPlayers((current) => {
       return addPlayer(current, {
         name: normalizedName,
+        nickname: normalizedNickname,
         number: normalizedNumber,
         position: normalizedPosition,
         squad: normalizedSquad,
       });
     });
     setName('');
+    setNickname('');
     setNumber('');
     setPosition('');
     setSquad('');
@@ -192,8 +196,9 @@ export function TeamAdminRoute() {
   function handleSavePlayerDetails(
     playerId: string,
     playerName: string,
-    input: { number: string; position: string; squad: string }
+    input: { nickname: string; number: string; position: string; squad: string }
   ) {
+    const normalizedNickname = input.nickname.trim() || null;
     const normalizedNumberInput = input.number.trim();
     const normalizedNumber = normalizedNumberInput ? Number(normalizedNumberInput) : null;
     const normalizedPosition = input.position.trim() || null;
@@ -218,6 +223,7 @@ export function TeamAdminRoute() {
 
     setPlayers((current) => {
       return updatePlayerDetails(current, playerId, {
+        nickname: normalizedNickname,
         number: normalizedNumber,
         position: normalizedPosition,
         squad: normalizedSquad,
@@ -267,6 +273,18 @@ export function TeamAdminRoute() {
             }}
             placeholder="Player name"
             value={name}
+          />
+        </label>
+        <label className="field">
+          <span>Nickname</span>
+          <input
+            className="input"
+            onChange={(event) => {
+              setNickname(event.target.value);
+              setPlayerFormMessage(null);
+            }}
+            placeholder="Optional"
+            value={nickname}
           />
         </label>
         <div className="two-column">
@@ -321,8 +339,8 @@ export function TeamAdminRoute() {
       <section className="card stack">
         <h3>CSV upload</h3>
         <p className="muted">
-          Upload or paste CSV with a `name` column. Optional columns: `number`, `position`, `squad`
-          or `designation`, `role`, `active`.
+          Upload or paste CSV with a `name` column. Optional columns: `nickname`, `number`,
+          `position`, `squad` or `designation`, `role`, `active`.
         </p>
         <p className="muted">Importing replaces the current roster in the browser app.</p>
 

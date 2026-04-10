@@ -24,6 +24,7 @@ create table if not exists public.club_players (
   club_id text not null references public.clubs (id) on delete cascade,
   id text not null,
   name text not null,
+  nickname text,
   number integer,
   position text,
   squad text check (squad in ('cup', 'plate')),
@@ -83,6 +84,15 @@ create table if not exists public.club_match_stats (
   primary key (club_id, fixture_id, metric, team)
 );
 
+create table if not exists public.club_match_lineup_assignments (
+  club_id text not null references public.clubs (id) on delete cascade,
+  fixture_id text not null,
+  player_id text not null,
+  position text not null check (position in ('B', 'HB', 'C', 'HF', 'F', 'Fol', 'Int')),
+  updated_at timestamptz not null default timezone('utc', now()),
+  primary key (club_id, fixture_id, player_id)
+);
+
 create table if not exists public.club_vote_entries (
   club_id text not null references public.clubs (id) on delete cascade,
   fixture_id text not null,
@@ -106,6 +116,9 @@ create table if not exists public.club_fitness_results (
 alter table public.club_players
 add column if not exists squad text;
 
+alter table public.club_players
+add column if not exists nickname text;
+
 do $$
 begin
   if not exists (
@@ -128,6 +141,7 @@ alter table public.club_attendance_records enable row level security;
 alter table public.club_fixtures enable row level security;
 alter table public.club_availability_records enable row level security;
 alter table public.club_match_stats enable row level security;
+alter table public.club_match_lineup_assignments enable row level security;
 alter table public.club_vote_entries enable row level security;
 alter table public.club_fitness_results enable row level security;
 
@@ -537,6 +551,66 @@ using (
     select 1
     from public.club_memberships
     where club_memberships.club_id = club_match_stats.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can read match lineup assignments"
+on public.club_match_lineup_assignments
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_lineup_assignments.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can insert match lineup assignments"
+on public.club_match_lineup_assignments
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_lineup_assignments.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can update match lineup assignments"
+on public.club_match_lineup_assignments
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_lineup_assignments.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_lineup_assignments.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can delete match lineup assignments"
+on public.club_match_lineup_assignments
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_match_lineup_assignments.club_id
       and club_memberships.user_id = auth.uid()
   )
 );

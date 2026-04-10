@@ -9,12 +9,24 @@ import {
   getPlayersForFixture,
   upsertAvailabilityRecord,
 } from '@/lib/availability';
+import {
+  deleteMatchLineupAssignment,
+  getPlayersForFixtureLineup,
+  upsertMatchLineupAssignment,
+} from '@/lib/match-lineup';
 import { getPlayerSortValue } from '@/lib/team';
 
 import { AvailabilityPlayerRow } from '@web/components/availability-player-row';
 import { useClubData } from '@web/lib/club-data-context';
 
 type PlayerSort = 'name' | 'number';
+type AvailabilityGroup = 'available' | 'uncertain' | 'unavailable';
+
+const AVAILABILITY_GROUPS: { key: AvailabilityGroup; title: string }[] = [
+  { key: 'available', title: 'Available' },
+  { key: 'uncertain', title: 'Uncertain' },
+  { key: 'unavailable', title: 'Unavailable' },
+];
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
@@ -28,7 +40,15 @@ function formatDate(value: string) {
 
 export function MatchDetailRoute() {
   const { fixtureId = '' } = useParams();
-  const { availabilityRecords, fixtures, isHydrated, players, setAvailabilityRecords } = useClubData();
+  const {
+    availabilityRecords,
+    fixtures,
+    isHydrated,
+    matchLineupAssignments,
+    players,
+    setAvailabilityRecords,
+    setMatchLineupAssignments,
+  } = useClubData();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const [defaultTeamMessage, setDefaultTeamMessage] = useState<string | null>(null);
   const fixture = getFixtureById(fixtureId, fixtures);
@@ -38,8 +58,12 @@ export function MatchDetailRoute() {
       return [];
     }
 
-    return getPlayersForFixture(fixture.id, players, availabilityRecords);
-  }, [availabilityRecords, fixture, players]);
+    return getPlayersForFixtureLineup(
+      fixture.id,
+      getPlayersForFixture(fixture.id, players, availabilityRecords),
+      matchLineupAssignments
+    );
+  }, [availabilityRecords, fixture, matchLineupAssignments, players]);
 
   const sortedPlayers = useMemo(() => {
     return [...playersForFixture].sort((left, right) => {
@@ -56,6 +80,13 @@ export function MatchDetailRoute() {
       );
     });
   }, [playersForFixture, sortBy]);
+
+  const groupedPlayers = useMemo(() => {
+    return AVAILABILITY_GROUPS.map((group) => ({
+      ...group,
+      players: sortedPlayers.filter((player) => player.availabilityStatus === group.key),
+    }));
+  }, [sortedPlayers]);
 
   if (!fixture) {
     return (
@@ -145,22 +176,53 @@ export function MatchDetailRoute() {
         </Link>
       </section>
 
-      <section className="card selection-table">
-        {sortedPlayers.map((player) => {
-          return (
-            <AvailabilityPlayerRow
-              key={player.id}
-              onChange={(status) => {
-                setAvailabilityRecords((current) => {
-                  return upsertAvailabilityRecord(current, fixture.id, player.id, status);
-                });
-              }}
-              player={player}
-              status={player.availabilityStatus}
-            />
-          );
-        })}
-      </section>
+      {groupedPlayers.map((group) => (
+        <section className="card stack-sm" key={group.key}>
+          <div className="split-row">
+            <h3>{group.title}</h3>
+            <span className="muted">
+              {group.players.length} player{group.players.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <section className="selection-table">
+            {group.players.length > 0 ? (
+              group.players.map((player) => {
+                return (
+                  <AvailabilityPlayerRow
+                    key={player.id}
+                    onChange={(status) => {
+                      setAvailabilityRecords((current) => {
+                        return upsertAvailabilityRecord(current, fixture.id, player.id, status);
+                      });
+                      if (status !== 'available') {
+                        setMatchLineupAssignments((current) => {
+                          return deleteMatchLineupAssignment(current, fixture.id, player.id);
+                        });
+                      }
+                    }}
+                    onSelectPosition={(position) => {
+                      setMatchLineupAssignments((current) => {
+                        if (player.matchPosition === position) {
+                          return deleteMatchLineupAssignment(current, fixture.id, player.id);
+                        }
+
+                        return upsertMatchLineupAssignment(current, fixture.id, player.id, position);
+                      });
+                    }}
+                    player={player}
+                    selectedPosition={player.matchPosition}
+                    status={player.availabilityStatus}
+                  />
+                );
+              })
+            ) : (
+              <div className="selection-row selection-row--empty">
+                <span className="muted">No players in this list yet.</span>
+              </div>
+            )}
+          </section>
+        </section>
+      ))}
     </section>
   );
 }

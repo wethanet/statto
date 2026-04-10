@@ -86,6 +86,7 @@ export function parsePlayersCsv(csvContent: string): Player[] {
 
   const headers = parseCsvLine(rows[0]).map(normalizeHeader);
   const nameIndex = headers.indexOf('name');
+  const nicknameIndex = headers.indexOf('nickname');
   const numberIndex = headers.indexOf('number');
   const positionIndex = headers.indexOf('position');
   const squadIndex = headers.findIndex((header) => header === 'squad' || header === 'designation');
@@ -99,6 +100,7 @@ export function parsePlayersCsv(csvContent: string): Player[] {
   return rows.slice(1).map((row, rowIndex) => {
     const values = parseCsvLine(row);
     const name = values[nameIndex];
+    const nicknameValue = nicknameIndex === -1 ? undefined : values[nicknameIndex];
     const numberValue = numberIndex === -1 ? undefined : values[numberIndex];
     const positionValue = positionIndex === -1 ? undefined : values[positionIndex];
     const squadValue = squadIndex === -1 ? undefined : values[squadIndex];
@@ -120,6 +122,7 @@ export function parsePlayersCsv(csvContent: string): Player[] {
     return {
       id: makePlayerId(name, number, rowIndex),
       name,
+      nickname: nicknameValue?.trim() || null,
       number,
       position,
       squad: normalizePlayerSquad(squadValue),

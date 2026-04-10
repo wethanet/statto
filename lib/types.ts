@@ -10,6 +10,7 @@ export type Club = {
 export type Player = {
   id: string;
   name: string;
+  nickname: string | null;
   number: number | null;
   position: string | null;
   squad: PlayerSquad | null;
@@ -50,6 +51,14 @@ export type AvailabilityRecord = {
   fixtureId: string;
   playerId: string;
   status: AvailabilityStatus;
+};
+
+export type MatchLinePosition = 'B' | 'HB' | 'C' | 'HF' | 'F' | 'Fol' | 'Int';
+
+export type MatchLineupAssignment = {
+  fixtureId: string;
+  playerId: string;
+  position: MatchLinePosition;
 };
 
 export type Fine = {

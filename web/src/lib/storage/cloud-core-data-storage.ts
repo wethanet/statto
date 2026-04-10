@@ -4,6 +4,7 @@ import type {
   FitnessResult,
   Fixture,
   MatchStatEntry,
+  MatchLineupAssignment,
   Player,
   TrainingSession,
   VoteEntry,
@@ -20,6 +21,7 @@ export type CloudCoreData = {
   fixtures: Fixture[];
   availabilityRecords: AvailabilityRecord[];
   matchStats: MatchStatEntry[];
+  matchLineupAssignments: MatchLineupAssignment[];
   voteEntries: VoteEntry[];
   fitnessResults: FitnessResult[];
 };
@@ -50,12 +52,13 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     fixturesResult,
     availabilityRecordsResult,
     matchStatsResult,
+    matchLineupAssignmentsResult,
     voteEntriesResult,
     fitnessResultsResult,
   ] = await Promise.all([
     supabase
       .from('club_players')
-      .select('id, name, number, position, squad, role, active')
+      .select('id, name, nickname, number, position, squad, role, active')
       .eq('club_id', clubId)
       .order('number', { ascending: true }),
     supabase
@@ -81,6 +84,10 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
       .select('fixture_id, metric, team, value')
       .eq('club_id', clubId),
     supabase
+      .from('club_match_lineup_assignments')
+      .select('fixture_id, player_id, position')
+      .eq('club_id', clubId),
+    supabase
       .from('club_vote_entries')
       .select('fixture_id, player_id, vote_type, points')
       .eq('club_id', clubId),
@@ -97,6 +104,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     fixturesResult.error,
     availabilityRecordsResult.error,
     matchStatsResult.error,
+    matchLineupAssignmentsResult.error,
     voteEntriesResult.error,
     fitnessResultsResult.error,
   ].filter(Boolean);
@@ -139,6 +147,13 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
       value: Number(entry.value),
     };
   });
+  const matchLineupAssignments = (matchLineupAssignmentsResult.data ?? []).map((assignment) => {
+    return {
+      fixtureId: assignment.fixture_id as string,
+      playerId: assignment.player_id as string,
+      position: assignment.position as MatchLineupAssignment['position'],
+    };
+  });
   const voteEntries = normalizeVoteEntries(
     (voteEntriesResult.data ?? []).map((entry) => {
       return {
@@ -166,6 +181,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     fixtures.length > 0 ||
     availabilityRecords.length > 0 ||
     matchStats.length > 0 ||
+    matchLineupAssignments.length > 0 ||
     voteEntries.length > 0 ||
     fitnessResults.length > 0;
 
@@ -180,6 +196,7 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
     fixtures,
     availabilityRecords,
     matchStats,
+    matchLineupAssignments,
     voteEntries,
     fitnessResults,
   };
@@ -192,6 +209,7 @@ export async function upsertCloudPlayer(clubId: string, player: Player) {
       club_id: clubId,
       id: player.id,
       name: player.name,
+      nickname: player.nickname,
       number: player.number,
       position: player.position,
       squad: player.squad,
@@ -397,6 +415,59 @@ export async function upsertCloudMatchStatEntry(clubId: string, entry: MatchStat
     { onConflict: 'club_id,fixture_id,metric,team' }
   );
 
+  await throwOnError(error);
+}
+
+export async function upsertCloudMatchLineupAssignment(
+  clubId: string,
+  assignment: MatchLineupAssignment
+) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_match_lineup_assignments').upsert(
+    {
+      club_id: clubId,
+      fixture_id: assignment.fixtureId,
+      player_id: assignment.playerId,
+      position: assignment.position,
+    },
+    { onConflict: 'club_id,fixture_id,player_id' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudMatchLineupAssignment(
+  clubId: string,
+  fixtureId: string,
+  playerId: string
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_match_lineup_assignments')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudMatchLineupAssignmentsForFixture(clubId: string, fixtureId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_match_lineup_assignments')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudMatchLineupAssignmentsForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_match_lineup_assignments')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
   await throwOnError(error);
 }
 

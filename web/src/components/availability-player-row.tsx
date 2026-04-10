@@ -1,9 +1,12 @@
-import type { AvailabilityStatus, Player } from '@/lib/types';
+import { matchLinePositions } from '@/lib/match-lineup';
+import type { AvailabilityStatus, MatchLinePosition, Player } from '@/lib/types';
 
 type AvailabilityPlayerRowProps = {
   player: Player;
   status: AvailabilityStatus;
   onChange: (status: AvailabilityStatus) => void;
+  selectedPosition: MatchLinePosition | null;
+  onSelectPosition: (position: MatchLinePosition) => void;
 };
 
 const AVAILABILITY_OPTIONS: AvailabilityStatus[] = ['available', 'unavailable', 'uncertain'];
@@ -24,6 +27,8 @@ export function AvailabilityPlayerRow({
   player,
   status,
   onChange,
+  onSelectPosition,
+  selectedPosition,
 }: AvailabilityPlayerRowProps) {
   const metaParts = [
     player.number != null ? `#${player.number}` : null,
@@ -41,8 +46,25 @@ export function AvailabilityPlayerRow({
         </div>
       </div>
 
+      <div className="inline-actions selection-row__pills selection-row__pills--compact selection-row__positions">
+        {matchLinePositions.map((position) => {
+          const isSelected = selectedPosition === position;
+
+          return (
+            <button
+              key={position}
+              className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+              disabled={status !== 'available'}
+              onClick={() => onSelectPosition(position)}
+              type="button">
+              {position}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="selection-row__actions">
-        <div className="inline-actions selection-row__pills">
+        <div className="inline-actions selection-row__pills selection-row__pills--compact">
           {AVAILABILITY_OPTIONS.map((option) => {
             const isSelected = option === status;
             const tone = getAvailabilityTone(option);
@@ -52,8 +74,8 @@ export function AvailabilityPlayerRow({
                 key={option}
                 className={
                   isSelected
-                    ? `pill-button pill-button--selected pill-button--${tone}`
-                    : 'pill-button'
+                    ? `pill-button pill-button--compact pill-button--selected pill-button--${tone}`
+                    : 'pill-button pill-button--compact'
                 }
                 onClick={() => onChange(option)}
                 type="button">

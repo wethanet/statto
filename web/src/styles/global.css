@@ -442,7 +442,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 12px 18px;
+  padding: 10px 18px;
   border-bottom: 1px solid var(--surface-border);
 }
 
@@ -453,6 +453,11 @@ button {
 .selection-row__identity {
   min-width: 0;
   flex: 1;
+}
+
+.selection-row__positions {
+  flex: 0 1 auto;
+  justify-content: center;
 }
 
 .selection-row__name-group {
@@ -479,11 +484,16 @@ button {
   justify-content: flex-end;
   gap: 12px;
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .selection-row__pills {
   justify-content: flex-end;
   gap: 8px;
+}
+
+.selection-row--empty {
+  justify-content: flex-start;
 }
 
 .metric {
@@ -1023,6 +1033,12 @@ button {
   text-transform: capitalize;
 }
 
+.pill-button--compact {
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  line-height: 1.15;
+}
+
 .pill-button--selected {
   background: var(--primary);
   border-color: var(--primary);
@@ -1185,10 +1201,12 @@ p {
   }
 
   .selection-row__name-group,
+  .selection-row__positions,
   .selection-row__actions {
     justify-content: space-between;
   }
 
+  .selection-row__positions,
   .selection-row__actions {
     flex-wrap: wrap;
   }
