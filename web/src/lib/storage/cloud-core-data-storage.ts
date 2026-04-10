@@ -24,56 +24,17 @@ export type CloudCoreData = {
   fitnessResults: FitnessResult[];
 };
 
-function getRowKey(row: Record<string, unknown>, keyColumns: string[]) {
-  return keyColumns.map((keyColumn) => String(row[keyColumn] ?? '')).join('::');
+function requireSupabase() {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  return supabase;
 }
 
-async function syncRows(
-  table: string,
-  clubId: string,
-  rows: Record<string, unknown>[],
-  keyColumns: string[]
-) {
-  if (!supabase) {
-    return;
-  }
-
-  const { data: existingRows, error: selectError } = await supabase
-    .from(table)
-    .select(keyColumns.join(','))
-    .eq('club_id', clubId);
-
-  if (selectError) {
-    throw selectError;
-  }
-
-  if (rows.length > 0) {
-    const { error: upsertError } = await supabase.from(table).upsert(rows, {
-      onConflict: keyColumns.join(','),
-    });
-
-    if (upsertError) {
-      throw upsertError;
-    }
-  }
-
-  const desiredKeys = new Set(rows.map((row) => getRowKey(row, keyColumns)));
-  const staleRows = ((existingRows ?? []) as unknown as Record<string, unknown>[]).filter((row) => {
-    return !desiredKeys.has(getRowKey(row, keyColumns));
-  });
-
-  for (const staleRow of staleRows) {
-    let query = supabase.from(table).delete();
-
-    for (const keyColumn of keyColumns) {
-      query = query.eq(keyColumn, staleRow[keyColumn] as string | number | boolean);
-    }
-
-    const { error: deleteError } = await query;
-
-    if (deleteError) {
-      throw deleteError;
-    }
+async function throwOnError(error: { message?: string } | null) {
+  if (error) {
+    throw error;
   }
 }
 
@@ -224,127 +185,341 @@ export async function loadCloudCoreData(clubId: string): Promise<CloudCoreData |
   };
 }
 
-export async function saveCloudCoreData(clubId: string, data: CloudCoreData) {
-  if (!supabase) {
+export async function upsertCloudPlayer(clubId: string, player: Player) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_players').upsert(
+    {
+      club_id: clubId,
+      id: player.id,
+      name: player.name,
+      number: player.number,
+      position: player.position,
+      squad: player.squad,
+      role: player.role,
+      active: player.active,
+    },
+    { onConflict: 'club_id,id' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_players').delete().eq('club_id', clubId).eq('id', playerId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudTrainingSession(clubId: string, session: TrainingSession) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_training_sessions').upsert(
+    {
+      club_id: clubId,
+      id: session.id,
+      title: session.title,
+      date: session.date,
+      location: session.location,
+    },
+    { onConflict: 'club_id,id' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudTrainingSession(clubId: string, sessionId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_training_sessions')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('id', sessionId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudAttendanceRecord(clubId: string, record: AttendanceRecord) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_attendance_records').upsert(
+    {
+      club_id: clubId,
+      session_id: record.sessionId,
+      player_id: record.playerId,
+      status: record.status,
+    },
+    { onConflict: 'club_id,session_id,player_id' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudAttendanceRecordsForSession(clubId: string, sessionId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_attendance_records')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('session_id', sessionId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudAttendanceRecord(
+  clubId: string,
+  sessionId: string,
+  playerId: string
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_attendance_records')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('session_id', sessionId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudAttendanceRecordsForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_attendance_records')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudFixture(clubId: string, fixture: Fixture) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_fixtures').upsert(
+    {
+      club_id: clubId,
+      id: fixture.id,
+      opponent: fixture.opponent,
+      grade: fixture.grade,
+      date: fixture.date,
+      venue: fixture.venue,
+      is_home: fixture.isHome,
+    },
+    { onConflict: 'club_id,id' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudFixture(clubId: string, fixtureId: string) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_fixtures').delete().eq('club_id', clubId).eq('id', fixtureId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudAvailabilityRecord(clubId: string, record: AvailabilityRecord) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_availability_records').upsert(
+    {
+      club_id: clubId,
+      fixture_id: record.fixtureId,
+      player_id: record.playerId,
+      status: record.status,
+    },
+    { onConflict: 'club_id,fixture_id,player_id' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function upsertCloudAvailabilityRecords(
+  clubId: string,
+  records: AvailabilityRecord[]
+) {
+  if (records.length === 0) {
     return;
   }
 
-  await Promise.all([
-    syncRows(
-      'club_players',
-      clubId,
-      data.players.map((player) => {
-        return {
-          club_id: clubId,
-          id: player.id,
-          name: player.name,
-          number: player.number,
-          position: player.position,
-          squad: player.squad,
-          role: player.role,
-          active: player.active,
-        };
-      }),
-      ['club_id', 'id']
-    ),
-    syncRows(
-      'club_training_sessions',
-      clubId,
-      data.trainingSessions.map((session) => {
-        return {
-          club_id: clubId,
-          id: session.id,
-          title: session.title,
-          date: session.date,
-          location: session.location,
-        };
-      }),
-      ['club_id', 'id']
-    ),
-    syncRows(
-      'club_attendance_records',
-      clubId,
-      data.attendanceRecords.map((record) => {
-        return {
-          club_id: clubId,
-          session_id: record.sessionId,
-          player_id: record.playerId,
-          status: record.status,
-        };
-      }),
-      ['club_id', 'session_id', 'player_id']
-    ),
-    syncRows(
-      'club_fixtures',
-      clubId,
-      data.fixtures.map((fixture) => {
-        return {
-          club_id: clubId,
-          id: fixture.id,
-          opponent: fixture.opponent,
-          grade: fixture.grade,
-          date: fixture.date,
-          venue: fixture.venue,
-          is_home: fixture.isHome,
-        };
-      }),
-      ['club_id', 'id']
-    ),
-    syncRows(
-      'club_availability_records',
-      clubId,
-      data.availabilityRecords.map((record) => {
-        return {
-          club_id: clubId,
-          fixture_id: record.fixtureId,
-          player_id: record.playerId,
-          status: record.status,
-        };
-      }),
-      ['club_id', 'fixture_id', 'player_id']
-    ),
-    syncRows(
-      'club_match_stats',
-      clubId,
-      data.matchStats.map((entry) => {
-        return {
-          club_id: clubId,
-          fixture_id: entry.fixtureId,
-          metric: entry.metric,
-          team: entry.team,
-          value: entry.value,
-        };
-      }),
-      ['club_id', 'fixture_id', 'metric', 'team']
-    ),
-    syncRows(
-      'club_vote_entries',
-      clubId,
-      data.voteEntries.map((entry) => {
-        return {
-          club_id: clubId,
-          fixture_id: entry.fixtureId,
-          player_id: entry.playerId,
-          vote_type: entry.voteType,
-          points: entry.points,
-        };
-      }),
-      ['club_id', 'fixture_id', 'player_id', 'vote_type']
-    ),
-    syncRows(
-      'club_fitness_results',
-      clubId,
-      data.fitnessResults.map((result) => {
-        return {
-          club_id: clubId,
-          player_id: result.playerId,
-          metric: result.metric,
-          phase: result.phase,
-          value: result.value,
-          recorded_at: result.recordedAt,
-        };
-      }),
-      ['club_id', 'player_id', 'metric', 'phase']
-    ),
-  ]);
+  const client = requireSupabase();
+  const { error } = await client.from('club_availability_records').upsert(
+    records.map((record) => {
+      return {
+        club_id: clubId,
+        fixture_id: record.fixtureId,
+        player_id: record.playerId,
+        status: record.status,
+      };
+    }),
+    { onConflict: 'club_id,fixture_id,player_id' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudAvailabilityRecordsForFixture(clubId: string, fixtureId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_availability_records')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudAvailabilityRecord(
+  clubId: string,
+  fixtureId: string,
+  playerId: string
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_availability_records')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudAvailabilityRecordsForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_availability_records')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudMatchStatEntry(clubId: string, entry: MatchStatEntry) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_match_stats').upsert(
+    {
+      club_id: clubId,
+      fixture_id: entry.fixtureId,
+      metric: entry.metric,
+      team: entry.team,
+      value: entry.value,
+    },
+    { onConflict: 'club_id,fixture_id,metric,team' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudMatchStatEntry(
+  clubId: string,
+  fixtureId: string,
+  metric: MatchStatEntry['metric'],
+  team: MatchStatEntry['team']
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_match_stats')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId)
+    .eq('metric', metric)
+    .eq('team', team);
+  await throwOnError(error);
+}
+
+export async function deleteCloudMatchStatsForFixture(clubId: string, fixtureId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_match_stats')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudVoteEntry(clubId: string, entry: VoteEntry) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_vote_entries').upsert(
+    {
+      club_id: clubId,
+      fixture_id: entry.fixtureId,
+      player_id: entry.playerId,
+      vote_type: entry.voteType,
+      points: entry.points,
+    },
+    { onConflict: 'club_id,fixture_id,player_id,vote_type' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudVoteEntry(
+  clubId: string,
+  fixtureId: string,
+  playerId: string,
+  voteType: VoteEntry['voteType']
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_vote_entries')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId)
+    .eq('player_id', playerId)
+    .eq('vote_type', voteType);
+  await throwOnError(error);
+}
+
+export async function deleteCloudVoteEntriesForFixture(clubId: string, fixtureId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_vote_entries')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudVoteEntriesForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_vote_entries')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudFitnessResult(clubId: string, result: FitnessResult) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_fitness_results').upsert(
+    {
+      club_id: clubId,
+      player_id: result.playerId,
+      metric: result.metric,
+      phase: result.phase,
+      value: result.value,
+      recorded_at: result.recordedAt,
+    },
+    { onConflict: 'club_id,player_id,metric,phase' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudFitnessResult(
+  clubId: string,
+  playerId: string,
+  metric: FitnessResult['metric'],
+  phase: FitnessResult['phase']
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_fitness_results')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId)
+    .eq('metric', metric)
+    .eq('phase', phase);
+  await throwOnError(error);
+}
+
+export async function deleteCloudFitnessResultsForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_fitness_results')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
 }

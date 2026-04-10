@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -30,9 +31,29 @@ import type {
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
 import {
+  deleteCloudAttendanceRecord,
+  deleteCloudAttendanceRecordsForPlayer,
+  deleteCloudAttendanceRecordsForSession,
+  deleteCloudAvailabilityRecord,
+  deleteCloudAvailabilityRecordsForFixture,
+  deleteCloudAvailabilityRecordsForPlayer,
+  deleteCloudFitnessResultsForPlayer,
+  deleteCloudFitnessResult,
+  deleteCloudFixture,
+  deleteCloudMatchStatEntry,
+  deleteCloudPlayer,
+  deleteCloudTrainingSession,
+  deleteCloudVoteEntriesForPlayer,
+  deleteCloudVoteEntry,
   loadCloudCoreData,
-  saveCloudCoreData,
-  type CloudCoreData,
+  upsertCloudAttendanceRecord,
+  upsertCloudAvailabilityRecord,
+  upsertCloudFitnessResult,
+  upsertCloudFixture,
+  upsertCloudMatchStatEntry,
+  upsertCloudPlayer,
+  upsertCloudTrainingSession,
+  upsertCloudVoteEntry,
 } from '@web/lib/storage/cloud-core-data-storage';
 import { readJsonStorage, writeJsonStorage } from '@web/lib/storage/local-storage';
 
@@ -73,6 +94,21 @@ const STORAGE_KEYS = {
 } as const;
 
 const ClubDataContext = createContext<ClubDataContextValue | null>(null);
+
+type CollectionConfig<T> = {
+  label: string;
+  keyOf: (item: T) => string;
+  upsertRemote?: (clubId: string, item: T) => Promise<void>;
+  deleteRemote?: (clubId: string, item: T) => Promise<void>;
+};
+
+function resolveArrayUpdate<T>(update: SetStateAction<T[]>, current: T[]) {
+  return typeof update === 'function' ? update(current) : update;
+}
+
+function itemChanged<T>(left: T, right: T) {
+  return JSON.stringify(left) !== JSON.stringify(right);
+}
 
 async function loadLocalSnapshot() {
   const [
@@ -124,22 +160,192 @@ async function saveLocalSnapshot(snapshot: ClubDataSnapshot) {
   ]);
 }
 
+async function syncCollectionDiff<T>(
+  clubId: string,
+  current: T[],
+  next: T[],
+  config: CollectionConfig<T>
+) {
+  const currentMap = new Map(current.map((item) => [config.keyOf(item), item] as const));
+  const nextMap = new Map(next.map((item) => [config.keyOf(item), item] as const));
+  const tasks: Promise<void>[] = [];
+
+  if (config.upsertRemote) {
+    for (const [key, item] of nextMap.entries()) {
+      const previous = currentMap.get(key);
+
+      if (!previous || itemChanged(previous, item)) {
+        tasks.push(config.upsertRemote(clubId, item));
+      }
+    }
+  }
+
+  if (config.deleteRemote) {
+    for (const [key, item] of currentMap.entries()) {
+      if (!nextMap.has(key)) {
+        tasks.push(config.deleteRemote(clubId, item));
+      }
+    }
+  }
+
+  if (tasks.length > 0) {
+    await Promise.all(tasks);
+  }
+}
+
 export function ClubDataProvider({ children }: PropsWithChildren) {
   const { isConfigured, isLoading: isAuthLoading } = useAuth();
   const { activeClubId, isLoading: isClubAccessLoading } = useClubAccess();
-  const [fixtures, setFixtures] = useState(emptyClubDataSnapshot.fixtures);
-  const [trainingSessions, setTrainingSessions] = useState(emptyClubDataSnapshot.trainingSessions);
-  const [attendanceRecords, setAttendanceRecords] = useState(emptyClubDataSnapshot.attendanceRecords);
-  const [players, setPlayers] = useState(emptyClubDataSnapshot.players);
-  const [availabilityRecords, setAvailabilityRecords] = useState(emptyClubDataSnapshot.availabilityRecords);
-  const [matchStats, setMatchStats] = useState(emptyClubDataSnapshot.matchStats);
-  const [fitnessResults, setFitnessResults] = useState(emptyClubDataSnapshot.fitnessResults);
-  const [fines, setFines] = useState(emptyClubDataSnapshot.fines);
-  const [voteEntries, setVoteEntries] = useState(emptyClubDataSnapshot.voteEntries);
+
+  const [fixturesState, setFixturesState] = useState(emptyClubDataSnapshot.fixtures);
+  const [trainingSessionsState, setTrainingSessionsState] = useState(emptyClubDataSnapshot.trainingSessions);
+  const [attendanceRecordsState, setAttendanceRecordsState] = useState(emptyClubDataSnapshot.attendanceRecords);
+  const [playersState, setPlayersState] = useState(emptyClubDataSnapshot.players);
+  const [availabilityRecordsState, setAvailabilityRecordsState] = useState(
+    emptyClubDataSnapshot.availabilityRecords
+  );
+  const [matchStatsState, setMatchStatsState] = useState(emptyClubDataSnapshot.matchStats);
+  const [fitnessResultsState, setFitnessResultsState] = useState(emptyClubDataSnapshot.fitnessResults);
+  const [finesState, setFinesState] = useState(emptyClubDataSnapshot.fines);
+  const [voteEntriesState, setVoteEntriesState] = useState(emptyClubDataSnapshot.voteEntries);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [isCloudSyncReady, setIsCloudSyncReady] = useState(!isConfigured);
+
+  const fixturesRef = useRef(fixturesState);
+  const trainingSessionsRef = useRef(trainingSessionsState);
+  const attendanceRecordsRef = useRef(attendanceRecordsState);
+  const playersRef = useRef(playersState);
+  const availabilityRecordsRef = useRef(availabilityRecordsState);
+  const matchStatsRef = useRef(matchStatsState);
+  const fitnessResultsRef = useRef(fitnessResultsState);
+  const finesRef = useRef(finesState);
+  const voteEntriesRef = useRef(voteEntriesState);
+
+  fixturesRef.current = fixturesState;
+  trainingSessionsRef.current = trainingSessionsState;
+  attendanceRecordsRef.current = attendanceRecordsState;
+  playersRef.current = playersState;
+  availabilityRecordsRef.current = availabilityRecordsState;
+  matchStatsRef.current = matchStatsState;
+  fitnessResultsRef.current = fitnessResultsState;
+  finesRef.current = finesState;
+  voteEntriesRef.current = voteEntriesState;
 
   function applySnapshot(snapshot: ClubDataSnapshot) {
+    fixturesRef.current = snapshot.fixtures;
+    trainingSessionsRef.current = snapshot.trainingSessions;
+    attendanceRecordsRef.current = snapshot.attendanceRecords;
+    playersRef.current = snapshot.players;
+    availabilityRecordsRef.current = snapshot.availabilityRecords;
+    matchStatsRef.current = snapshot.matchStats;
+    fitnessResultsRef.current = snapshot.fitnessResults;
+    finesRef.current = snapshot.fines;
+    voteEntriesRef.current = snapshot.voteEntries;
+
+    setFixturesState(snapshot.fixtures);
+    setTrainingSessionsState(snapshot.trainingSessions);
+    setAttendanceRecordsState(snapshot.attendanceRecords);
+    setPlayersState(snapshot.players);
+    setAvailabilityRecordsState(snapshot.availabilityRecords);
+    setMatchStatsState(snapshot.matchStats);
+    setFitnessResultsState(snapshot.fitnessResults);
+    setFinesState(snapshot.fines);
+    setVoteEntriesState(snapshot.voteEntries);
+  }
+
+  function createCollectionSetter<T>(
+    ref: { current: T[] },
+    setState: Dispatch<SetStateAction<T[]>>,
+    config?: CollectionConfig<T>
+  ): Dispatch<SetStateAction<T[]>> {
+    return (update) => {
+      const current = ref.current;
+      const next = resolveArrayUpdate(update, current);
+
+      ref.current = next;
+      setState(next);
+
+      if (!config || !isConfigured || !activeClubId) {
+        return;
+      }
+
+      syncCollectionDiff(activeClubId, current, next, config).catch((error: unknown) => {
+        console.warn(`Failed to sync ${config.label}`, error);
+      });
+    };
+  }
+
+  const setFixtures = createCollectionSetter(fixturesRef, setFixturesState, {
+    label: 'fixtures',
+    keyOf: (fixture) => fixture.id,
+    upsertRemote: upsertCloudFixture,
+    deleteRemote: (clubId, fixture) => deleteCloudFixture(clubId, fixture.id),
+  });
+
+  const setTrainingSessions = createCollectionSetter(trainingSessionsRef, setTrainingSessionsState, {
+    label: 'training sessions',
+    keyOf: (session) => session.id,
+    upsertRemote: upsertCloudTrainingSession,
+    deleteRemote: (clubId, session) => deleteCloudTrainingSession(clubId, session.id),
+  });
+
+  const setAttendanceRecords = createCollectionSetter(attendanceRecordsRef, setAttendanceRecordsState, {
+    label: 'attendance records',
+    keyOf: (record) => `${record.sessionId}::${record.playerId}`,
+    upsertRemote: upsertCloudAttendanceRecord,
+    deleteRemote: (clubId, record) => deleteCloudAttendanceRecord(clubId, record.sessionId, record.playerId),
+  });
+
+  const setPlayers = createCollectionSetter(playersRef, setPlayersState, {
+    label: 'players',
+    keyOf: (player) => player.id,
+    upsertRemote: upsertCloudPlayer,
+    deleteRemote: async (clubId, player) => {
+      await deleteCloudAttendanceRecordsForPlayer(clubId, player.id);
+      await deleteCloudAvailabilityRecordsForPlayer(clubId, player.id);
+      await deleteCloudFitnessResultsForPlayer(clubId, player.id);
+      await deleteCloudVoteEntriesForPlayer(clubId, player.id);
+      await deleteCloudPlayer(clubId, player.id);
+    },
+  });
+
+  const setAvailabilityRecords = createCollectionSetter(
+    availabilityRecordsRef,
+    setAvailabilityRecordsState,
+    {
+      label: 'availability records',
+      keyOf: (record) => `${record.fixtureId}::${record.playerId}`,
+      upsertRemote: upsertCloudAvailabilityRecord,
+      deleteRemote: (clubId, record) => deleteCloudAvailabilityRecord(clubId, record.fixtureId, record.playerId),
+    }
+  );
+
+  const setMatchStats = createCollectionSetter(matchStatsRef, setMatchStatsState, {
+    label: 'match stats',
+    keyOf: (entry) => `${entry.fixtureId}::${entry.metric}::${entry.team}`,
+    upsertRemote: upsertCloudMatchStatEntry,
+    deleteRemote: (clubId, entry) => deleteCloudMatchStatEntry(clubId, entry.fixtureId, entry.metric, entry.team),
+  });
+
+  const setFitnessResults = createCollectionSetter(fitnessResultsRef, setFitnessResultsState, {
+    label: 'fitness results',
+    keyOf: (result) => `${result.playerId}::${result.metric}::${result.phase}`,
+    upsertRemote: upsertCloudFitnessResult,
+    deleteRemote: (clubId, result) =>
+      deleteCloudFitnessResult(clubId, result.playerId, result.metric, result.phase),
+  });
+
+  const setVoteEntries = createCollectionSetter(voteEntriesRef, setVoteEntriesState, {
+    label: 'vote entries',
+    keyOf: (entry) => `${entry.fixtureId}::${entry.playerId}::${entry.voteType}`,
+    upsertRemote: upsertCloudVoteEntry,
+    deleteRemote: (clubId, entry) =>
+      deleteCloudVoteEntry(clubId, entry.fixtureId, entry.playerId, entry.voteType),
+  });
+
+  const setFines = createCollectionSetter(finesRef, setFinesState);
+
+  function loadDemoData() {
+    const snapshot = createDemoClubDataSnapshot();
     setFixtures(snapshot.fixtures);
     setTrainingSessions(snapshot.trainingSessions);
     setAttendanceRecords(snapshot.attendanceRecords);
@@ -151,10 +357,6 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setVoteEntries(snapshot.voteEntries);
   }
 
-  function loadDemoData() {
-    applySnapshot(createDemoClubDataSnapshot());
-  }
-
   useEffect(() => {
     if (isAuthLoading || isClubAccessLoading) {
       return;
@@ -162,7 +364,6 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
     let isMounted = true;
     setIsHydrated(false);
-    setIsCloudSyncReady(!isConfigured || !activeClubId);
 
     async function hydrate() {
       try {
@@ -179,19 +380,9 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
                 ...remoteCoreData,
               });
             }
-
-            if (isMounted) {
-              setIsCloudSyncReady(true);
-            }
           } catch (error: unknown) {
             console.warn('Failed to load cloud club data', error);
-
-            if (isMounted) {
-              setIsCloudSyncReady(false);
-            }
           }
-        } else if (isMounted) {
-          setIsCloudSyncReady(true);
         }
 
         if (!isMounted) {
@@ -215,26 +406,26 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const snapshot = useMemo<ClubDataSnapshot>(() => {
     return {
-      fixtures,
-      trainingSessions,
-      attendanceRecords,
-      players,
-      availabilityRecords,
-      matchStats,
-      fitnessResults,
-      fines,
-      voteEntries,
+      fixtures: fixturesState,
+      trainingSessions: trainingSessionsState,
+      attendanceRecords: attendanceRecordsState,
+      players: playersState,
+      availabilityRecords: availabilityRecordsState,
+      matchStats: matchStatsState,
+      fitnessResults: fitnessResultsState,
+      fines: finesState,
+      voteEntries: voteEntriesState,
     };
   }, [
-    fixtures,
-    trainingSessions,
-    attendanceRecords,
-    players,
-    availabilityRecords,
-    matchStats,
-    fitnessResults,
-    fines,
-    voteEntries,
+    attendanceRecordsState,
+    availabilityRecordsState,
+    finesState,
+    fitnessResultsState,
+    fixturesState,
+    matchStatsState,
+    playersState,
+    trainingSessionsState,
+    voteEntriesState,
   ]);
 
   useEffect(() => {
@@ -247,76 +438,43 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     });
   }, [isHydrated, snapshot]);
 
-  const cloudCoreData = useMemo<CloudCoreData>(() => {
-    return {
-      players,
-      trainingSessions,
-      attendanceRecords,
-      fixtures,
-      availabilityRecords,
-      matchStats,
-      voteEntries,
-      fitnessResults,
-    };
-  }, [
-    players,
-    trainingSessions,
-    attendanceRecords,
-    fixtures,
-    availabilityRecords,
-    matchStats,
-    voteEntries,
-    fitnessResults,
-  ]);
-
-  useEffect(() => {
-    if (!isHydrated || !isConfigured || !activeClubId || !isCloudSyncReady) {
-      return;
-    }
-
-    saveCloudCoreData(activeClubId, cloudCoreData).catch((error: unknown) => {
-      console.warn('Failed to save cloud core data', error);
-    });
-  }, [activeClubId, cloudCoreData, isCloudSyncReady, isConfigured, isHydrated]);
-
   const value = useMemo<ClubDataContextValue>(() => {
     return {
-      fixtures,
+      fixtures: fixturesState,
       setFixtures,
-      trainingSessions,
+      trainingSessions: trainingSessionsState,
       setTrainingSessions,
-      attendanceRecords,
+      attendanceRecords: attendanceRecordsState,
       setAttendanceRecords,
-      players,
+      players: playersState,
       setPlayers,
-      availabilityRecords,
+      availabilityRecords: availabilityRecordsState,
       setAvailabilityRecords,
-      matchStats,
+      matchStats: matchStatsState,
       setMatchStats,
-      fitnessResults,
+      fitnessResults: fitnessResultsState,
       setFitnessResults,
-      fines,
+      fines: finesState,
       setFines,
-      voteEntries,
+      voteEntries: voteEntriesState,
       setVoteEntries,
       loadDemoData,
       isHydrated,
       storageMode: isConfigured && activeClubId ? 'cloud' : 'local',
     };
   }, [
-    fixtures,
-    trainingSessions,
-    attendanceRecords,
-    players,
-    availabilityRecords,
-    matchStats,
-    fitnessResults,
-    fines,
-    voteEntries,
-    loadDemoData,
-    isHydrated,
     activeClubId,
+    attendanceRecordsState,
+    availabilityRecordsState,
+    finesState,
+    fitnessResultsState,
+    fixturesState,
     isConfigured,
+    isHydrated,
+    matchStatsState,
+    playersState,
+    trainingSessionsState,
+    voteEntriesState,
   ]);
 
   return <ClubDataContext.Provider value={value}>{children}</ClubDataContext.Provider>;
