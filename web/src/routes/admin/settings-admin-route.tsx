@@ -86,8 +86,11 @@ export function SettingsAdminRoute() {
       <section className="card stack">
         <h3>Sync Debug</h3>
         <p className="muted">Temporary diagnostic for cloud vs local hydration.</p>
+        <p>Players source: {syncDebug.playersSource}</p>
         <p>Attendance source: {syncDebug.attendanceSource}</p>
         <p>Availability source: {syncDebug.availabilitySource}</p>
+        <p>Match lineup source: {syncDebug.matchLineupSource}</p>
+        {syncDebug.lastSyncError ? <p className="muted">{syncDebug.lastSyncError}</p> : null}
       </section>
 
       {themeOptions.map((option) => {

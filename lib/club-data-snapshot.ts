@@ -10,6 +10,7 @@ import {
   trainingSessions,
   voteEntries,
 } from '@/lib/mock-data';
+import { normalizeMatchStats } from '@/lib/match-stats';
 import { normalizeVoteEntries } from '@/lib/votes';
 import type {
   AttendanceRecord,
@@ -68,7 +69,7 @@ export function createDemoClubDataSnapshot(): ClubDataSnapshot {
     attendanceRecords: cloneList(attendanceRecords),
     players: normalizePlayers(cloneList(players)),
     availabilityRecords: cloneList(availabilityRecords),
-    matchStats: cloneList(matchStats),
+    matchStats: normalizeMatchStats(cloneList(matchStats)),
     matchLineupAssignments: cloneList(matchLineupAssignments),
     fitnessResults: cloneList(fitnessResults),
     fines: cloneList(fines),
@@ -87,7 +88,7 @@ export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | 
     attendanceRecords: asList(snapshot?.attendanceRecords, emptyClubDataSnapshot.attendanceRecords),
     players: normalizePlayers(asList(snapshot?.players, emptyClubDataSnapshot.players)),
     availabilityRecords: asList(snapshot?.availabilityRecords, emptyClubDataSnapshot.availabilityRecords),
-    matchStats: asList(snapshot?.matchStats, emptyClubDataSnapshot.matchStats),
+    matchStats: normalizeMatchStats(asList(snapshot?.matchStats, emptyClubDataSnapshot.matchStats)),
     matchLineupAssignments: asList(
       snapshot?.matchLineupAssignments,
       emptyClubDataSnapshot.matchLineupAssignments

@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { getFixtureById } from '@/lib/availability';
-import type { MatchStatMetric, MatchStatTeam } from '@/lib/types';
+import type { MatchStatMetric, MatchStatQuarter, MatchStatTeam } from '@/lib/types';
 import {
   adjustMatchStatEntry,
   getFixtureScoreSummary,
+  getMatchStatQuarterValue,
   getMatchStatValue,
   matchStatLabels,
+  matchStatQuarterLabels,
+  matchStatCaptureQuarterOrder,
 } from '@/lib/match-stats';
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
@@ -17,6 +20,7 @@ import { useClubData } from '@web/lib/club-data-context';
 
 type StatAction = {
   id: string;
+  quarter: MatchStatQuarter;
   metric: MatchStatMetric;
   team: MatchStatTeam;
   delta: number;
@@ -24,12 +28,14 @@ type StatAction = {
   createdAt: string;
 };
 
+type StatsViewMode = 'capture' | 'report';
+
 const STAT_GROUPS: { title: string; metrics: MatchStatMetric[] }[] = [
   { title: 'Scoring', metrics: ['goals', 'points'] },
-  { title: 'Clearances', metrics: ['clearances'] },
-  { title: 'Pressure & Contest', metrics: ['tackles', 'hit-outs', 'free-kicks'] },
-  { title: 'Territory', metrics: ['inside-50s', 'marks-i50'] },
   { title: 'Marking / Intercept', metrics: ['uncontested-marks', 'intercept-marks'] },
+  { title: 'Possession', metrics: ['kicks', 'handballs', 'effective-disposals'] },
+  { title: 'Pressure & Contest', metrics: ['tackles', 'hit-outs', 'free-kicks'] },
+  { title: 'Territory', metrics: ['clearances', 'inside-50s', 'marks-i50'] },
 ];
 
 function getLastWord(value: string) {
@@ -47,6 +53,8 @@ export function MatchStatsRoute() {
   const { fixtureId = '' } = useParams();
   const { activeClub } = useClubAccess();
   const { fixtures, isHydrated, matchStats, setMatchStats } = useClubData();
+  const [selectedQuarter, setSelectedQuarter] = useState<MatchStatQuarter>('q1');
+  const [viewMode, setViewMode] = useState<StatsViewMode>('capture');
   const [recentActions, setRecentActions] = useState<StatAction[]>([]);
   const fixture = getFixtureById(fixtureId, fixtures);
 
@@ -65,7 +73,6 @@ export function MatchStatsRoute() {
     );
   }
 
-  const scoreSummary = getFixtureScoreSummary(fixture.id, matchStats);
   const fixtureKey = fixture.id;
   const trackedTeamName = activeClub?.name ?? 'Our Club';
   const opponentTeamName = fixture.opponent;
@@ -75,25 +82,32 @@ export function MatchStatsRoute() {
   const awayTeamShort = getLastWord(awayTeamName) || 'Away';
   const homeTeamKey: MatchStatTeam = fixture.isHome ? 'ours' : 'theirs';
   const awayTeamKey: MatchStatTeam = fixture.isHome ? 'theirs' : 'ours';
-  const homeScore = homeTeamKey === 'ours' ? scoreSummary.ours : scoreSummary.theirs;
-  const awayScore = awayTeamKey === 'ours' ? scoreSummary.ours : scoreSummary.theirs;
-  const totalHome = homeScore.score;
-  const totalAway = awayScore.score;
+  const gameScoreSummary = getFixtureScoreSummary(fixture.id, matchStats, 'game');
+  const selectedQuarterScoreSummary = getFixtureScoreSummary(fixture.id, matchStats, selectedQuarter);
+  const gameHomeScore = homeTeamKey === 'ours' ? gameScoreSummary.ours : gameScoreSummary.theirs;
+  const gameAwayScore = awayTeamKey === 'ours' ? gameScoreSummary.ours : gameScoreSummary.theirs;
+  const selectedHomeScore =
+    homeTeamKey === 'ours' ? selectedQuarterScoreSummary.ours : selectedQuarterScoreSummary.theirs;
+  const selectedAwayScore =
+    awayTeamKey === 'ours' ? selectedQuarterScoreSummary.ours : selectedQuarterScoreSummary.theirs;
+  const totalHome = viewMode === 'report' ? gameHomeScore.score : selectedHomeScore.score;
+  const totalAway = viewMode === 'report' ? gameAwayScore.score : selectedAwayScore.score;
   const latestAction = recentActions[0] ?? null;
 
   function recordStatChange(metric: MatchStatMetric, side: 'home' | 'away', delta: number) {
     const team = side === 'home' ? homeTeamKey : awayTeamKey;
     const teamLabel = side === 'home' ? homeTeamShort : awayTeamShort;
-    const actionLabel = `${teamLabel} ${matchStatLabels[metric]} ${
+    const actionLabel = `${matchStatQuarterLabels[selectedQuarter]} ${teamLabel} ${matchStatLabels[metric]} ${
       delta > 0 ? `+${delta}` : delta
     }`;
 
     setMatchStats((current) => {
-      return adjustMatchStatEntry(current, fixtureKey, metric, team, delta);
+      return adjustMatchStatEntry(current, fixtureKey, selectedQuarter, metric, team, delta);
     });
     setRecentActions((current) => {
       const nextAction: StatAction = {
-        id: `${metric}-${team}-${Date.now()}`,
+        id: `${selectedQuarter}-${metric}-${team}-${Date.now()}`,
+        quarter: selectedQuarter,
         metric,
         team,
         delta,
@@ -113,7 +127,14 @@ export function MatchStatsRoute() {
     }
 
     setMatchStats((current) => {
-      return adjustMatchStatEntry(current, fixtureKey, action.metric, action.team, -action.delta);
+      return adjustMatchStatEntry(
+        current,
+        fixtureKey,
+        action.quarter,
+        action.metric,
+        action.team,
+        -action.delta
+      );
     });
     setRecentActions((current) => current.slice(1));
   }
@@ -128,6 +149,35 @@ export function MatchStatsRoute() {
     }
 
     return <div className="score-strip__crest">{teamName.slice(0, 3).toUpperCase()}</div>;
+  }
+
+  function getQuarterScoreLine(quarter: MatchStatQuarter) {
+    if (quarter === 'game') {
+      const score = getFixtureScoreSummary(fixtureKey, matchStats, 'game');
+
+      return {
+        left: homeTeamKey === 'ours' ? score.ours : score.theirs,
+        right: awayTeamKey === 'ours' ? score.ours : score.theirs,
+      };
+    }
+
+    const homeGoals = getMatchStatQuarterValue(fixtureKey, 'goals', homeTeamKey, matchStats, quarter);
+    const homePoints = getMatchStatQuarterValue(fixtureKey, 'points', homeTeamKey, matchStats, quarter);
+    const awayGoals = getMatchStatQuarterValue(fixtureKey, 'goals', awayTeamKey, matchStats, quarter);
+    const awayPoints = getMatchStatQuarterValue(fixtureKey, 'points', awayTeamKey, matchStats, quarter);
+
+    return {
+      left: {
+        goals: homeGoals,
+        points: homePoints,
+        score: homeGoals * 6 + homePoints,
+      },
+      right: {
+        goals: awayGoals,
+        points: awayPoints,
+        score: awayGoals * 6 + awayPoints,
+      },
+    };
   }
 
   return (
@@ -178,15 +228,62 @@ export function MatchStatsRoute() {
               <span className="activity-chip">No actions yet</span>
             )}
             <span className="activity-chip">
-              {isHydrated ? 'Stats save as you tap.' : 'Loading saved match stats...'}
+              {viewMode === 'report'
+                ? `Report view • Game ${gameHomeScore.goals}.${gameHomeScore.points} - ${gameAwayScore.goals}.${gameAwayScore.points}`
+                : `Editing cumulative ${matchStatQuarterLabels[selectedQuarter]}`}
             </span>
             <span className="activity-chip">
-              Score {homeScore.goals}.{homeScore.points} - {awayScore.goals}.{awayScore.points}
+              {isHydrated ? 'Stats save as you tap.' : 'Loading saved match stats...'}
             </span>
+            {viewMode === 'capture' ? (
+              <span className="activity-chip">
+                Through {matchStatQuarterLabels[selectedQuarter]} {selectedHomeScore.goals}.{selectedHomeScore.points} -{' '}
+                {selectedAwayScore.goals}.{selectedAwayScore.points}
+              </span>
+            ) : null}
           </div>
         </section>
 
-        <div className="live-stats-grid">
+        <section className="stats-toolbar">
+          <div className="stats-toolbar__group">
+            <span className="stats-toolbar__label">View</span>
+            <div className="stats-toolbar__buttons">
+              {(['capture', 'report'] as StatsViewMode[]).map((mode) => {
+                const isSelected = mode === viewMode;
+
+                return (
+                  <button
+                    key={mode}
+                    className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+                    onClick={() => setViewMode(mode)}
+                    type="button">
+                    {mode === 'capture' ? 'Capture' : 'Report'}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="stats-toolbar__group">
+            <span className="stats-toolbar__label">Period</span>
+            <div className="stats-toolbar__buttons">
+            {matchStatCaptureQuarterOrder.map((quarter) => {
+              const isSelected = quarter === selectedQuarter;
+
+              return (
+                <button
+                  key={quarter}
+                  className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+                  onClick={() => setSelectedQuarter(quarter)}
+                  type="button">
+                  {matchStatQuarterLabels[quarter]}
+                </button>
+              );
+            })}
+            </div>
+          </div>
+        </section>
+
+        {viewMode === 'capture' ? <div className="live-stats-grid">
           {STAT_GROUPS.map((group) => {
             return (
               <section key={group.title} className="live-stat-card">
@@ -201,9 +298,21 @@ export function MatchStatsRoute() {
                         onAdjust={(side, delta) => {
                           recordStatChange(metric, side === 'left' ? 'home' : 'away', delta);
                         }}
-                        leftValue={getMatchStatValue(fixtureKey, metric, homeTeamKey, matchStats)}
+                        leftValue={getMatchStatValue(
+                          fixtureKey,
+                          metric,
+                          homeTeamKey,
+                          matchStats,
+                          selectedQuarter
+                        )}
                         rightLabel={awayTeamShort}
-                        rightValue={getMatchStatValue(fixtureKey, metric, awayTeamKey, matchStats)}
+                        rightValue={getMatchStatValue(
+                          fixtureKey,
+                          metric,
+                          awayTeamKey,
+                          matchStats,
+                          selectedQuarter
+                        )}
                       />
                     );
                   })}
@@ -243,24 +352,123 @@ export function MatchStatsRoute() {
               <div>
                 <span className="score-snapshot__label">{homeTeamShort}</span>
                 <strong>
-                  {homeScore.goals}.{homeScore.points}
+                  {selectedHomeScore.goals}.{selectedHomeScore.points}
                 </strong>
-                <span className="muted">{homeScore.score} pts</span>
+                <span className="muted">{selectedHomeScore.score} pts</span>
               </div>
               <div>
                 <span className="score-snapshot__label">{awayTeamShort}</span>
                 <strong>
-                  {awayScore.goals}.{awayScore.points}
+                  {selectedAwayScore.goals}.{selectedAwayScore.points}
                 </strong>
-                <span className="muted">{awayScore.score} pts</span>
+                <span className="muted">{selectedAwayScore.score} pts</span>
               </div>
             </div>
             <p className="muted">
-              Use this board for rapid live entry. Detailed quarter breakdowns are still a future data
-              model upgrade.
+              Viewing cumulative totals through {matchStatQuarterLabels[selectedQuarter]}. By Q4, this becomes the full game line.
             </p>
           </section>
-        </div>
+        </div> : (
+          <div className="report-stats-grid">
+            <section className="live-stat-card">
+              <h3 className="live-stat-card__title">Match Report</h3>
+              <div className="score-snapshot">
+                <div>
+                  <span className="score-snapshot__label">{homeTeamShort}</span>
+                  <strong>
+                    {gameHomeScore.goals}.{gameHomeScore.points}
+                  </strong>
+                  <span className="muted">{gameHomeScore.score} pts</span>
+                </div>
+                <div>
+                  <span className="score-snapshot__label">{awayTeamShort}</span>
+                  <strong>
+                    {gameAwayScore.goals}.{gameAwayScore.points}
+                  </strong>
+                  <span className="muted">{gameAwayScore.score} pts</span>
+                </div>
+              </div>
+              <p className="muted">Quarter columns show isolated inputs. Total shows the full game result.</p>
+              {STAT_GROUPS.map((group) => {
+                return (
+                  <section key={`${group.title}-report`} className="stats-report-group">
+                    <h4 className="stats-report-group__title">{group.title}</h4>
+                  <div className="stats-report-sides">
+                    {[
+                      { key: homeTeamKey, label: homeTeamShort },
+                      { key: awayTeamKey, label: awayTeamShort },
+                    ].map((team) => {
+                      return (
+                        <div key={`${group.title}-${team.key}`} className="stats-report-panel">
+                          <div className="stats-report-panel__title">{team.label}</div>
+                          <div className="stats-report">
+                            <div className="stats-report__header">
+                              <span className="stats-report__metric-title">Metric</span>
+                              {matchStatCaptureQuarterOrder.map((quarter) => {
+                                return (
+                                  <span key={`${group.title}-${team.key}-${quarter}`} className="stats-report__period-title">
+                                    {matchStatQuarterLabels[quarter]}
+                                  </span>
+                                );
+                              })}
+                              <span className="stats-report__period-title">Total</span>
+                            </div>
+                            {group.metrics.map((metric) => {
+                              return (
+                                <div key={`${group.title}-${team.key}-${metric}`} className="stats-report__row">
+                                  <span className="stats-report__metric">{matchStatLabels[metric]}</span>
+                                  {matchStatCaptureQuarterOrder.map((quarter) => {
+                                    return (
+                                      <span key={`${team.key}-${metric}-${quarter}`} className="stats-report__value">
+                                        {getMatchStatQuarterValue(fixtureKey, metric, team.key, matchStats, quarter)}
+                                      </span>
+                                    );
+                                  })}
+                                  <span className="stats-report__value">
+                                    {getMatchStatQuarterValue(fixtureKey, metric, team.key, matchStats, 'game')}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  </section>
+                );
+              })}
+
+              <section className="stats-report-group">
+                <h4 className="stats-report-group__title">Score Report</h4>
+              <div className="stats-report stats-report--score">
+                <div className="stats-report__header stats-report__header--score">
+                  <span className="stats-report__metric-title">Period</span>
+                  <span className="stats-report__period-title">{homeTeamShort}</span>
+                  <span className="stats-report__period-title">{awayTeamShort}</span>
+                </div>
+                {[...matchStatCaptureQuarterOrder, 'game' as MatchStatQuarter].map((quarter) => {
+                  const scoreLine = getQuarterScoreLine(quarter);
+                  const left = scoreLine.left;
+                  const right = scoreLine.right;
+
+                  return (
+                    <div key={`score-${quarter}`} className="stats-report__row stats-report__row--score">
+                      <span className="stats-report__metric">{matchStatQuarterLabels[quarter]}</span>
+                      <span className="stats-report__value">
+                        {left.goals}.{left.points} ({left.score})
+                      </span>
+                      <span className="stats-report__value">
+                        {right.goals}.{right.points} ({right.score})
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              </section>
+            </section>
+          </div>
+        )}
       </section>
     </section>
   );

@@ -9,6 +9,7 @@ import type {
   TrainingSession,
   VoteEntry,
 } from '@/lib/types';
+import { normalizeMatchStats } from '@/lib/match-stats';
 import { normalizePlayers } from '@/lib/team';
 import { normalizeVoteEntries, normalizeVoteType } from '@/lib/votes';
 
@@ -46,10 +47,73 @@ function logCloudCollectionError(label: string, error: { message?: string } | nu
   }
 }
 
+async function loadCloudPlayers(clubId: string) {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  const preferredResult = await supabase
+    .from('club_players')
+    .select('id, name, nickname, number, squad, role, active')
+    .eq('club_id', clubId)
+    .order('number', { ascending: true });
+
+  if (!preferredResult.error) {
+    return preferredResult;
+  }
+
+  const fallbackResult = await supabase
+    .from('club_players')
+    .select('*')
+    .eq('club_id', clubId)
+    .order('number', { ascending: true });
+
+  if (!fallbackResult.error) {
+    console.warn(
+      'Loaded players from Supabase using select(*) fallback. Run the latest supabase/schema.sql to align the remote schema.'
+    );
+    return fallbackResult;
+  }
+
+  return preferredResult;
+}
+
+async function loadCloudMatchStats(clubId: string) {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  const preferredResult = await supabase
+    .from('club_match_stats')
+    .select('fixture_id, quarter, metric, team, value')
+    .eq('club_id', clubId);
+
+  if (!preferredResult.error) {
+    return preferredResult;
+  }
+
+  const fallbackResult = await supabase
+    .from('club_match_stats')
+    .select('fixture_id, metric, team, value')
+    .eq('club_id', clubId);
+
+  if (!fallbackResult.error) {
+    console.warn(
+      'Loaded match stats from Supabase using legacy schema fallback. Run the latest supabase/schema.sql to enable quarter capture.'
+    );
+    return fallbackResult;
+  }
+
+  return preferredResult;
+}
+
 export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCoreData> | null> {
   if (!supabase) {
     return null;
   }
+
+  const playersResultPromise = loadCloudPlayers(clubId);
+  const matchStatsResultPromise = loadCloudMatchStats(clubId);
 
   const [
     playersResult,
@@ -62,11 +126,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     voteEntriesResult,
     fitnessResultsResult,
   ] = await Promise.all([
-    supabase
-      .from('club_players')
-      .select('id, name, nickname, number, squad, role, active')
-      .eq('club_id', clubId)
-      .order('number', { ascending: true }),
+    playersResultPromise,
     supabase
       .from('club_training_sessions')
       .select('id, title, date, location')
@@ -85,10 +145,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
       .from('club_availability_records')
       .select('fixture_id, player_id, status')
       .eq('club_id', clubId),
-    supabase
-      .from('club_match_stats')
-      .select('fixture_id, metric, team, value')
-      .eq('club_id', clubId),
+    matchStatsResultPromise,
     supabase
       .from('club_match_lineup_assignments')
       .select('fixture_id, player_id, position')
@@ -165,14 +222,17 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
   if (matchStatsResult.error) {
     logCloudCollectionError('match stats', matchStatsResult.error);
   } else {
-    snapshot.matchStats = (matchStatsResult.data ?? []).map((entry) => {
-      return {
-        fixtureId: entry.fixture_id as string,
-        metric: entry.metric as MatchStatEntry['metric'],
-        team: entry.team as MatchStatEntry['team'],
-        value: Number(entry.value),
-      };
-    });
+    snapshot.matchStats = normalizeMatchStats(
+      (matchStatsResult.data ?? []).map((entry) => {
+        return {
+          fixtureId: entry.fixture_id as string,
+          quarter: (entry as { quarter?: string | null }).quarter,
+          metric: entry.metric as MatchStatEntry['metric'],
+          team: entry.team as MatchStatEntry['team'],
+          value: Number(entry.value),
+        };
+      })
+    );
     hasSuccessfulRead = true;
   }
 
@@ -428,12 +488,37 @@ export async function upsertCloudMatchStatEntry(clubId: string, entry: MatchStat
     {
       club_id: clubId,
       fixture_id: entry.fixtureId,
+      quarter: entry.quarter,
       metric: entry.metric,
       team: entry.team,
       value: entry.value,
     },
-    { onConflict: 'club_id,fixture_id,metric,team' }
+    { onConflict: 'club_id,fixture_id,quarter,metric,team' }
   );
+
+  if (!error) {
+    return;
+  }
+
+  if (entry.quarter === 'game') {
+    const legacyResult = await client.from('club_match_stats').upsert(
+      {
+        club_id: clubId,
+        fixture_id: entry.fixtureId,
+        metric: entry.metric,
+        team: entry.team,
+        value: entry.value,
+      },
+      { onConflict: 'club_id,fixture_id,metric,team' }
+    );
+
+    if (!legacyResult.error) {
+      console.warn(
+        'Saved match stat using the legacy match-stats schema. Run the latest supabase/schema.sql to enable quarter capture.'
+      );
+      return;
+    }
+  }
 
   await throwOnError(error);
 }
@@ -494,6 +579,7 @@ export async function deleteCloudMatchLineupAssignmentsForPlayer(clubId: string,
 export async function deleteCloudMatchStatEntry(
   clubId: string,
   fixtureId: string,
+  quarter: MatchStatEntry['quarter'],
   metric: MatchStatEntry['metric'],
   team: MatchStatEntry['team']
 ) {
@@ -503,8 +589,28 @@ export async function deleteCloudMatchStatEntry(
     .delete()
     .eq('club_id', clubId)
     .eq('fixture_id', fixtureId)
+    .eq('quarter', quarter)
     .eq('metric', metric)
     .eq('team', team);
+
+  if (!error) {
+    return;
+  }
+
+  if (quarter === 'game') {
+    const legacyResult = await client
+      .from('club_match_stats')
+      .delete()
+      .eq('club_id', clubId)
+      .eq('fixture_id', fixtureId)
+      .eq('metric', metric)
+      .eq('team', team);
+
+    if (!legacyResult.error) {
+      return;
+    }
+  }
+
   await throwOnError(error);
 }
 

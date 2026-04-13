@@ -79,6 +79,10 @@ export type VoteEntry = {
 export type VoteType = 'players' | 'coaches' | 'best-and-fairest';
 
 export type MatchStatMetric =
+  | 'kicks'
+  | 'handballs'
+  | 'disposals'
+  | 'effective-disposals'
   | 'clearances'
   | 'goals'
   | 'points'
@@ -91,9 +95,11 @@ export type MatchStatMetric =
   | 'intercept-marks';
 
 export type MatchStatTeam = 'ours' | 'theirs';
+export type MatchStatQuarter = 'game' | 'q1' | 'q2' | 'q3' | 'q4';
 
 export type MatchStatEntry = {
   fixtureId: string;
+  quarter: MatchStatQuarter;
   metric: MatchStatMetric;
   team: MatchStatTeam;
   value: number;

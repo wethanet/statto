@@ -89,8 +89,11 @@ type ClubDataContextValue = {
   isHydrated: boolean;
   storageMode: 'local' | 'cloud';
   syncDebug: {
+    playersSource: 'cloud' | 'local' | 'empty';
     attendanceSource: 'cloud' | 'local' | 'empty';
     availabilitySource: 'cloud' | 'local' | 'empty';
+    matchLineupSource: 'cloud' | 'local' | 'empty';
+    lastSyncError: string | null;
   };
 };
 
@@ -278,8 +281,11 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const [voteEntriesState, setVoteEntriesState] = useState(emptyClubDataSnapshot.voteEntries);
   const [isHydrated, setIsHydrated] = useState(false);
   const [syncDebug, setSyncDebug] = useState<ClubDataContextValue['syncDebug']>({
+    playersSource: 'empty',
     attendanceSource: 'empty',
     availabilitySource: 'empty',
+    matchLineupSource: 'empty',
+    lastSyncError: null,
   });
   const pendingCloudSyncCountRef = useRef(0);
   const pendingCloudRefreshRequestedRef = useRef(false);
@@ -362,14 +368,23 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setSyncDebugFromSources = useCallback(
     (localSnapshot: ClubDataSnapshot, remoteCoreData: Partial<ClubDataSnapshot> | null) => {
+      const hasRemotePlayers = Boolean(remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'players'));
       const hasRemoteAttendance = Boolean(
         remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'attendanceRecords')
       );
       const hasRemoteAvailability = Boolean(
         remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'availabilityRecords')
       );
+      const hasRemoteMatchLineup = Boolean(
+        remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'matchLineupAssignments')
+      );
 
-      setSyncDebug({
+      setSyncDebug((current) => ({
+        playersSource: hasRemotePlayers
+          ? 'cloud'
+          : localSnapshot.players.length > 0
+            ? 'local'
+            : 'empty',
         attendanceSource: hasRemoteAttendance
           ? 'cloud'
           : localSnapshot.attendanceRecords.length > 0
@@ -380,7 +395,13 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           : localSnapshot.availabilityRecords.length > 0
             ? 'local'
             : 'empty',
-      });
+        matchLineupSource: hasRemoteMatchLineup
+          ? 'cloud'
+          : localSnapshot.matchLineupAssignments.length > 0
+            ? 'local'
+            : 'empty',
+        lastSyncError: current.lastSyncError,
+      }));
     },
     []
   );
@@ -403,8 +424,27 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
       pendingCloudSyncCountRef.current += 1;
       syncCollectionDiff(activeClubId, current, next, config)
+        .then(() => {
+          setSyncDebug((syncState) => {
+            if (syncState.lastSyncError === null) {
+              return syncState;
+            }
+
+            return {
+              ...syncState,
+              lastSyncError: null,
+            };
+          });
+        })
         .catch((error: unknown) => {
           console.warn(`Failed to sync ${config.label}`, error);
+          setSyncDebug((syncState) => {
+            return {
+              ...syncState,
+              lastSyncError:
+                error instanceof Error ? `Failed to sync ${config.label}: ${error.message}` : `Failed to sync ${config.label}.`,
+            };
+          });
         })
         .finally(() => {
           pendingCloudSyncCountRef.current = Math.max(0, pendingCloudSyncCountRef.current - 1);
@@ -467,9 +507,10 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setMatchStats = createCollectionSetter(matchStatsRef, setMatchStatsState, {
     label: 'match stats',
-    keyOf: (entry) => `${entry.fixtureId}::${entry.metric}::${entry.team}`,
+    keyOf: (entry) => `${entry.fixtureId}::${entry.quarter}::${entry.metric}::${entry.team}`,
     upsertRemote: upsertCloudMatchStatEntry,
-    deleteRemote: (clubId, entry) => deleteCloudMatchStatEntry(clubId, entry.fixtureId, entry.metric, entry.team),
+    deleteRemote: (clubId, entry) =>
+      deleteCloudMatchStatEntry(clubId, entry.fixtureId, entry.quarter, entry.metric, entry.team),
   });
 
   const setMatchLineupAssignments = createCollectionSetter(

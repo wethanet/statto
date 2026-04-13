@@ -80,7 +80,8 @@ create table if not exists public.club_match_stats (
   team text not null check (team in ('ours', 'theirs')),
   value integer not null default 0 check (value >= 0),
   updated_at timestamptz not null default timezone('utc', now()),
-  primary key (club_id, fixture_id, metric, team)
+  quarter text not null default 'game' check (quarter in ('game', 'q1', 'q2', 'q3', 'q4')),
+  primary key (club_id, fixture_id, quarter, metric, team)
 );
 
 create table if not exists public.club_match_lineup_assignments (
@@ -121,6 +122,9 @@ add column if not exists nickname text;
 alter table public.club_players
 drop column if exists position;
 
+alter table public.club_match_stats
+add column if not exists quarter text not null default 'game';
+
 do $$
 begin
   if not exists (
@@ -132,6 +136,39 @@ begin
     add constraint club_players_squad_check
     check (squad in ('cup', 'plate') or squad is null);
   end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_match_stats_quarter_check'
+  ) then
+    alter table public.club_match_stats
+    add constraint club_match_stats_quarter_check
+    check (quarter in ('game', 'q1', 'q2', 'q3', 'q4'));
+  end if;
+end $$;
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_match_stats_pkey'
+      and conrelid = 'public.club_match_stats'::regclass
+  ) then
+    alter table public.club_match_stats
+    drop constraint club_match_stats_pkey;
+  end if;
+
+  alter table public.club_match_stats
+  add constraint club_match_stats_pkey
+  primary key (club_id, fixture_id, quarter, metric, team);
+exception
+  when duplicate_object then
+    null;
 end $$;
 
 alter table public.club_data_snapshots enable row level security;

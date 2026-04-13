@@ -5,6 +5,7 @@ type MatchStatRowProps = {
   onAdjust: (side: 'left' | 'right', delta: number) => void;
   leftLabel?: string;
   rightLabel?: string;
+  readOnly?: boolean;
 };
 
 type StatSideProps = {
@@ -12,18 +13,27 @@ type StatSideProps = {
   value: number;
   onAdjust: (delta: number) => void;
   align?: 'left' | 'right';
+  readOnly?: boolean;
 };
 
-function StatSide({ teamLabel, value, onAdjust, align = 'left' }: StatSideProps) {
+function StatSide({ teamLabel, value, onAdjust, align = 'left', readOnly = false }: StatSideProps) {
   return (
     <div className={align === 'right' ? 'stats-entry-row__side stats-entry-row__side--right' : 'stats-entry-row__side'}>
       <span className="stats-entry-row__team-label">{teamLabel}</span>
       <div className="stats-entry-row__controls">
-        <button className="stats-entry-row__button stats-entry-row__button--ghost" onClick={() => onAdjust(-1)} type="button">
+        <button
+          className="stats-entry-row__button stats-entry-row__button--ghost"
+          disabled={readOnly}
+          onClick={() => onAdjust(-1)}
+          type="button">
           -
         </button>
         <div className="stats-entry-row__value">{value}</div>
-        <button className="stats-entry-row__button stats-entry-row__button--primary" onClick={() => onAdjust(1)} type="button">
+        <button
+          className="stats-entry-row__button stats-entry-row__button--primary"
+          disabled={readOnly}
+          onClick={() => onAdjust(1)}
+          type="button">
           +
         </button>
       </div>
@@ -38,10 +48,16 @@ export function MatchStatRow({
   onAdjust,
   leftLabel = 'Home',
   rightLabel = 'Away',
+  readOnly = false,
 }: MatchStatRowProps) {
   return (
     <div className="stats-entry-row">
-      <StatSide teamLabel={leftLabel} onAdjust={(delta) => onAdjust('left', delta)} value={leftValue} />
+      <StatSide
+        teamLabel={leftLabel}
+        onAdjust={(delta) => onAdjust('left', delta)}
+        readOnly={readOnly}
+        value={leftValue}
+      />
       <div className="stats-entry-row__metric">
         <span>{label}</span>
       </div>
@@ -49,6 +65,7 @@ export function MatchStatRow({
         align="right"
         teamLabel={rightLabel}
         onAdjust={(delta) => onAdjust('right', delta)}
+        readOnly={readOnly}
         value={rightValue}
       />
     </div>
