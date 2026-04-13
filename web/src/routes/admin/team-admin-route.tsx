@@ -1,13 +1,20 @@
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react';
-import { normalizePlayerSquad } from '@/lib/team';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { buildRotationPlan } from '@/lib/rotation-groups';
+import {
+  getPlayerRotationGroupLabel,
+  getPlayerSquadLabel,
+  normalizePlayerPositionProfile,
+  normalizePlayerRunningProfile,
+  normalizePlayerSquad,
+} from '@/lib/team';
+import type { PlayerRotationGroup, PlayerSquad } from '@/lib/types';
 
 import { deleteAttendanceRecordsForPlayer } from '@/lib/attendance';
 import { deleteAvailabilityRecordsForPlayer } from '@/lib/availability';
 import { deleteFinesForPlayer } from '@/lib/fines';
 import { deleteFitnessResultsForPlayer } from '@/lib/fitness';
-import { parsePlayersCsv } from '@/lib/team-csv';
 import {
-  addPlayer,
   cyclePlayerRole,
   deletePlayer,
   getSortedTeam,
@@ -18,9 +25,12 @@ import {
 import { deleteVoteEntriesForPlayer } from '@/lib/votes';
 
 import { TeamPlayerRow } from '@web/components/team/team-player-row';
+import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
+import { upsertCloudPlayer } from '@web/lib/storage/cloud-core-data-storage';
 
 export function TeamAdminRoute() {
+  const { activeClubId } = useClubAccess();
   const {
     isHydrated,
     players,
@@ -32,140 +42,21 @@ export function TeamAdminRoute() {
     setVoteEntries,
   } = useClubData();
   const [importMessage, setImportMessage] = useState<string | null>(null);
-  const [playerFormMessage, setPlayerFormMessage] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [nickname, setNickname] = useState('');
-  const [number, setNumber] = useState('');
-  const [squad, setSquad] = useState('');
-  const [pastedCsv, setPastedCsv] = useState('');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [squadFilter, setSquadFilter] = useState<'all' | PlayerSquad | 'unassigned'>('all');
   const summary = getTeamSummary(players);
   const roster = getSortedTeam(players);
-
-  async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
-    const selectedFile = event.target.files?.[0];
-
-    if (!selectedFile) {
-      return;
+  const rotationPlan = buildRotationPlan(players);
+  const filteredRoster = roster.filter((player) => {
+    if (squadFilter === 'all') {
+      return true;
     }
 
-    try {
-      const csvContent = await selectedFile.text();
-      const importedPlayers = parsePlayersCsv(csvContent);
-
-      setPlayers(importedPlayers);
-      setImportMessage(`Imported ${importedPlayers.length} players from ${selectedFile.name}.`);
-      setPlayerFormMessage(null);
-    } catch (error) {
-      if (error instanceof Error && error.message) {
-        setImportMessage(error.message);
-      } else {
-        setImportMessage('Could not import that CSV file.');
-      }
-    } finally {
-      event.target.value = '';
-    }
-  }
-
-  function handleAddPlayer(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const normalizedName = name.trim();
-    const normalizedNickname = nickname.trim() || null;
-    const normalizedNumberInput = number.trim();
-    const normalizedNumber = normalizedNumberInput ? Number(normalizedNumberInput) : null;
-    const normalizedSquad = normalizePlayerSquad(squad);
-
-    if (!normalizedName) {
-      setPlayerFormMessage('Enter a player name.');
-      return;
+    if (squadFilter === 'unassigned') {
+      return player.squad == null;
     }
 
-    if (
-      normalizedNumberInput &&
-      (!Number.isInteger(normalizedNumber) || normalizedNumber == null || normalizedNumber <= 0)
-    ) {
-      setPlayerFormMessage('Enter a valid guernsey number greater than zero.');
-      return;
-    }
-
-    const duplicateNumber =
-      normalizedNumber != null &&
-      players.some((player) => {
-        return player.number === normalizedNumber;
-      });
-
-    if (duplicateNumber) {
-      setPlayerFormMessage(`Player number ${normalizedNumber} is already in use.`);
-      return;
-    }
-
-    setPlayers((current) => {
-      return addPlayer(current, {
-        name: normalizedName,
-        nickname: normalizedNickname,
-        number: normalizedNumber,
-        squad: normalizedSquad,
-      });
-    });
-    setName('');
-    setNickname('');
-    setNumber('');
-    setSquad('');
-    setPlayerFormMessage(`${normalizedName} was added to the roster.`);
-  }
-
-  function handleBulkCreatePlayers() {
-    const normalizedCsv = pastedCsv.trim();
-
-    if (!normalizedCsv) {
-      setImportMessage('Paste CSV content before creating players.');
-      return;
-    }
-
-    try {
-      const importedPlayers = parsePlayersCsv(normalizedCsv);
-      const seenNumbers = new Set<number>();
-
-      for (const player of importedPlayers) {
-        if (player.number == null) {
-          continue;
-        }
-
-        if (seenNumbers.has(player.number)) {
-          setImportMessage(`Pasted CSV includes duplicate player number ${player.number}.`);
-          return;
-        }
-
-        seenNumbers.add(player.number);
-
-        const existingPlayer = players.find((candidate) => candidate.number === player.number);
-
-        if (existingPlayer) {
-          setImportMessage(`Player number ${player.number} is already in use.`);
-          return;
-        }
-      }
-
-      const createdAt = Date.now();
-      const playersToAdd = importedPlayers.map((player, index) => {
-        return {
-          ...player,
-          id: `${player.id}-${createdAt}-${index}`,
-        };
-      });
-
-      setPlayers((current) => [...current, ...playersToAdd]);
-      setPastedCsv('');
-      setPlayerFormMessage(null);
-      setImportMessage(`Added ${playersToAdd.length} players from pasted CSV.`);
-    } catch (error) {
-      if (error instanceof Error && error.message) {
-        setImportMessage(error.message);
-      } else {
-        setImportMessage('Could not create players from the pasted CSV.');
-      }
-    }
-  }
+    return player.squad === squadFilter;
+  });
 
   function handleDeletePlayer(playerId: string, playerName: string) {
     setPlayers((current) => {
@@ -189,15 +80,30 @@ export function TeamAdminRoute() {
     setImportMessage(`${playerName} was removed from the roster.`);
   }
 
-  function handleSavePlayerDetails(
+  async function handleSavePlayerDetails(
     playerId: string,
     playerName: string,
-    input: { nickname: string; number: string; squad: string }
+    input: {
+      name: string;
+      number: string;
+      squad: string;
+      primaryPosition: string;
+      secondaryPosition: string;
+      runningProfile: string;
+      rotationGroupOverrides: PlayerRotationGroup[] | null;
+    }
   ) {
-    const normalizedNickname = input.nickname.trim() || null;
+    const normalizedName = input.name.trim();
     const normalizedNumberInput = input.number.trim();
     const normalizedNumber = normalizedNumberInput ? Number(normalizedNumberInput) : null;
     const normalizedSquad = normalizePlayerSquad(input.squad);
+    const normalizedPrimaryPosition = normalizePlayerPositionProfile(input.primaryPosition);
+    const normalizedSecondaryPosition = normalizePlayerPositionProfile(input.secondaryPosition);
+    const normalizedRunningProfile = normalizePlayerRunningProfile(input.runningProfile);
+
+    if (!normalizedName) {
+      return 'Enter a player name.';
+    }
 
     if (
       normalizedNumberInput &&
@@ -216,13 +122,57 @@ export function TeamAdminRoute() {
       return `Player number ${normalizedNumber} is already in use.`;
     }
 
+    if (
+      normalizedPrimaryPosition &&
+      normalizedSecondaryPosition &&
+      normalizedPrimaryPosition === normalizedSecondaryPosition
+    ) {
+      return 'Choose a different secondary position or leave it unassigned.';
+    }
+
+    if (input.rotationGroupOverrides && input.rotationGroupOverrides.length <= 0) {
+      return 'Select at least one manual rotation group or switch back to generated groups.';
+    }
+
+    const currentPlayer = players.find((player) => player.id === playerId);
+
+    if (!currentPlayer) {
+      return 'Player record could not be found.';
+    }
+
+    const nextPlayer = {
+      ...currentPlayer,
+      name: normalizedName,
+      number: normalizedNumber,
+      squad: normalizedSquad,
+      primaryPosition: normalizedPrimaryPosition,
+      secondaryPosition: normalizedSecondaryPosition,
+      runningProfile: normalizedRunningProfile,
+      rotationGroupOverrides: input.rotationGroupOverrides,
+    };
+
     setPlayers((current) => {
       return updatePlayerDetails(current, playerId, {
-        nickname: normalizedNickname,
+        name: normalizedName,
         number: normalizedNumber,
         squad: normalizedSquad,
+        primaryPosition: normalizedPrimaryPosition,
+        secondaryPosition: normalizedSecondaryPosition,
+        runningProfile: normalizedRunningProfile,
+        rotationGroupOverrides: input.rotationGroupOverrides,
       });
     });
+
+    if (activeClubId) {
+      try {
+        await upsertCloudPlayer(activeClubId, nextPlayer);
+      } catch (error: unknown) {
+        return error instanceof Error
+          ? `Failed to save ${playerName} to cloud storage: ${error.message}`
+          : `Failed to save ${playerName} to cloud storage.`;
+      }
+    }
+
     setImportMessage(`${playerName} details updated.`);
 
     return null;
@@ -252,120 +202,32 @@ export function TeamAdminRoute() {
         <p className="muted">
           {isHydrated ? 'Roster changes are saved in the browser app.' : 'Loading saved roster...'}
         </p>
-      </section>
-
-      <form className="card stack" onSubmit={handleAddPlayer}>
-        <h3>Add player manually</h3>
-        <p className="muted">Enter a player directly if you do not want to upload a full CSV.</p>
-        <label className="field">
-          <span>Player name</span>
-          <input
-            className="input"
-            onChange={(event) => {
-              setName(event.target.value);
-              setPlayerFormMessage(null);
-            }}
-            placeholder="Player name"
-            value={name}
-          />
-        </label>
-        <label className="field">
-          <span>Nickname</span>
-          <input
-            className="input"
-            onChange={(event) => {
-              setNickname(event.target.value);
-              setPlayerFormMessage(null);
-            }}
-            placeholder="Optional"
-            value={nickname}
-          />
-        </label>
-        <div className="two-column">
-          <label className="field">
-            <span>Guernsey number</span>
-            <input
-              className="input"
-              inputMode="numeric"
-              onChange={(event) => {
-                setNumber(event.target.value);
-                setPlayerFormMessage(null);
-              }}
-              placeholder="Optional"
-              value={number}
-            />
-          </label>
-          <label className="field">
-            <span>Squad</span>
-            <select
-              className="input"
-              onChange={(event) => {
-                setSquad(event.target.value);
-                setPlayerFormMessage(null);
-              }}
-              value={squad}>
-              <option value="">Unassigned</option>
-              <option value="cup">Cup</option>
-              <option value="plate">Plate</option>
+        <div className="inline-actions">
+          <label className="field field--inline">
+            <span>Squad filter</span>
+            <select className="input" onChange={(event) => setSquadFilter(event.target.value as typeof squadFilter)} value={squadFilter}>
+              <option value="all">All squads</option>
+              <option value="cup">{getPlayerSquadLabel('cup')}</option>
+              <option value="plate">{getPlayerSquadLabel('plate')}</option>
+              <option value="unassigned">Unassigned</option>
             </select>
           </label>
-        </div>
-        <div className="inline-actions">
-          <button className="button" type="submit">
-            Add player
-          </button>
-          {playerFormMessage ? <p className="muted">{playerFormMessage}</p> : null}
-        </div>
-      </form>
-
-      <section className="card stack">
-        <h3>CSV upload</h3>
-        <p className="muted">
-          Upload or paste CSV with a `name` column. Optional columns: `nickname`, `number`, `squad`
-          or `designation`, `role`, `active`.
-        </p>
-        <p className="muted">Importing replaces the current roster in the browser app.</p>
-
-        <input
-          accept=".csv,text/csv"
-          className="hidden-input"
-          onChange={handleImportFile}
-          ref={fileInputRef}
-          type="file"
-        />
-        <div className="inline-actions">
-          <button
-            className="button"
-            onClick={() => {
-              fileInputRef.current?.click();
-            }}
-            type="button">
-            Upload player CSV
-          </button>
-        </div>
-
-        <label className="field">
-          <span>Pasted CSV</span>
-          <textarea
-            className="input textarea"
-            onChange={(event) => {
-              setPastedCsv(event.target.value);
-              setImportMessage(null);
-            }}
-            placeholder={'name,number,squad\nJane Smith,12,cup\nAlex Green,,plate'}
-            value={pastedCsv}
-          />
-        </label>
-
-        <div className="inline-actions">
-          <button className="button button--secondary" onClick={handleBulkCreatePlayers} type="button">
-            Create players from pasted CSV
-          </button>
-          {importMessage ? <p className="muted">{importMessage}</p> : null}
+          <Link className="text-link" to="/admin/rotation-groups">
+            Open rotation groups
+          </Link>
+          <Link className="text-link" to="/admin/team-setup">
+            Add or import players
+          </Link>
         </div>
       </section>
 
-      {roster.map((player) => {
+      {filteredRoster.map((player) => {
+        const rotationAssignment = rotationPlan.assignments[player.id];
+        const rotationSummary =
+          rotationAssignment && rotationAssignment.groups.length > 0
+            ? rotationAssignment.groups.map((group) => getPlayerRotationGroupLabel(group)).join(', ')
+            : 'No group assigned';
+
         return (
           <TeamPlayerRow
             key={player.id}
@@ -382,6 +244,8 @@ export function TeamAdminRoute() {
               setPlayers((current) => togglePlayerActive(current, player.id));
             }}
             player={player}
+            rotationSource={rotationAssignment?.source ?? 'generated'}
+            rotationSummary={rotationSummary}
           />
         );
       })}

@@ -2,6 +2,7 @@ export { availabilityRecords, fixtures } from '@/lib/mock-data/fixtures';
 export { fitnessResults } from '@/lib/mock-data/fitness';
 export { fines } from '@/lib/mock-data/fines';
 export { matchLineupAssignments } from '@/lib/mock-data/match-lineup';
+export { matchRotationAssignments } from '@/lib/mock-data/match-rotations';
 export { players } from '@/lib/mock-data/players';
 export { matchStats } from '@/lib/mock-data/stats';
 export { attendanceRecords, trainingSessions } from '@/lib/mock-data/training';

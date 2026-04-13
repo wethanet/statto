@@ -1,6 +1,6 @@
 import type { MatchLinePosition, MatchLineupAssignment } from '@/lib/types';
 
-export const matchLinePositions: MatchLinePosition[] = ['B', 'HB', 'C', 'HF', 'F', 'Fol', 'Int'];
+export const matchLinePositions: MatchLinePosition[] = ['B', 'HB', 'W', 'C', 'HF', 'F', 'Fol', 'Int'];
 
 export function getMatchLineupPosition(
   fixtureId: string,

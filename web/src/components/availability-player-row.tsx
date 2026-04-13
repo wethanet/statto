@@ -1,5 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
+
 import { matchLinePositions } from '@/lib/match-lineup';
-import type { AvailabilityStatus, MatchLinePosition, Player } from '@/lib/types';
+import { matchRotationGroups } from '@/lib/match-rotations';
+import { getPlayerRotationGroupLabel } from '@/lib/team';
+import type { AvailabilityStatus, MatchLinePosition, Player, PlayerRotationGroup } from '@/lib/types';
 
 type AvailabilityPlayerRowProps = {
   player: Player;
@@ -7,6 +11,10 @@ type AvailabilityPlayerRowProps = {
   onChange: (status: AvailabilityStatus) => void;
   selectedPosition: MatchLinePosition | null;
   onSelectPosition: (position: MatchLinePosition) => void;
+  rotationGroup: PlayerRotationGroup | null;
+  rotationGroupSource: 'generated' | 'manual' | null;
+  onSelectRotationGroup: (group: PlayerRotationGroup) => void;
+  onResetRotationGroup: () => void;
 };
 
 const AVAILABILITY_OPTIONS: AvailabilityStatus[] = ['available', 'unavailable', 'uncertain'];
@@ -41,14 +49,104 @@ export function AvailabilityPlayerRow({
   onChange,
   onSelectPosition,
   selectedPosition,
+  rotationGroup,
+  rotationGroupSource,
+  onSelectRotationGroup,
+  onResetRotationGroup,
 }: AvailabilityPlayerRowProps) {
   const metaParts = [player.number != null ? `#${player.number}` : null].filter(Boolean);
+  const [isRotationMenuOpen, setIsRotationMenuOpen] = useState(false);
+  const rotationMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isRotationMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!rotationMenuRef.current?.contains(event.target as Node)) {
+        setIsRotationMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsRotationMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isRotationMenuOpen]);
 
   return (
     <section className="selection-row">
       <div className="selection-row__identity">
         <div className="selection-row__name-group">
           <h3 className="selection-row__name">{player.name}</h3>
+          {rotationGroup ? (
+            <div className="selection-row__rotation-menu" ref={rotationMenuRef}>
+              <button
+                aria-expanded={status === 'available' ? isRotationMenuOpen : undefined}
+                aria-haspopup={status === 'available' ? 'menu' : undefined}
+                className="selection-row__rotation-trigger"
+                disabled={status !== 'available'}
+                onClick={() => {
+                  if (status === 'available') {
+                    setIsRotationMenuOpen((current) => !current);
+                  }
+                }}
+                title={`${getPlayerRotationGroupLabel(rotationGroup)}${rotationGroupSource === 'manual' ? ' (manual)' : ' (auto)'}`}
+                type="button">
+                <span
+                  aria-label={getPlayerRotationGroupLabel(rotationGroup)}
+                  className={`selection-row__rotation-dot selection-row__rotation-dot--${rotationGroup}`}
+                />
+              </button>
+
+              {status === 'available' && isRotationMenuOpen ? (
+                <div className="selection-row__rotation-popover" role="menu">
+                  {matchRotationGroups.map((group) => (
+                    <button
+                      className={
+                        rotationGroup === group
+                          ? 'selection-row__rotation-option selection-row__rotation-option--selected'
+                          : 'selection-row__rotation-option'
+                      }
+                      key={group}
+                      onClick={() => {
+                        onSelectRotationGroup(group);
+                        setIsRotationMenuOpen(false);
+                      }}
+                      role="menuitem"
+                      type="button">
+                      <span className={`selection-row__rotation-dot selection-row__rotation-dot--${group}`} />
+                      <span>{getPlayerRotationGroupLabel(group)}</span>
+                    </button>
+                  ))}
+
+                  {rotationGroupSource === 'manual' ? (
+                    <button
+                      className="selection-row__rotation-option"
+                      onClick={() => {
+                        onResetRotationGroup();
+                        setIsRotationMenuOpen(false);
+                      }}
+                      role="menuitem"
+                      type="button">
+                      <span className="selection-row__rotation-auto-label">Auto</span>
+                      <span>Use generated group</span>
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {metaParts.length > 0 ? (
             <span className="selection-row__meta">{metaParts.join(' • ')}</span>
           ) : null}
@@ -56,46 +154,41 @@ export function AvailabilityPlayerRow({
       </div>
 
       {status === 'available' ? (
-        <div className="inline-actions selection-row__pills selection-row__pills--compact selection-row__positions">
-          {matchLinePositions.map((position) => {
-            const isSelected = selectedPosition === position;
+        <div className="selection-row__controls">
+          <div className="inline-actions selection-row__pills selection-row__pills--compact selection-row__positions">
+            {matchLinePositions.map((position) => {
+              const isSelected = selectedPosition === position;
 
-            return (
-              <button
-                key={position}
-                className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
-                onClick={() => onSelectPosition(position)}
-                type="button">
-                {position}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={position}
+                  className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+                  onClick={() => onSelectPosition(position)}
+                  type="button">
+                  {position}
+                </button>
+              );
+            })}
+          </div>
         </div>
       ) : (
-        <div className="selection-row__positions" />
+        <div className="selection-row__controls" />
       )}
 
       <div className="selection-row__actions">
-        <div className="inline-actions selection-row__pills selection-row__pills--compact">
-          {AVAILABILITY_OPTIONS.map((option) => {
-            const isSelected = option === status;
-            const tone = getAvailabilityTone(option);
-
-            return (
-              <button
-                key={option}
-                className={
-                  isSelected
-                    ? `pill-button pill-button--compact pill-button--selected pill-button--${tone}`
-                    : 'pill-button pill-button--compact'
-                }
-                onClick={() => onChange(option)}
-                type="button">
+        <label className="selection-row__status-field">
+          <span className="hidden-input">Selection status</span>
+          <select
+            className={`input selection-row__status-select selection-row__status-select--${getAvailabilityTone(status)}`}
+            onChange={(event) => onChange(event.target.value as AvailabilityStatus)}
+            value={status}>
+            {AVAILABILITY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
                 {getAvailabilityLabel(option)}
-              </button>
-            );
-          })}
-        </div>
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
     </section>
   );

@@ -8,8 +8,10 @@ import { AuthScreen } from '@web/routes/auth-screen';
 import { ClubAccessScreen } from '@web/routes/club-access-screen';
 import { HomeScreen } from '@web/routes/home-screen';
 import { MatchesAdminRoute } from '@web/routes/admin/matches-admin-route';
+import { RotationGroupsAdminRoute } from '@web/routes/admin/rotation-groups-admin-route';
 import { SettingsAdminRoute } from '@web/routes/admin/settings-admin-route';
 import { TeamAdminRoute } from '@web/routes/admin/team-admin-route';
+import { TeamSetupAdminRoute } from '@web/routes/admin/team-setup-admin-route';
 import { VotesAdminRoute } from '@web/routes/admin/votes-admin-route';
 import { MatchDetailRoute } from '@web/routes/matches/match-detail-route';
 import { MatchesListRoute } from '@web/routes/matches/matches-list-route';
@@ -68,6 +70,8 @@ export function AppRouter() {
           <Route path="/matches/:fixtureId/votes" element={<MatchVotesRoute />} />
           <Route path="/admin" element={<AdminHomeRoute />} />
           <Route path="/admin/team" element={<TeamAdminRoute />} />
+          <Route path="/admin/team-setup" element={<TeamSetupAdminRoute />} />
+          <Route path="/admin/rotation-groups" element={<RotationGroupsAdminRoute />} />
           <Route path="/admin/training" element={<TrainingAdminRoute />} />
           <Route path="/admin/matches" element={<MatchesAdminRoute />} />
           <Route path="/admin/fines" element={<FinesAdminRoute />} />

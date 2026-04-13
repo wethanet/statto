@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getAttendanceSummary, getSortedTrainingSessions } from '@/lib/attendance';
@@ -24,6 +24,33 @@ export function TrainingListRoute() {
   const sessions = useMemo(() => {
     return getSortedTrainingSessions(trainingSessions);
   }, [trainingSessions]);
+  const targetSessionId = useMemo(() => {
+    if (sessions.length === 0) {
+      return null;
+    }
+
+    const lastPastSession = [...sessions]
+      .reverse()
+      .find((session) => {
+        return isPastItem(session.date);
+      });
+
+    return lastPastSession?.id ?? sessions[0]?.id ?? null;
+  }, [sessions]);
+  const targetSessionRef = useRef<HTMLElement | null>(null);
+  const hasScrolledRef = useRef(false);
+
+  useEffect(() => {
+    if (hasScrolledRef.current || !targetSessionId || !targetSessionRef.current) {
+      return;
+    }
+
+    targetSessionRef.current.scrollIntoView({
+      block: 'center',
+      inline: 'nearest',
+    });
+    hasScrolledRef.current = true;
+  }, [targetSessionId]);
 
   return (
     <section className="page-grid">
@@ -52,6 +79,7 @@ export function TrainingListRoute() {
         return (
           <section
             key={session.id}
+            ref={session.id === targetSessionId ? targetSessionRef : null}
             className={isPastSession ? 'card stack schedule-card schedule-card--past' : 'card stack schedule-card'}>
             <div className="schedule-card__layout">
               <div className="stack-sm schedule-card__main">

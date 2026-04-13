@@ -41,6 +41,18 @@ export function AdminHomeRoute() {
       action: 'Open team management',
     },
     {
+      title: 'Player setup',
+      body: 'Add new players manually or import the squad from CSV without cluttering the management screen.',
+      to: '/admin/team-setup',
+      action: 'Open player setup',
+    },
+    {
+      title: 'Rotation groups',
+      body: 'Review the automated AFL rotation plan and adjust player support groups.',
+      to: '/admin/rotation-groups',
+      action: 'Open rotation groups',
+    },
+    {
       title: 'Training setup',
       body: nextTraining ? `Next session is ${nextTraining.title}.` : 'No training sessions have been added yet.',
       to: '/admin/training',

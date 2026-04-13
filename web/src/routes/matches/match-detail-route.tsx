@@ -14,6 +14,12 @@ import {
   getPlayersForFixtureLineup,
   upsertMatchLineupAssignment,
 } from '@/lib/match-lineup';
+import {
+  deleteMatchRotationAssignment,
+  getMatchRotationAssignment,
+  upsertMatchRotationAssignment,
+} from '@/lib/match-rotations';
+import { buildMatchRotationPlan, buildRotationPlan } from '@/lib/rotation-groups';
 import { getPlayerSortValue } from '@/lib/team';
 
 import { AvailabilityPlayerRow } from '@web/components/availability-player-row';
@@ -45,9 +51,11 @@ export function MatchDetailRoute() {
     fixtures,
     isHydrated,
     matchLineupAssignments,
+    matchRotationAssignments,
     players,
     setAvailabilityRecords,
     setMatchLineupAssignments,
+    setMatchRotationAssignments,
   } = useClubData();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const [defaultTeamMessage, setDefaultTeamMessage] = useState<string | null>(null);
@@ -80,6 +88,17 @@ export function MatchDetailRoute() {
       );
     });
   }, [playersForFixture, sortBy]);
+
+  const rotationPlan = useMemo(() => {
+    return buildRotationPlan(players);
+  }, [players]);
+  const matchRotationPlan = useMemo(() => {
+    if (!fixture) {
+      return { assignments: {} };
+    }
+
+    return buildMatchRotationPlan(fixture.id, playersForFixture, rotationPlan.assignments, matchRotationAssignments);
+  }, [fixture, matchRotationAssignments, playersForFixture, rotationPlan.assignments]);
 
   const groupedPlayers = useMemo(() => {
     return AVAILABILITY_GROUPS.map((group) => ({
@@ -256,6 +275,9 @@ export function MatchDetailRoute() {
                         setMatchLineupAssignments((current) => {
                           return deleteMatchLineupAssignment(current, fixture.id, player.id);
                         });
+                        setMatchRotationAssignments((current) => {
+                          return deleteMatchRotationAssignment(current, fixture.id, player.id);
+                        });
                       }
                     }}
                     onSelectPosition={(position) => {
@@ -267,7 +289,25 @@ export function MatchDetailRoute() {
                         return upsertMatchLineupAssignment(current, fixture.id, player.id, position);
                       });
                     }}
+                    onSelectRotationGroup={(group) => {
+                      setMatchRotationAssignments((current) => {
+                        const existingAssignment = getMatchRotationAssignment(fixture.id, player.id, current);
+
+                        if (existingAssignment?.group === group) {
+                          return deleteMatchRotationAssignment(current, fixture.id, player.id);
+                        }
+
+                        return upsertMatchRotationAssignment(current, fixture.id, player.id, group);
+                      });
+                    }}
+                    onResetRotationGroup={() => {
+                      setMatchRotationAssignments((current) => {
+                        return deleteMatchRotationAssignment(current, fixture.id, player.id);
+                      });
+                    }}
                     player={player}
+                    rotationGroup={matchRotationPlan.assignments[player.id]?.group ?? null}
+                    rotationGroupSource={matchRotationPlan.assignments[player.id]?.source ?? null}
                     selectedPosition={player.matchPosition}
                     status={player.availabilityStatus}
                   />

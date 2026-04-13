@@ -5,6 +5,7 @@ import type {
   Fixture,
   MatchStatEntry,
   MatchLineupAssignment,
+  MatchRotationAssignment,
   Player,
   TrainingSession,
   VoteEntry,
@@ -23,6 +24,7 @@ export type CloudCoreData = {
   availabilityRecords: AvailabilityRecord[];
   matchStats: MatchStatEntry[];
   matchLineupAssignments: MatchLineupAssignment[];
+  matchRotationAssignments: MatchRotationAssignment[];
   voteEntries: VoteEntry[];
   fitnessResults: FitnessResult[];
 };
@@ -54,7 +56,9 @@ async function loadCloudPlayers(clubId: string) {
 
   const preferredResult = await supabase
     .from('club_players')
-    .select('id, name, nickname, number, squad, role, active')
+    .select(
+      'id, name, number, squad, role, active, primary_position, secondary_position, running_profile, rotation_group_overrides'
+    )
     .eq('club_id', clubId)
     .order('number', { ascending: true });
 
@@ -123,6 +127,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     availabilityRecordsResult,
     matchStatsResult,
     matchLineupAssignmentsResult,
+    matchRotationAssignmentsResult,
     voteEntriesResult,
     fitnessResultsResult,
   ] = await Promise.all([
@@ -149,6 +154,10 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     supabase
       .from('club_match_lineup_assignments')
       .select('fixture_id, player_id, position')
+      .eq('club_id', clubId),
+    supabase
+      .from('club_match_rotation_assignments')
+      .select('fixture_id, player_id, rotation_group')
       .eq('club_id', clubId),
     supabase
       .from('club_vote_entries')
@@ -249,6 +258,19 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
+  if (matchRotationAssignmentsResult.error) {
+    logCloudCollectionError('match rotation assignments', matchRotationAssignmentsResult.error);
+  } else {
+    snapshot.matchRotationAssignments = (matchRotationAssignmentsResult.data ?? []).map((assignment) => {
+      return {
+        fixtureId: assignment.fixture_id as string,
+        playerId: assignment.player_id as string,
+        group: assignment.rotation_group as MatchRotationAssignment['group'],
+      };
+    });
+    hasSuccessfulRead = true;
+  }
+
   if (voteEntriesResult.error) {
     logCloudCollectionError('vote entries', voteEntriesResult.error);
   } else {
@@ -290,11 +312,14 @@ export async function upsertCloudPlayer(clubId: string, player: Player) {
       club_id: clubId,
       id: player.id,
       name: player.name,
-      nickname: player.nickname,
       number: player.number,
       squad: player.squad,
       role: player.role,
       active: player.active,
+      primary_position: player.primaryPosition,
+      secondary_position: player.secondaryPosition,
+      running_profile: player.runningProfile,
+      rotation_group_overrides: player.rotationGroupOverrides,
     },
     { onConflict: 'club_id,id' }
   );
@@ -570,6 +595,59 @@ export async function deleteCloudMatchLineupAssignmentsForPlayer(clubId: string,
   const client = requireSupabase();
   const { error } = await client
     .from('club_match_lineup_assignments')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudMatchRotationAssignment(
+  clubId: string,
+  assignment: MatchRotationAssignment
+) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_match_rotation_assignments').upsert(
+    {
+      club_id: clubId,
+      fixture_id: assignment.fixtureId,
+      player_id: assignment.playerId,
+      rotation_group: assignment.group,
+    },
+    { onConflict: 'club_id,fixture_id,player_id' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudMatchRotationAssignment(
+  clubId: string,
+  fixtureId: string,
+  playerId: string
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_match_rotation_assignments')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudMatchRotationAssignmentsForFixture(clubId: string, fixtureId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_match_rotation_assignments')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId);
+  await throwOnError(error);
+}
+
+export async function deleteCloudMatchRotationAssignmentsForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_match_rotation_assignments')
     .delete()
     .eq('club_id', clubId)
     .eq('player_id', playerId);

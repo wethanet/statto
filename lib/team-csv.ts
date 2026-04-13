@@ -1,5 +1,9 @@
 import type { Player, PlayerRole } from '@/lib/types';
-import { normalizePlayerSquad } from '@/lib/team';
+import {
+  normalizePlayerPositionProfile,
+  normalizePlayerRunningProfile,
+  normalizePlayerSquad,
+} from '@/lib/team';
 
 const validRoles: PlayerRole[] = ['player', 'captain', 'vice-captain', 'leader'];
 
@@ -86,11 +90,19 @@ export function parsePlayersCsv(csvContent: string): Player[] {
 
   const headers = parseCsvLine(rows[0]).map(normalizeHeader);
   const nameIndex = headers.indexOf('name');
-  const nicknameIndex = headers.indexOf('nickname');
   const numberIndex = headers.indexOf('number');
   const squadIndex = headers.findIndex((header) => header === 'squad' || header === 'designation');
   const roleIndex = headers.indexOf('role');
   const activeIndex = headers.indexOf('active');
+  const primaryPositionIndex = headers.findIndex((header) => {
+    return header === 'primary position' || header === 'primary_position' || header === 'primaryposition';
+  });
+  const secondaryPositionIndex = headers.findIndex((header) => {
+    return header === 'secondary position' || header === 'secondary_position' || header === 'secondaryposition';
+  });
+  const runningProfileIndex = headers.findIndex((header) => {
+    return header === 'running profile' || header === 'running_profile' || header === 'runningprofile';
+  });
 
   if (nameIndex === -1) {
     throw new Error('CSV headers must include name.');
@@ -99,7 +111,6 @@ export function parsePlayersCsv(csvContent: string): Player[] {
   return rows.slice(1).map((row, rowIndex) => {
     const values = parseCsvLine(row);
     const name = values[nameIndex];
-    const nicknameValue = nicknameIndex === -1 ? undefined : values[nicknameIndex];
     const numberValue = numberIndex === -1 ? undefined : values[numberIndex];
     const squadValue = squadIndex === -1 ? undefined : values[squadIndex];
     const normalizedNumberValue = numberValue?.trim();
@@ -119,11 +130,20 @@ export function parsePlayersCsv(csvContent: string): Player[] {
     return {
       id: makePlayerId(name, number, rowIndex),
       name,
-      nickname: nicknameValue?.trim() || null,
       number,
       squad: normalizePlayerSquad(squadValue),
       role: normalizeRole(roleIndex === -1 ? undefined : values[roleIndex]),
       active: normalizeActive(activeIndex === -1 ? undefined : values[activeIndex]),
+      primaryPosition: normalizePlayerPositionProfile(
+        primaryPositionIndex === -1 ? undefined : values[primaryPositionIndex]
+      ),
+      secondaryPosition: normalizePlayerPositionProfile(
+        secondaryPositionIndex === -1 ? undefined : values[secondaryPositionIndex]
+      ),
+      runningProfile: normalizePlayerRunningProfile(
+        runningProfileIndex === -1 ? undefined : values[runningProfileIndex]
+      ),
+      rotationGroupOverrides: null,
     };
   });
 }

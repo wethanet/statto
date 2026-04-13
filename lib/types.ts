@@ -1,4 +1,11 @@
 export type ClubMembershipRole = 'owner' | 'manager';
+export type PlayerPositionProfile = 'B' | 'HB' | 'W' | 'C' | 'HF' | 'F' | 'Fol';
+export type PlayerRunningProfile = 'high' | 'balanced' | 'managed';
+export type PlayerRotationGroup =
+  | 'inside-mids'
+  | 'running-players'
+  | 'key-position-players'
+  | 'utility-players';
 
 export type Club = {
   id: string;
@@ -10,11 +17,14 @@ export type Club = {
 export type Player = {
   id: string;
   name: string;
-  nickname: string | null;
   number: number | null;
   squad: PlayerSquad | null;
   role: PlayerRole;
   active: boolean;
+  primaryPosition: PlayerPositionProfile | null;
+  secondaryPosition: PlayerPositionProfile | null;
+  runningProfile: PlayerRunningProfile | null;
+  rotationGroupOverrides: PlayerRotationGroup[] | null;
 };
 
 export type PlayerRole = 'player' | 'captain' | 'vice-captain' | 'leader';
@@ -52,12 +62,18 @@ export type AvailabilityRecord = {
   status: AvailabilityStatus;
 };
 
-export type MatchLinePosition = 'B' | 'HB' | 'C' | 'HF' | 'F' | 'Fol' | 'Int';
+export type MatchLinePosition = 'B' | 'HB' | 'W' | 'C' | 'HF' | 'F' | 'Fol' | 'Int';
 
 export type MatchLineupAssignment = {
   fixtureId: string;
   playerId: string;
   position: MatchLinePosition;
+};
+
+export type MatchRotationAssignment = {
+  fixtureId: string;
+  playerId: string;
+  group: PlayerRotationGroup;
 };
 
 export type Fine = {

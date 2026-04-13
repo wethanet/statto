@@ -1,6 +1,21 @@
-import type { Player, PlayerRole, PlayerSquad } from '@/lib/types';
+import type {
+  Player,
+  PlayerPositionProfile,
+  PlayerRole,
+  PlayerRotationGroup,
+  PlayerRunningProfile,
+  PlayerSquad,
+} from '@/lib/types';
 
 const playerRoleOrder: PlayerRole[] = ['player', 'leader', 'vice-captain', 'captain'];
+const validPlayerPositions: PlayerPositionProfile[] = ['B', 'HB', 'W', 'C', 'HF', 'F', 'Fol'];
+const validRunningProfiles: PlayerRunningProfile[] = ['high', 'balanced', 'managed'];
+const validRotationGroups: PlayerRotationGroup[] = [
+  'inside-mids',
+  'running-players',
+  'key-position-players',
+  'utility-players',
+];
 
 type TeamSummary = {
   total: number;
@@ -78,19 +93,25 @@ export function addPlayer(
   players: Player[],
   input: {
     name: string;
-    nickname?: string | null;
     number?: number | null;
     squad?: PlayerSquad | null;
+    primaryPosition?: PlayerPositionProfile | null;
+    secondaryPosition?: PlayerPositionProfile | null;
+    runningProfile?: PlayerRunningProfile | null;
+    rotationGroupOverrides?: PlayerRotationGroup[] | null;
   }
 ) {
   const player: Player = {
     id: `player-${Date.now()}`,
     name: input.name.trim(),
-    nickname: input.nickname?.trim() || null,
     number: input.number ?? null,
     squad: input.squad ?? null,
     role: 'player',
     active: true,
+    primaryPosition: input.primaryPosition ?? null,
+    secondaryPosition: input.secondaryPosition ?? null,
+    runningProfile: input.runningProfile ?? null,
+    rotationGroupOverrides: input.rotationGroupOverrides ?? null,
   };
 
   return [...players, player];
@@ -100,9 +121,13 @@ export function updatePlayerDetails(
   players: Player[],
   playerId: string,
   input: {
-    nickname?: string | null;
+    name?: string;
     number?: number | null;
     squad?: PlayerSquad | null;
+    primaryPosition?: PlayerPositionProfile | null;
+    secondaryPosition?: PlayerPositionProfile | null;
+    runningProfile?: PlayerRunningProfile | null;
+    rotationGroupOverrides?: PlayerRotationGroup[] | null;
   }
 ) {
   return players.map((player) => {
@@ -112,9 +137,13 @@ export function updatePlayerDetails(
 
     return {
       ...player,
-      nickname: input.nickname?.trim() || null,
+      name: input.name?.trim() || player.name,
       number: input.number ?? null,
       squad: input.squad ?? null,
+      primaryPosition: input.primaryPosition ?? null,
+      secondaryPosition: input.secondaryPosition ?? null,
+      runningProfile: input.runningProfile ?? null,
+      rotationGroupOverrides: input.rotationGroupOverrides ?? null,
     };
   });
 }
@@ -170,8 +199,81 @@ export function normalizePlayerSquad(value: string | null | undefined): PlayerSq
   return null;
 }
 
+export function normalizePlayerPositionProfile(
+  value: string | null | undefined
+): PlayerPositionProfile | null {
+  const normalizedValue = value?.trim().toLowerCase();
+
+  switch (normalizedValue) {
+    case 'b':
+      return 'B';
+    case 'hb':
+      return 'HB';
+    case 'w':
+      return 'W';
+    case 'c':
+      return 'C';
+    case 'hf':
+      return 'HF';
+    case 'f':
+      return 'F';
+    case 'fol':
+    case 'follower':
+      return 'Fol';
+    default:
+      return null;
+  }
+}
+
+export function normalizePlayerRunningProfile(
+  value: string | null | undefined
+): PlayerRunningProfile | null {
+  const normalizedValue = value?.trim().toLowerCase() as PlayerRunningProfile | undefined;
+
+  if (normalizedValue && validRunningProfiles.includes(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  return null;
+}
+
+export function normalizePlayerRotationGroups(value: unknown): PlayerRotationGroup[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalizedValue = value
+    .map((entry) => {
+      return typeof entry === 'string' ? entry.trim().toLowerCase() : '';
+    })
+    .filter((entry): entry is PlayerRotationGroup => {
+      return validRotationGroups.includes(entry as PlayerRotationGroup);
+    });
+
+  if (normalizedValue.length <= 0) {
+    return null;
+  }
+
+  return Array.from(new Set(normalizedValue));
+}
+
 export function normalizePlayers(
-  players: Array<Omit<Player, 'squad' | 'nickname'> & { squad?: string | null; nickname?: string | null }>
+  players: Array<
+    Omit<
+      Player,
+      'squad' | 'primaryPosition' | 'secondaryPosition' | 'runningProfile' | 'rotationGroupOverrides'
+    > & {
+      squad?: string | null;
+      primaryPosition?: string | null;
+      secondaryPosition?: string | null;
+      runningProfile?: string | null;
+      rotationGroupOverrides?: unknown;
+      rotation_group_overrides?: unknown;
+      primary_position?: string | null;
+      secondary_position?: string | null;
+      running_profile?: string | null;
+    }
+  >
 ): Player[] {
   return players.map((player) => {
     const { id, name, number, role, active } = player;
@@ -179,11 +281,16 @@ export function normalizePlayers(
     return {
       id,
       name,
-      nickname: player.nickname?.trim() || null,
       number,
       squad: normalizePlayerSquad(player.squad),
       role,
       active,
+      primaryPosition: normalizePlayerPositionProfile(player.primaryPosition ?? player.primary_position),
+      secondaryPosition: normalizePlayerPositionProfile(player.secondaryPosition ?? player.secondary_position),
+      runningProfile: normalizePlayerRunningProfile(player.runningProfile ?? player.running_profile),
+      rotationGroupOverrides: normalizePlayerRotationGroups(
+        player.rotationGroupOverrides ?? player.rotation_group_overrides
+      ),
     };
   });
 }
@@ -198,4 +305,42 @@ export function getPlayerSquadLabel(squad: PlayerSquad | null) {
   }
 
   return 'Unassigned';
+}
+
+export function getPlayerPositionLabel(position: PlayerPositionProfile | null) {
+  if (!position) {
+    return 'Unassigned';
+  }
+
+  if (position === 'Fol') {
+    return 'Follower';
+  }
+
+  return position;
+}
+
+export function getPlayerRunningProfileLabel(profile: PlayerRunningProfile | null) {
+  switch (profile) {
+    case 'high':
+      return 'High running';
+    case 'managed':
+      return 'Managed load';
+    case 'balanced':
+      return 'Balanced';
+    default:
+      return 'Unassigned';
+  }
+}
+
+export function getPlayerRotationGroupLabel(group: PlayerRotationGroup) {
+  switch (group) {
+    case 'inside-mids':
+      return 'Inside mids';
+    case 'running-players':
+      return 'Running players';
+    case 'key-position-players':
+      return 'Key-position players';
+    case 'utility-players':
+      return 'Utility players';
+  }
 }

@@ -24,6 +24,7 @@ import type {
   Fine,
   Fixture,
   MatchLineupAssignment,
+  MatchRotationAssignment,
   MatchStatEntry,
   Player,
   TrainingSession,
@@ -46,6 +47,9 @@ import {
   deleteCloudMatchLineupAssignment,
   deleteCloudMatchLineupAssignmentsForFixture,
   deleteCloudMatchLineupAssignmentsForPlayer,
+  deleteCloudMatchRotationAssignment,
+  deleteCloudMatchRotationAssignmentsForFixture,
+  deleteCloudMatchRotationAssignmentsForPlayer,
   deleteCloudPlayer,
   deleteCloudTrainingSession,
   deleteCloudVoteEntriesForPlayer,
@@ -57,6 +61,7 @@ import {
   upsertCloudFixture,
   upsertCloudMatchStatEntry,
   upsertCloudMatchLineupAssignment,
+  upsertCloudMatchRotationAssignment,
   upsertCloudPlayer,
   upsertCloudTrainingSession,
   upsertCloudVoteEntry,
@@ -79,6 +84,8 @@ type ClubDataContextValue = {
   setMatchStats: Dispatch<SetStateAction<MatchStatEntry[]>>;
   matchLineupAssignments: MatchLineupAssignment[];
   setMatchLineupAssignments: Dispatch<SetStateAction<MatchLineupAssignment[]>>;
+  matchRotationAssignments: MatchRotationAssignment[];
+  setMatchRotationAssignments: Dispatch<SetStateAction<MatchRotationAssignment[]>>;
   fitnessResults: FitnessResult[];
   setFitnessResults: Dispatch<SetStateAction<FitnessResult[]>>;
   fines: Fine[];
@@ -106,6 +113,7 @@ const STORAGE_KEYS = {
   availabilityRecords: 'availability-records.json',
   matchStats: 'match-stats.json',
   matchLineupAssignments: 'match-lineup-assignments.json',
+  matchRotationAssignments: 'match-rotation-assignments.json',
   fitnessResults: 'fitness-results.json',
   fines: 'fines.json',
   voteEntries: 'vote-entries.json',
@@ -123,6 +131,7 @@ const REALTIME_TABLES = [
   'club_availability_records',
   'club_match_stats',
   'club_match_lineup_assignments',
+  'club_match_rotation_assignments',
   'club_vote_entries',
   'club_fitness_results',
 ] as const;
@@ -165,6 +174,7 @@ async function loadLocalSnapshot(storageScope: string) {
     availabilityRecords,
     matchStats,
     matchLineupAssignments,
+    matchRotationAssignments,
     fitnessResults,
     fines,
     voteEntries,
@@ -179,6 +189,10 @@ async function loadLocalSnapshot(storageScope: string) {
       storageScope,
       STORAGE_KEYS.matchLineupAssignments
     ),
+    readScopedStorageWithLegacyFallback<MatchRotationAssignment[]>(
+      storageScope,
+      STORAGE_KEYS.matchRotationAssignments
+    ),
     readScopedStorageWithLegacyFallback<FitnessResult[]>(storageScope, STORAGE_KEYS.fitnessResults),
     readScopedStorageWithLegacyFallback<Fine[]>(storageScope, STORAGE_KEYS.fines),
     readScopedStorageWithLegacyFallback<VoteEntry[]>(storageScope, STORAGE_KEYS.voteEntries),
@@ -192,6 +206,7 @@ async function loadLocalSnapshot(storageScope: string) {
     availabilityRecords: availabilityRecords ?? undefined,
     matchStats: matchStats ?? undefined,
     matchLineupAssignments: matchLineupAssignments ?? undefined,
+    matchRotationAssignments: matchRotationAssignments ?? undefined,
     fitnessResults: fitnessResults ?? undefined,
     fines: fines ?? undefined,
     voteEntries: voteEntries ?? undefined,
@@ -218,6 +233,10 @@ async function saveLocalSnapshot(snapshot: ClubDataSnapshot, storageScope: strin
     writeJsonStorage(
       getScopedStorageKey(storageScope, STORAGE_KEYS.matchLineupAssignments),
       snapshot.matchLineupAssignments
+    ),
+    writeJsonStorage(
+      getScopedStorageKey(storageScope, STORAGE_KEYS.matchRotationAssignments),
+      snapshot.matchRotationAssignments
     ),
     writeJsonStorage(
       getScopedStorageKey(storageScope, STORAGE_KEYS.fitnessResults),
@@ -276,6 +295,9 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const [matchLineupAssignmentsState, setMatchLineupAssignmentsState] = useState(
     emptyClubDataSnapshot.matchLineupAssignments
   );
+  const [matchRotationAssignmentsState, setMatchRotationAssignmentsState] = useState(
+    emptyClubDataSnapshot.matchRotationAssignments
+  );
   const [fitnessResultsState, setFitnessResultsState] = useState(emptyClubDataSnapshot.fitnessResults);
   const [finesState, setFinesState] = useState(emptyClubDataSnapshot.fines);
   const [voteEntriesState, setVoteEntriesState] = useState(emptyClubDataSnapshot.voteEntries);
@@ -300,6 +322,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const availabilityRecordsRef = useRef(availabilityRecordsState);
   const matchStatsRef = useRef(matchStatsState);
   const matchLineupAssignmentsRef = useRef(matchLineupAssignmentsState);
+  const matchRotationAssignmentsRef = useRef(matchRotationAssignmentsState);
   const fitnessResultsRef = useRef(fitnessResultsState);
   const finesRef = useRef(finesState);
   const voteEntriesRef = useRef(voteEntriesState);
@@ -311,6 +334,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   availabilityRecordsRef.current = availabilityRecordsState;
   matchStatsRef.current = matchStatsState;
   matchLineupAssignmentsRef.current = matchLineupAssignmentsState;
+  matchRotationAssignmentsRef.current = matchRotationAssignmentsState;
   fitnessResultsRef.current = fitnessResultsState;
   finesRef.current = finesState;
   voteEntriesRef.current = voteEntriesState;
@@ -335,6 +359,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     availabilityRecordsRef.current = snapshot.availabilityRecords;
     matchStatsRef.current = snapshot.matchStats;
     matchLineupAssignmentsRef.current = snapshot.matchLineupAssignments;
+    matchRotationAssignmentsRef.current = snapshot.matchRotationAssignments;
     fitnessResultsRef.current = snapshot.fitnessResults;
     finesRef.current = snapshot.fines;
     voteEntriesRef.current = snapshot.voteEntries;
@@ -346,6 +371,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setAvailabilityRecordsState(snapshot.availabilityRecords);
     setMatchStatsState(snapshot.matchStats);
     setMatchLineupAssignmentsState(snapshot.matchLineupAssignments);
+    setMatchRotationAssignmentsState(snapshot.matchRotationAssignments);
     setFitnessResultsState(snapshot.fitnessResults);
     setFinesState(snapshot.fines);
     setVoteEntriesState(snapshot.voteEntries);
@@ -360,6 +386,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       availabilityRecords: availabilityRecordsRef.current,
       matchStats: matchStatsRef.current,
       matchLineupAssignments: matchLineupAssignmentsRef.current,
+      matchRotationAssignments: matchRotationAssignmentsRef.current,
       fitnessResults: fitnessResultsRef.current,
       fines: finesRef.current,
       voteEntries: voteEntriesRef.current,
@@ -488,6 +515,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       await deleteCloudAttendanceRecordsForPlayer(clubId, player.id);
       await deleteCloudAvailabilityRecordsForPlayer(clubId, player.id);
       await deleteCloudMatchLineupAssignmentsForPlayer(clubId, player.id);
+      await deleteCloudMatchRotationAssignmentsForPlayer(clubId, player.id);
       await deleteCloudFitnessResultsForPlayer(clubId, player.id);
       await deleteCloudVoteEntriesForPlayer(clubId, player.id);
       await deleteCloudPlayer(clubId, player.id);
@@ -525,6 +553,18 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     }
   );
 
+  const setMatchRotationAssignments = createCollectionSetter(
+    matchRotationAssignmentsRef,
+    setMatchRotationAssignmentsState,
+    {
+      label: 'match rotation assignments',
+      keyOf: (assignment) => `${assignment.fixtureId}::${assignment.playerId}`,
+      upsertRemote: upsertCloudMatchRotationAssignment,
+      deleteRemote: (clubId, assignment) =>
+        deleteCloudMatchRotationAssignment(clubId, assignment.fixtureId, assignment.playerId),
+    }
+  );
+
   const setFitnessResults = createCollectionSetter(fitnessResultsRef, setFitnessResultsState, {
     label: 'fitness results',
     keyOf: (result) => `${result.playerId}::${result.metric}::${result.phase}`,
@@ -552,6 +592,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setAvailabilityRecords(snapshot.availabilityRecords);
     setMatchStats(snapshot.matchStats);
     setMatchLineupAssignments(snapshot.matchLineupAssignments);
+    setMatchRotationAssignments(snapshot.matchRotationAssignments);
     setFitnessResults(snapshot.fitnessResults);
     setFines(snapshot.fines);
     setVoteEntries(snapshot.voteEntries);
@@ -732,6 +773,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       availabilityRecords: availabilityRecordsState,
       matchStats: matchStatsState,
       matchLineupAssignments: matchLineupAssignmentsState,
+      matchRotationAssignments: matchRotationAssignmentsState,
       fitnessResults: fitnessResultsState,
       fines: finesState,
       voteEntries: voteEntriesState,
@@ -743,6 +785,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     fitnessResultsState,
     fixturesState,
     matchLineupAssignmentsState,
+    matchRotationAssignmentsState,
     matchStatsState,
     playersState,
     trainingSessionsState,
@@ -775,6 +818,8 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setMatchStats,
       matchLineupAssignments: matchLineupAssignmentsState,
       setMatchLineupAssignments,
+      matchRotationAssignments: matchRotationAssignmentsState,
+      setMatchRotationAssignments,
       fitnessResults: fitnessResultsState,
       setFitnessResults,
       fines: finesState,
@@ -796,6 +841,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     isConfigured,
     isHydrated,
     matchLineupAssignmentsState,
+    matchRotationAssignmentsState,
     matchStatsState,
     playersState,
     syncDebug,

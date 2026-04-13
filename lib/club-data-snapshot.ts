@@ -6,6 +6,7 @@ import {
   fines,
   matchStats,
   matchLineupAssignments,
+  matchRotationAssignments,
   players,
   trainingSessions,
   voteEntries,
@@ -20,6 +21,7 @@ import type {
   Fixture,
   MatchStatEntry,
   MatchLineupAssignment,
+  MatchRotationAssignment,
   Player,
   TrainingSession,
   VoteEntry,
@@ -34,6 +36,7 @@ export type ClubDataSnapshot = {
   availabilityRecords: AvailabilityRecord[];
   matchStats: MatchStatEntry[];
   matchLineupAssignments: MatchLineupAssignment[];
+  matchRotationAssignments: MatchRotationAssignment[];
   fitnessResults: FitnessResult[];
   fines: Fine[];
   voteEntries: VoteEntry[];
@@ -47,6 +50,7 @@ export const emptyClubDataSnapshot: ClubDataSnapshot = {
   availabilityRecords: [],
   matchStats: [],
   matchLineupAssignments: [],
+  matchRotationAssignments: [],
   fitnessResults: [],
   fines: [],
   voteEntries: [],
@@ -71,6 +75,7 @@ export function createDemoClubDataSnapshot(): ClubDataSnapshot {
     availabilityRecords: cloneList(availabilityRecords),
     matchStats: normalizeMatchStats(cloneList(matchStats)),
     matchLineupAssignments: cloneList(matchLineupAssignments),
+    matchRotationAssignments: cloneList(matchRotationAssignments),
     fitnessResults: cloneList(fitnessResults),
     fines: cloneList(fines),
     voteEntries: normalizeVoteEntries(cloneList(voteEntries)),
@@ -92,6 +97,10 @@ export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | 
     matchLineupAssignments: asList(
       snapshot?.matchLineupAssignments,
       emptyClubDataSnapshot.matchLineupAssignments
+    ),
+    matchRotationAssignments: asList(
+      snapshot?.matchRotationAssignments,
+      emptyClubDataSnapshot.matchRotationAssignments
     ),
     fitnessResults: asList(snapshot?.fitnessResults, emptyClubDataSnapshot.fitnessResults),
     fines: asList(snapshot?.fines, emptyClubDataSnapshot.fines),

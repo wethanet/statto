@@ -4,8 +4,9 @@ import { toPng } from 'html-to-image';
 
 import { getFixtureById, getPlayersForFixture } from '@/lib/availability';
 import { getPlayersForFixtureLineup } from '@/lib/match-lineup';
-import { getPlayerSortValue } from '@/lib/team';
-import type { MatchLinePosition, Player } from '@/lib/types';
+import { buildMatchRotationPlan, buildRotationPlan } from '@/lib/rotation-groups';
+import { getPlayerRotationGroupLabel, getPlayerSortValue } from '@/lib/team';
+import type { MatchLinePosition, Player, PlayerRotationGroup } from '@/lib/types';
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { useClubAccess } from '@web/lib/club-access-context';
@@ -16,8 +17,6 @@ type AnnouncementPlayer = Player & {
   matchPosition: MatchLinePosition | null;
 };
 
-const POSITION_SECTIONS: MatchLinePosition[] = ['B', 'HB', 'C', 'HF', 'F', 'Fol', 'Int'];
-
 function formatFixtureDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
     weekday: 'short',
@@ -26,16 +25,6 @@ function formatFixtureDate(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(value));
-}
-
-function chunkItems<T>(items: T[], size: number) {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-
-  return chunks;
 }
 
 function getPlayerLabel(player: Player) {
@@ -60,10 +49,98 @@ function sortPlayers(players: AnnouncementPlayer[]) {
   });
 }
 
+function createPositionMap(): Record<MatchLinePosition, AnnouncementPlayer[]> {
+  return {
+    B: [],
+    HB: [],
+    W: [],
+    C: [],
+    HF: [],
+    F: [],
+    Fol: [],
+    Int: [],
+  };
+}
+
+function getThreeSpotLinePlayers(players: AnnouncementPlayer[]) {
+  if (players.length <= 0) {
+    return [];
+  }
+
+  if (players.length === 1) {
+    return [{ player: players[0], slot: 'center' as const }];
+  }
+
+  if (players.length === 2) {
+    return [
+      { player: players[0], slot: 'left' as const },
+      { player: players[1], slot: 'right' as const },
+    ];
+  }
+
+  return [
+    { player: players[0], slot: 'left' as const },
+    { player: players[1], slot: 'center' as const },
+    { player: players[2], slot: 'right' as const },
+  ];
+}
+
+function getWingPlayers(wingPlayers: AnnouncementPlayer[], centrePlayers: AnnouncementPlayer[]) {
+  if (wingPlayers.length > 0) {
+    return {
+      left: wingPlayers[0] ?? null,
+      right: wingPlayers[1] ?? null,
+    };
+  }
+
+  if (centrePlayers.length === 2) {
+    return {
+      left: centrePlayers[0],
+      right: centrePlayers[1],
+    };
+  }
+
+  if (centrePlayers.length >= 3) {
+    return {
+      left: centrePlayers[0],
+      right: centrePlayers[2],
+    };
+  }
+
+  return {
+    left: null,
+    right: null,
+  };
+}
+
+function getCentreSquarePlayers(centrePlayers: AnnouncementPlayer[], followerPlayers: AnnouncementPlayer[]) {
+  const centrePlayer =
+    centrePlayers.length >= 3 ? centrePlayers[1] : centrePlayers.length > 0 ? centrePlayers[0] : null;
+
+  return [centrePlayer, ...followerPlayers].filter((player): player is AnnouncementPlayer => player !== null);
+}
+
+function RotationDots({ group }: { group: PlayerRotationGroup | null }) {
+  if (!group) {
+    return null;
+  }
+
+  return (
+    <span aria-label="Rotation groups" className="team-sheet__player-dots">
+      <span
+        aria-hidden="true"
+        className={`team-sheet__player-dot team-sheet__player-dot--${group}`}
+        title={getPlayerRotationGroupLabel(group)}
+      />
+    </span>
+  );
+}
+
 export function TeamSelectionGraphicRoute() {
   const { fixtureId = '' } = useParams();
   const { activeClub } = useClubAccess();
-  const { availabilityRecords, fixtures, matchLineupAssignments, players } = useClubData();
+  const { availabilityRecords, fixtures, matchLineupAssignments, matchRotationAssignments, players } =
+    useClubData();
   const teamSheetRef = useRef<HTMLElement | null>(null);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -80,20 +157,34 @@ export function TeamSelectionGraphicRoute() {
       matchLineupAssignments
     );
   }, [availabilityRecords, fixture, matchLineupAssignments, players]);
+  const rotationPlan = useMemo(() => {
+    return buildRotationPlan(players);
+  }, [players]);
+  const matchRotationPlan = useMemo(() => {
+    if (!fixture) {
+      return { assignments: {} };
+    }
 
-  const groupedSelection = useMemo(() => {
+    return buildMatchRotationPlan(fixture.id, lineupPlayers, rotationPlan.assignments, matchRotationAssignments);
+  }, [fixture, lineupPlayers, matchRotationAssignments, rotationPlan.assignments]);
+
+  const selectionByPosition = useMemo(() => {
     const selectedPlayers = sortPlayers(
       lineupPlayers.filter((player): player is AnnouncementPlayer => player.matchPosition !== null)
     );
+    const nextSelection = createPositionMap();
 
-    return POSITION_SECTIONS.map((position) => {
-      const playersForPosition = selectedPlayers.filter((player) => player.matchPosition === position);
+    selectedPlayers.forEach((player) => {
+      const position = player.matchPosition;
 
-      return {
-        position,
-        rows: chunkItems(playersForPosition, 3),
-      };
+      if (!position) {
+        return;
+      }
+
+      nextSelection[position].push(player);
     });
+
+    return nextSelection;
   }, [lineupPlayers]);
 
   const emergencies = useMemo(() => {
@@ -103,6 +194,14 @@ export function TeamSelectionGraphicRoute() {
       })
     );
   }, [lineupPlayers]);
+
+  const backLinePlayers = getThreeSpotLinePlayers(selectionByPosition.B);
+  const halfBackLinePlayers = getThreeSpotLinePlayers(selectionByPosition.HB);
+  const wingPlayers = getWingPlayers(selectionByPosition.W, selectionByPosition.C);
+  const centreSquarePlayers = getCentreSquarePlayers(selectionByPosition.C, selectionByPosition.Fol);
+  const halfForwardLinePlayers = getThreeSpotLinePlayers(selectionByPosition.HF);
+  const forwardLinePlayers = getThreeSpotLinePlayers(selectionByPosition.F);
+  const interchangePlayers = selectionByPosition.Int;
 
   if (!fixture) {
     return (
@@ -143,7 +242,7 @@ export function TeamSelectionGraphicRoute() {
                 setDownloadMessage(null);
 
                 const dataUrl = await toPng(teamSheetRef.current, {
-                  backgroundColor: '#0f3cc9',
+                  backgroundColor: '#2a7f39',
                   cacheBust: true,
                   pixelRatio: 2,
                 });
@@ -175,7 +274,7 @@ export function TeamSelectionGraphicRoute() {
           <section className="team-sheet" ref={teamSheetRef}>
             <header className="team-sheet__header">
               <div className="team-sheet__header-copy">
-                <span className="team-sheet__eyebrow">Warners Bay Bulldogs</span>
+                <span className="team-sheet__eyebrow">{activeClub?.name ?? 'Warners Bay Bulldogs'}</span>
                 <h1 className="team-sheet__title">Team Selection</h1>
                 <div className="team-sheet__meta-row">
                   <span className="team-sheet__badge">{fixture.grade?.trim() || 'Match day'}</span>
@@ -192,40 +291,137 @@ export function TeamSelectionGraphicRoute() {
               </div>
             </header>
 
-            <div className="team-sheet__body">
-              {groupedSelection.map((group) => (
-                <section className="team-sheet__section" key={group.position}>
-                  <div className="team-sheet__position">{group.position === 'Int' ? 'INT' : group.position}</div>
-                  <div className="team-sheet__section-body">
-                    {group.rows.length > 0 ? (
-                      group.rows.map((row, rowIndex) => (
-                        <div className="team-sheet__row" key={`${group.position}-${rowIndex}`}>
-                          {row.map((player) => (
-                            <article className="team-sheet__player" key={player.id}>
-                              <span className="team-sheet__number">{player.number ?? '--'}</span>
-                              <span className="team-sheet__name">{getPlayerLabel(player)}</span>
-                            </article>
-                          ))}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="team-sheet__empty">No players selected in this line yet.</p>
-                    )}
-                  </div>
-                </section>
-              ))}
-            </div>
+            <section className="team-sheet__field" aria-label="Players shown in their match positions on a football field">
+              <div aria-hidden="true" className="team-sheet__oval" />
+              <div aria-hidden="true" className="team-sheet__arc team-sheet__arc--top" />
+              <div aria-hidden="true" className="team-sheet__arc team-sheet__arc--bottom" />
+              <div aria-hidden="true" className="team-sheet__goal-square team-sheet__goal-square--top" />
+              <div aria-hidden="true" className="team-sheet__goal-square team-sheet__goal-square--bottom" />
+              <div aria-hidden="true" className="team-sheet__goal-posts team-sheet__goal-posts--top" />
+              <div aria-hidden="true" className="team-sheet__goal-posts team-sheet__goal-posts--bottom" />
+              <div aria-hidden="true" className="team-sheet__centre-square" />
+              <div aria-hidden="true" className="team-sheet__centre-circle" />
 
-            {emergencies.length > 0 ? (
-              <footer className="team-sheet__footer">
-                <span className="team-sheet__footer-label">EMG</span>
-                <p className="team-sheet__footer-copy">
-                  {emergencies
-                    .map((player) => {
-                      return `${player.number ?? '--'} ${getPlayerLabel(player)}`;
-                    })
-                    .join('   •   ')}
-                </p>
+              {backLinePlayers.map(({ player, slot }) => (
+                <article
+                  className={`team-sheet__field-player team-sheet__field-player--back-${slot}`}
+                  key={`back-${player.id}`}>
+                  <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
+                  <div className="team-sheet__player-copy">
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
+                    <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                  </div>
+                </article>
+              ))}
+
+              {halfBackLinePlayers.map(({ player, slot }) => (
+                <article
+                  className={`team-sheet__field-player team-sheet__field-player--half-back-${slot}`}
+                  key={`half-back-${player.id}`}>
+                  <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
+                  <div className="team-sheet__player-copy">
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
+                    <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                  </div>
+                </article>
+              ))}
+
+              {wingPlayers.left ? (
+                <article className="team-sheet__field-player team-sheet__field-player--wing-left">
+                  <span className="team-sheet__field-player-number">{wingPlayers.left.number ?? '--'}</span>
+                  <div className="team-sheet__player-copy">
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(wingPlayers.left)}</span>
+                    <RotationDots group={matchRotationPlan.assignments[wingPlayers.left.id]?.group ?? null} />
+                  </div>
+                </article>
+              ) : null}
+
+              {wingPlayers.right ? (
+                <article className="team-sheet__field-player team-sheet__field-player--wing-right">
+                  <span className="team-sheet__field-player-number">{wingPlayers.right.number ?? '--'}</span>
+                  <div className="team-sheet__player-copy">
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(wingPlayers.right)}</span>
+                    <RotationDots group={matchRotationPlan.assignments[wingPlayers.right.id]?.group ?? null} />
+                  </div>
+                </article>
+              ) : null}
+
+              {centreSquarePlayers.length > 0 ? (
+                <div className="team-sheet__centre-stack">
+                  {centreSquarePlayers.map((player) => (
+                    <article
+                      className="team-sheet__field-player team-sheet__field-player--compact team-sheet__field-player--stacked"
+                      key={`centre-square-${player.id}`}>
+                      <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
+                      <div className="team-sheet__player-copy">
+                        <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
+                        <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              {halfForwardLinePlayers.map(({ player, slot }) => (
+                <article
+                  className={`team-sheet__field-player team-sheet__field-player--half-forward-${slot}`}
+                  key={`half-forward-${player.id}`}>
+                  <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
+                  <div className="team-sheet__player-copy">
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
+                    <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                  </div>
+                </article>
+              ))}
+
+              {forwardLinePlayers.map(({ player, slot }) => (
+                <article
+                  className={`team-sheet__field-player team-sheet__field-player--forward-${slot}`}
+                  key={`forward-${player.id}`}>
+                  <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
+                  <div className="team-sheet__player-copy">
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
+                    <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                  </div>
+                </article>
+              ))}
+            </section>
+
+            {interchangePlayers.length > 0 || emergencies.length > 0 ? (
+              <footer className="team-sheet__bench-grid">
+                {interchangePlayers.length > 0 ? (
+                  <section className="team-sheet__bench-section">
+                    <span className="team-sheet__bench-label">Interchange</span>
+                    <div className="team-sheet__bench-list">
+                      {interchangePlayers.map((player) => (
+                        <article className="team-sheet__bench-player" key={`interchange-${player.id}`}>
+                          <span className="team-sheet__bench-number">{player.number ?? '--'}</span>
+                          <div className="team-sheet__player-copy">
+                            <span className="team-sheet__bench-name">{getPlayerLabel(player)}</span>
+                            <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
+                {emergencies.length > 0 ? (
+                  <section className="team-sheet__bench-section">
+                    <span className="team-sheet__bench-label">Emergency</span>
+                    <div className="team-sheet__bench-list">
+                      {emergencies.map((player) => (
+                        <article className="team-sheet__bench-player" key={`emergency-${player.id}`}>
+                          <span className="team-sheet__bench-number">{player.number ?? '--'}</span>
+                          <div className="team-sheet__player-copy">
+                            <span className="team-sheet__bench-name">{getPlayerLabel(player)}</span>
+                            <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
               </footer>
             ) : null}
           </section>

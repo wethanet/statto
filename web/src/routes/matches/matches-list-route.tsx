@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getAvailabilitySummary, getSortedFixtures } from '@/lib/availability';
@@ -22,6 +23,33 @@ function isPastItem(value: string) {
 export function MatchesListRoute() {
   const { availabilityRecords, fixtures, matchStats, players } = useClubData();
   const upcomingFixtures = getSortedFixtures(fixtures);
+  const targetFixtureId = useMemo(() => {
+    if (upcomingFixtures.length === 0) {
+      return null;
+    }
+
+    const lastPastFixture = [...upcomingFixtures]
+      .reverse()
+      .find((fixture) => {
+        return isPastItem(fixture.date);
+      });
+
+    return lastPastFixture?.id ?? upcomingFixtures[0]?.id ?? null;
+  }, [upcomingFixtures]);
+  const targetFixtureRef = useRef<HTMLElement | null>(null);
+  const hasScrolledRef = useRef(false);
+
+  useEffect(() => {
+    if (hasScrolledRef.current || !targetFixtureId || !targetFixtureRef.current) {
+      return;
+    }
+
+    targetFixtureRef.current.scrollIntoView({
+      block: 'center',
+      inline: 'nearest',
+    });
+    hasScrolledRef.current = true;
+  }, [targetFixtureId]);
 
   return (
     <section className="page-grid">
@@ -54,6 +82,7 @@ export function MatchesListRoute() {
         return (
           <section
             key={fixture.id}
+            ref={fixture.id === targetFixtureId ? targetFixtureRef : null}
             className={isPastFixture ? 'card stack schedule-card schedule-card--past' : 'card stack schedule-card'}>
             <div className="schedule-card__layout">
               <div className="stack-sm schedule-card__main">
