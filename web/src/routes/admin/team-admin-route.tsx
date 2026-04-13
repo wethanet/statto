@@ -24,6 +24,7 @@ import {
 } from '@/lib/team';
 import { deleteVoteEntriesForPlayer } from '@/lib/votes';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { TeamPlayerRow } from '@web/components/team/team-player-row';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
@@ -179,15 +180,9 @@ export function TeamAdminRoute() {
   }
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Team management</h2>
-        <p className="muted">
-          Keep the playing list current, adjust leadership roles, and mark who is in the active squad.
-        </p>
-      </section>
-
+    <AdminPageShell
+      description="Keep the playing list current, adjust leadership roles, and shape the squad cleanly."
+      title="Team management">
       <section className="card stack">
         <h3>Roster summary</h3>
         <div className="metric-row">
@@ -249,6 +244,6 @@ export function TeamAdminRoute() {
           />
         );
       })}
-    </section>
+    </AdminPageShell>
   );
 }

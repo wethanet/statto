@@ -5,6 +5,7 @@ import { buildRotationPlan } from '@/lib/rotation-groups';
 import { getPlayerSquadLabel } from '@/lib/team';
 import type { PlayerSquad } from '@/lib/types';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 
 export function RotationGroupsAdminRoute() {
@@ -27,16 +28,9 @@ export function RotationGroupsAdminRoute() {
   const activePlayerCount = filteredPlayers.filter((player) => player.active).length;
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Rotation groups</h2>
-        <p className="muted">
-          Review the generated rotation plan, then jump back to team management to tweak player attributes or set
-          manual overrides.
-        </p>
-      </section>
-
+    <AdminPageShell
+      description="Review the generated rotation plan, then jump back to team management to tweak player attributes or set manual overrides."
+      title="Rotation groups">
       <section className="card stack">
         <div className="inline-actions">
           <label className="field field--inline">
@@ -85,6 +79,6 @@ export function RotationGroupsAdminRoute() {
           ))}
         </div>
       </section>
-    </section>
+    </AdminPageShell>
   );
 }

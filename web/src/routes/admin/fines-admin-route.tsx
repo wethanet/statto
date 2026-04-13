@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { FineRow } from '@web/components/fines/fine-row';
 import { useClubData } from '@web/lib/club-data-context';
 
@@ -90,15 +91,9 @@ export function FinesAdminRoute() {
   }
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Player fines</h2>
-        <p className="muted">
-          Track fines, what they were for, and whether the cash has actually been collected.
-        </p>
-      </section>
-
+    <AdminPageShell
+      description="Track fines, what they were for, and whether the cash has actually been collected."
+      title="Player fines">
       <section className="card stack">
         <h3>Summary</h3>
         <div className="metric-row">
@@ -205,6 +200,6 @@ export function FinesAdminRoute() {
           />
         );
       })}
-    </section>
+    </AdminPageShell>
   );
 }

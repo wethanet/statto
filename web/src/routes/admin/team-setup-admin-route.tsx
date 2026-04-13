@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { parsePlayersCsv } from '@/lib/team-csv';
 import { addPlayer, normalizePlayerSquad } from '@/lib/team';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 
 export function TeamSetupAdminRoute() {
@@ -139,16 +140,9 @@ export function TeamSetupAdminRoute() {
   }
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Player setup</h2>
-        <p className="muted">
-          Add players one at a time or import the roster in bulk, then head back to team management to edit roles,
-          positions, and rotation settings.
-        </p>
-      </section>
-
+    <AdminPageShell
+      description="Add players one at a time or import the roster in bulk, then move into team management for detailed edits."
+      title="Player setup">
       <section className="card stack">
         <div className="inline-actions">
           <span className="muted">
@@ -258,6 +252,6 @@ export function TeamSetupAdminRoute() {
           {importMessage ? <p className="muted">{importMessage}</p> : null}
         </div>
       </section>
-    </section>
+    </AdminPageShell>
   );
 }

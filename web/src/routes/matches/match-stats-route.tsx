@@ -272,7 +272,11 @@ export function MatchStatsRoute() {
               return (
                 <button
                   key={quarter}
-                  className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+                  className={
+                    isSelected
+                      ? 'pill-button pill-button--selected stats-toolbar__period-button'
+                      : 'pill-button stats-toolbar__period-button'
+                  }
                   onClick={() => setSelectedQuarter(quarter)}
                   type="button">
                   {matchStatQuarterLabels[quarter]}
@@ -344,29 +348,6 @@ export function MatchStatsRoute() {
                 Start tapping the stat controls and the latest match actions will stack here.
               </p>
             )}
-          </section>
-
-          <section className="live-stat-card">
-            <h3 className="live-stat-card__title">Score Snapshot</h3>
-            <div className="score-snapshot">
-              <div>
-                <span className="score-snapshot__label">{homeTeamShort}</span>
-                <strong>
-                  {selectedHomeScore.goals}.{selectedHomeScore.points}
-                </strong>
-                <span className="muted">{selectedHomeScore.score} pts</span>
-              </div>
-              <div>
-                <span className="score-snapshot__label">{awayTeamShort}</span>
-                <strong>
-                  {selectedAwayScore.goals}.{selectedAwayScore.points}
-                </strong>
-                <span className="muted">{selectedAwayScore.score} pts</span>
-              </div>
-            </div>
-            <p className="muted">
-              Viewing cumulative totals through {matchStatQuarterLabels[selectedQuarter]}. By Q4, this becomes the full game line.
-            </p>
           </section>
         </div> : (
           <div className="report-stats-grid">

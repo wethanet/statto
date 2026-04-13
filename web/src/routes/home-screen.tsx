@@ -2,9 +2,13 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
 import { getAttendanceSummary, getSortedTrainingSessions } from '@/lib/attendance';
-import { getAvailabilitySummary, getSortedFixtures } from '@/lib/availability';
+import { getAvailabilitySummary, getDefaultFixtureSquad, getSortedFixtures } from '@/lib/availability';
+import { getFineSummary } from '@/lib/fines';
+import { getTeamSummary } from '@/lib/team';
+import type { Fixture, PlayerSquad } from '@/lib/types';
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
+import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
 
 function formatDate(value: string) {
@@ -26,7 +30,22 @@ function getLocalDateKey(value: string | Date) {
   return `${year}-${month}-${day}`;
 }
 
+type AttentionItem = {
+  title: string;
+  detail: string;
+  to: string;
+  action: string;
+};
+
+type MatchDashboardCard = {
+  fixture: Fixture;
+  squad: PlayerSquad | null;
+  summary: ReturnType<typeof getAvailabilitySummary>;
+  heading: string;
+};
+
 export function HomeScreen() {
+  const { activeClub } = useClubAccess();
   const {
     attendanceRecords,
     availabilityRecords,
@@ -45,6 +64,12 @@ export function HomeScreen() {
   const todayKey = getLocalDateKey(now);
   const sortedTrainingSessions = getSortedTrainingSessions(trainingSessions);
   const sortedFixtures = getSortedFixtures(fixtures);
+  const upcomingTrainingSessions = sortedTrainingSessions.filter((session) => {
+    return new Date(session.date).getTime() >= now.getTime();
+  });
+  const upcomingFixtures = sortedFixtures.filter((fixture) => {
+    return new Date(fixture.date).getTime() >= now.getTime();
+  });
 
   const hasAnyData =
     trainingSessions.length > 0 ||
@@ -56,137 +81,361 @@ export function HomeScreen() {
     fitnessResults.length > 0 ||
     fines.length > 0 ||
     voteEntries.length > 0;
+
   const todaysTraining = sortedTrainingSessions.filter((session) => {
     return getLocalDateKey(session.date) === todayKey;
   });
   const displayedTraining =
     todaysTraining[0] ??
-    sortedTrainingSessions.find((session) => {
-      return new Date(session.date).getTime() >= now.getTime();
-    }) ??
+    upcomingTrainingSessions[0] ??
     null;
   const displayedMatchesToday = sortedFixtures.filter((fixture) => {
     return getLocalDateKey(fixture.date) === todayKey;
   });
-  const upcomingMatches = sortedFixtures.filter((fixture) => {
-    return new Date(fixture.date).getTime() >= now.getTime();
-  });
-  const displayedMatches =
-    (displayedMatchesToday.length > 0 ? displayedMatchesToday : upcomingMatches).slice(0, 2);
   const trainingSummary = displayedTraining
     ? getAttendanceSummary(displayedTraining.id, players, attendanceRecords)
     : null;
+  const prioritizedFixtures = displayedMatchesToday.length > 0 ? displayedMatchesToday : upcomingFixtures;
+  const nextCupFixture =
+    prioritizedFixtures.find((fixture) => {
+      return getDefaultFixtureSquad(fixture.grade) === 'cup';
+    }) ?? null;
+  const nextPlateFixture =
+    prioritizedFixtures.find((fixture) => {
+      return getDefaultFixtureSquad(fixture.grade) === 'plate';
+    }) ?? null;
+  const primaryMatch = nextCupFixture ?? nextPlateFixture ?? prioritizedFixtures[0] ?? null;
+  const teamSummary = getTeamSummary(players);
+  const fineSummary = getFineSummary(fines);
   const trainingHeading = todaysTraining.length > 0 ? 'Today’s training' : 'Next training';
-  const matchesHeading = displayedMatchesToday.length > 0 ? 'Today’s matches' : 'Next matches';
+  const matchesHeading = displayedMatchesToday.length > 0 ? 'Today’s match' : 'Next match';
+  const clubName = activeClub?.name ?? 'Warners Bay Bulldogs';
+  const matchCards: MatchDashboardCard[] = [];
+
+  if (nextCupFixture) {
+    matchCards.push({
+      fixture: nextCupFixture,
+      squad: 'cup',
+      summary: getAvailabilitySummary(nextCupFixture.id, players, availabilityRecords),
+      heading: displayedMatchesToday.some((fixture) => fixture.id === nextCupFixture.id)
+        ? 'Today’s Cup match'
+        : 'Next Cup match',
+    });
+  }
+
+  if (nextPlateFixture) {
+    matchCards.push({
+      fixture: nextPlateFixture,
+      squad: 'plate',
+      summary: getAvailabilitySummary(nextPlateFixture.id, players, availabilityRecords),
+      heading: displayedMatchesToday.some((fixture) => fixture.id === nextPlateFixture.id)
+        ? 'Today’s Plate match'
+        : 'Next Plate match',
+    });
+  }
+
+  const attentionItems: AttentionItem[] = [];
+
+  if (players.length === 0) {
+    attentionItems.push({
+      title: 'Add the playing list',
+      detail: 'Get players into the club first so selections, attendance, and stats can flow properly.',
+      to: '/admin/team-setup',
+      action: 'Open player setup',
+    });
+  }
+
+  if (displayedTraining && trainingSummary && trainingSummary.unknown > 0) {
+    attentionItems.push({
+      title: 'Training attendance still needs marking',
+      detail: `${trainingSummary.unknown} players still need attendance marked for ${displayedTraining.title}.`,
+      to: `/training/${displayedTraining.id}`,
+      action: 'Mark attendance',
+    });
+  }
+
+  matchCards.forEach((card) => {
+    if (card.summary.uncertain > 0) {
+      attentionItems.push({
+        title: `${card.squad === 'cup' ? 'Cup' : 'Plate'} selection still needs finishing`,
+        detail: `${card.summary.uncertain} players are still not selected for ${card.fixture.opponent}.`,
+        to: `/matches/${card.fixture.id}`,
+        action: 'Open match',
+      });
+    }
+  });
+
+  if (fineSummary.outstandingCount > 0) {
+    attentionItems.push({
+      title: 'Outstanding fines still need collecting',
+      detail: `${fineSummary.outstandingCount} fines are unpaid, worth $${fineSummary.outstandingAmount}.`,
+      to: '/admin/fines',
+      action: 'Review fines',
+    });
+  }
+
+  if (trainingSessions.length === 0) {
+    attentionItems.push({
+      title: 'No training sessions scheduled',
+      detail: 'Add the next session so coaches can mark attendance from the training tab.',
+      to: '/admin/training',
+      action: 'Add training',
+    });
+  }
+
+  if (fixtures.length === 0) {
+    attentionItems.push({
+      title: 'No fixtures scheduled',
+      detail: 'Create the next fixture before availability and lineup work starts.',
+      to: '/admin/matches',
+      action: 'Add match',
+    });
+  }
+
+  const summaryCards = [
+    {
+      label: 'Active players',
+      value: String(teamSummary.active),
+      note: `${teamSummary.total} total on the list`,
+    },
+    {
+      label: 'Upcoming training',
+      value: String(upcomingTrainingSessions.length),
+      note: upcomingTrainingSessions.length > 0 ? 'sessions scheduled' : 'nothing locked in yet',
+    },
+    {
+      label: 'Upcoming matches',
+      value: String(upcomingFixtures.length),
+      note: upcomingFixtures.length > 0 ? 'fixtures ahead' : 'add the next fixture',
+    },
+    {
+      label: 'Outstanding fines',
+      value: `$${fineSummary.outstandingAmount}`,
+      note: `${fineSummary.outstandingCount} unpaid`,
+    },
+  ];
 
   return (
-    <section className="page-grid">
-      <section className="hero-card">
-        <div className="stack">
-          <span className="eyebrow">Warners Bay Bulldogs</span>
-          <h2>Club admin now runs in a Bulldogs-branded web workspace.</h2>
+    <section className="page-grid home-dashboard">
+      <section className="home-hero">
+        <div className="home-hero__copy">
+          <span className="eyebrow">{clubName}</span>
+          <h2>Run the week from one dashboard.</h2>
           <p className="muted">
-            Training, matches, and live stats now sit inside the same browser shell with club colours
-            and the official crest.
+            Start with the next session, the next match, and the jobs that still need coach attention.
           </p>
+
+          <div className="home-hero__actions">
+            <Link className="schedule-card__action" to={displayedTraining ? `/training/${displayedTraining.id}` : '/training'}>
+              {displayedTraining ? 'Open training' : 'View training'}
+            </Link>
+            <Link className="schedule-card__action" to={primaryMatch ? `/matches/${primaryMatch.id}` : '/matches'}>
+              {primaryMatch ? 'Open next match' : 'View matches'}
+            </Link>
+            <Link className="schedule-card__action" to="/admin">
+              Open admin
+            </Link>
+          </div>
         </div>
 
-        <div className="hero-badge">
-          <img alt="Warners Bay Bulldogs logo" className="hero-badge__logo" src={bulldogsLogo} />
-        </div>
+        <section className="home-hero__spotlight">
+          <div className="home-hero__spotlight-header">
+            <img alt="Warners Bay Bulldogs logo" className="home-hero__logo" src={bulldogsLogo} />
+            <div className="stack-sm">
+              <span className="home-hero__spotlight-label">Current focus</span>
+              <strong>{primaryMatch ? matchesHeading : trainingHeading}</strong>
+            </div>
+          </div>
+
+          {primaryMatch ? (
+            <div className="stack-sm">
+              <p>{primaryMatch.grade ? `${primaryMatch.grade} • ` : ''}vs {primaryMatch.opponent}</p>
+              <p className="muted">{formatDate(primaryMatch.date)}</p>
+              <p className="muted">{primaryMatch.venue}</p>
+            </div>
+          ) : displayedTraining && trainingSummary ? (
+            <div className="stack-sm">
+              <p>{displayedTraining.title}</p>
+              <p className="muted">{formatDate(displayedTraining.date)}</p>
+              <p className="muted">{displayedTraining.location}</p>
+              <div className="metric-row">
+                <span className="metric metric--positive">{trainingSummary.present} marked present</span>
+                <span className="metric metric--neutral">{trainingSummary.unknown} not marked</span>
+              </div>
+            </div>
+          ) : (
+            <p className="muted">Add players, training, and fixtures to turn this into your weekly club dashboard.</p>
+          )}
+        </section>
       </section>
 
-      <div className="three-up">
-        {displayedTraining && trainingSummary ? (
-          <section className="card stack">
-            <h3>{trainingHeading}</h3>
-            <p>{displayedTraining.title}</p>
-            <p className="muted">{formatDate(displayedTraining.date)}</p>
-            <p className="muted">{displayedTraining.location}</p>
-            <div className="metric-row">
-              <span className="metric metric--positive">{trainingSummary.present} present</span>
-              <span className="metric metric--negative">{trainingSummary.absent} absent</span>
-              <span className="metric metric--neutral">{trainingSummary.unknown} to confirm</span>
-            </div>
-            <Link className="text-link" to={`/training/${displayedTraining.id}`}>
-              Manage this session
-            </Link>
-          </section>
-        ) : (
-          <section className="card stack">
-            <h3>{trainingHeading}</h3>
-            <p className="muted">No training sessions are scheduled yet.</p>
-            <Link className="text-link" to="/training">
-              Create your first session
-            </Link>
-          </section>
-        )}
-
-        {displayedMatches.length > 0 ? (
-          displayedMatches.map((fixture, index) => {
-            const matchSummary = getAvailabilitySummary(fixture.id, players, availabilityRecords);
-
-            return (
-              <section key={fixture.id} className="card stack">
-                <h3>{index === 0 ? matchesHeading : 'Also coming up'}</h3>
-                <p>{fixture.grade ? `${fixture.grade} • ` : ''}vs {fixture.opponent}</p>
-                <p className="muted">{formatDate(fixture.date)}</p>
-                <p className="muted">{fixture.venue}</p>
-                <div className="metric-row">
-                  <span className="metric metric--positive">{matchSummary.available} selected</span>
-                  <span className="metric metric--negative">{matchSummary.unavailable} unavailable</span>
-                  <span className="metric metric--neutral">{matchSummary.uncertain} not selected</span>
-                </div>
-                <Link className="text-link" to={`/matches/${fixture.id}`}>
-                  Manage availability
-                </Link>
-              </section>
-            );
-          })
-        ) : (
-          <section className="card stack">
-            <h3>{matchesHeading}</h3>
-            <p className="muted">No upcoming fixtures are scheduled yet.</p>
-            <Link className="text-link" to="/admin/matches">
-              Create your first match
-            </Link>
-          </section>
-        )}
-
+      {!hasAnyData ? (
         <section className="card stack">
-          <h3>Quick links</h3>
-          <p className="muted">
-            {isHydrated ? 'Club data is now hydrating in the web shell.' : 'Loading saved club data...'}
-          </p>
-          {!hasAnyData ? (
-            <div className="stack-sm">
-              <button
-                className="button button--secondary"
-                disabled={!isHydrated}
-                onClick={() => {
-                  loadDemoData();
-                  setDemoMessage('Dummy data loaded into this club workspace.');
-                }}
-                type="button">
-                Load dummy data
-              </button>
-              <p className="muted">
-                Use this to explore the app with sample players, sessions, matches, and stats.
-              </p>
-              {demoMessage ? <p className="muted">{demoMessage}</p> : null}
-            </div>
-          ) : null}
-          <Link className="text-link" to="/training">
-            Open training attendance
-          </Link>
-          <Link className="text-link" to="/matches">
-            Open match availability
-          </Link>
-          <Link className="text-link" to="/admin">
-            Open admin workflows
-          </Link>
+          <div className="stack-sm">
+            <h3>Get started</h3>
+            <p className="muted">
+              Set up the roster first, then add training and matches so coaches can work from live club data.
+            </p>
+          </div>
+
+          <div className="two-column">
+            <Link className="home-action-row" to="/admin/team-setup">
+              <div className="stack-sm">
+                <strong>Add or import players</strong>
+                <span className="muted">Build the roster before selections and attendance start.</span>
+              </div>
+              <span className="text-link">Open setup</span>
+            </Link>
+            <Link className="home-action-row" to="/admin/training">
+              <div className="stack-sm">
+                <strong>Create the first training session</strong>
+                <span className="muted">Give coaches somewhere to mark weekly attendance.</span>
+              </div>
+              <span className="text-link">Open training</span>
+            </Link>
+            <Link className="home-action-row" to="/admin/matches">
+              <div className="stack-sm">
+                <strong>Create the first fixture</strong>
+                <span className="muted">Start availability, lineup, and match-day workflows.</span>
+              </div>
+              <span className="text-link">Open matches</span>
+            </Link>
+            <button
+              className="home-action-row home-action-row--button"
+              disabled={!isHydrated}
+              onClick={() => {
+                loadDemoData();
+                setDemoMessage('Dummy data loaded into this club workspace.');
+              }}
+              type="button">
+              <div className="stack-sm">
+                <strong>Load dummy data</strong>
+                <span className="muted">Explore the full workflow with sample players, sessions, and matches.</span>
+              </div>
+              <span className="text-link">Load demo</span>
+            </button>
+          </div>
+
+          {demoMessage ? <p className="muted">{demoMessage}</p> : null}
         </section>
-      </div>
+      ) : (
+        <>
+          <section className="home-summary-grid">
+            {summaryCards.map((card) => (
+              <section className="card stack-sm" key={card.label}>
+                <span className="eyebrow">{card.label}</span>
+                <strong className="home-summary-grid__value">{card.value}</strong>
+                <span className="muted">{card.note}</span>
+              </section>
+            ))}
+          </section>
+
+          <div className="home-dashboard__grid">
+            <section className="card stack">
+              <div className="split-row">
+                <div className="stack-sm">
+                  <h3>Next up</h3>
+                  <p className="muted">Jump straight into the next live training or match workflow.</p>
+                </div>
+              </div>
+
+              <div className="home-focus-grid">
+                {displayedTraining && trainingSummary ? (
+                  <section className="home-focus-card">
+                    <span className="eyebrow">{trainingHeading}</span>
+                    <h3>{displayedTraining.title}</h3>
+                    <p className="muted">{formatDate(displayedTraining.date)}</p>
+                    <p className="muted">{displayedTraining.location}</p>
+                    <div className="metric-row">
+                      <span className="metric metric--positive">{trainingSummary.present} marked present</span>
+                      <span className="metric metric--negative">{trainingSummary.absent} marked absent</span>
+                      <span className="metric metric--neutral">{trainingSummary.unknown} not marked</span>
+                    </div>
+                    <Link className="text-link" to={`/training/${displayedTraining.id}`}>
+                      Mark attendance
+                    </Link>
+                  </section>
+                ) : (
+                  <section className="home-focus-card">
+                    <span className="eyebrow">{trainingHeading}</span>
+                    <h3>No session scheduled</h3>
+                    <p className="muted">Add the next training session to start marking attendance.</p>
+                    <Link className="text-link" to="/admin/training">
+                      Create training
+                    </Link>
+                  </section>
+                )}
+
+                {matchCards.length > 0 ? (
+                  matchCards.map((card) => (
+                    <section className="home-focus-card" key={card.fixture.id}>
+                      <span className="eyebrow">{card.heading}</span>
+                      <h3>{card.fixture.grade ? `${card.fixture.grade} • ` : ''}vs {card.fixture.opponent}</h3>
+                      <p className="muted">{formatDate(card.fixture.date)}</p>
+                      <p className="muted">{card.fixture.venue}</p>
+                      <div className="metric-row">
+                        <span className="metric metric--positive">{card.summary.available} selected</span>
+                        <span className="metric metric--negative">{card.summary.unavailable} unavailable</span>
+                        <span className="metric metric--neutral">{card.summary.uncertain} not selected</span>
+                      </div>
+                      <Link className="text-link" to={`/matches/${card.fixture.id}`}>
+                        Manage availability
+                      </Link>
+                    </section>
+                  ))
+                ) : (
+                  <section className="home-focus-card">
+                    <span className="eyebrow">{matchesHeading}</span>
+                    <h3>No fixture scheduled</h3>
+                    <p className="muted">Create the next match to open availability and lineup planning.</p>
+                    <Link className="text-link" to="/admin/matches">
+                      Create match
+                    </Link>
+                  </section>
+                )}
+              </div>
+            </section>
+
+            <section className="card stack">
+              <div className="stack-sm">
+                <h3>Needs attention</h3>
+                <p className="muted">The quickest way to clear the next bit of admin or coach work.</p>
+              </div>
+
+              {attentionItems.length > 0 ? (
+                <div className="home-action-list">
+                  {attentionItems.slice(0, 4).map((item) => (
+                    <Link className="home-action-row" key={`${item.title}-${item.to}`} to={item.to}>
+                      <div className="stack-sm">
+                        <strong>{item.title}</strong>
+                        <span className="muted">{item.detail}</span>
+                      </div>
+                      <span className="text-link">{item.action}</span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Nothing urgent right now. Training, selection, and club admin are all under control.</p>
+              )}
+
+              <div className="home-shortcuts">
+                <Link className="schedule-card__action" to="/training">
+                  Training
+                </Link>
+                <Link className="schedule-card__action" to="/matches">
+                  Matches
+                </Link>
+                <Link className="schedule-card__action" to="/admin/team">
+                  Team
+                </Link>
+                <Link className="schedule-card__action" to="/admin">
+                  Admin hub
+                </Link>
+              </div>
+            </section>
+          </div>
+        </>
+      )}
     </section>
   );
 }

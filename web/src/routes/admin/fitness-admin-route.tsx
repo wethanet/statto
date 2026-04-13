@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 
 import {
@@ -121,16 +122,9 @@ export function FitnessAdminRoute() {
   }
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Fitness tracking</h2>
-        <p className="muted">
-          Track the 1.2km time trial, agility, and speed across the start, middle, and end of the
-          season.
-        </p>
-      </section>
-
+    <AdminPageShell
+      description="Track the 1.2km time trial, agility, and speed across the start, middle, and end of the season."
+      title="Fitness tracking">
       <section className="card stack">
         <h3>Checkpoint coverage</h3>
         <div className="three-up">
@@ -298,6 +292,6 @@ export function FitnessAdminRoute() {
           <p className="muted">No results yet for this checkpoint.</p>
         )}
       </section>
-    </section>
+    </AdminPageShell>
   );
 }

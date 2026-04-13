@@ -11,6 +11,7 @@ import {
 import { deleteMatchStatsForFixture } from '@/lib/match-stats';
 import { deleteVoteEntriesForFixture } from '@/lib/votes';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { importFixturesFromCalendarUrl, normalizeWebcalUrl } from '@web/lib/fixture-calendar';
 import { useClubData } from '@web/lib/club-data-context';
 
@@ -207,18 +208,14 @@ export function MatchesAdminRoute() {
   }
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Match setup</h2>
-        <p className="muted">
-          Create fixtures for the season, then manage availability from the matches tab.
-        </p>
+    <AdminPageShell
+      actions={
         <Link className="text-link" to="/matches">
           Open match availability
         </Link>
-      </section>
-
+      }
+      description="Create fixtures for the season, then manage availability from the matches tab."
+      title="Match setup">
       <form className="card stack" onSubmit={handleSaveFixture}>
         <h3>Add fixture</h3>
         <p className="muted">
@@ -399,6 +396,6 @@ export function MatchesAdminRoute() {
           <p className="muted">No fixtures yet.</p>
         )}
       </section>
-    </section>
+    </AdminPageShell>
   );
 }

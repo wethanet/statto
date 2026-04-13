@@ -1,6 +1,7 @@
 import { getPlayerDisplayName } from '@/lib/team';
 import { getVoteLeaderboard, voteTypes } from '@/lib/votes';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 
 export function VotesAdminRoute() {
@@ -13,16 +14,14 @@ export function VotesAdminRoute() {
   });
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Votes leaderboard</h2>
-        <p className="muted">Track the separate season ladders for player, coaches, and B&amp;F voting.</p>
+    <AdminPageShell
+      description="Track the separate season ladders for player, coaches, and B&F voting."
+      title="Votes leaderboard">
+      <section className="card stack">
+        <p className="muted">
+          {isHydrated ? 'Leaderboard is using saved browser data.' : 'Loading saved votes...'}
+        </p>
       </section>
-
-      <p className="muted">
-        {isHydrated ? 'Leaderboard is using saved browser data.' : 'Loading saved votes...'}
-      </p>
 
       {leaderboards.map((voteType) => {
         return (
@@ -49,6 +48,6 @@ export function VotesAdminRoute() {
           </section>
         );
       })}
-    </section>
+    </AdminPageShell>
   );
 }

@@ -8,6 +8,7 @@ import {
   getSortedTrainingSessions,
 } from '@/lib/attendance';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 
 function formatDate(value: string) {
@@ -92,18 +93,14 @@ export function TrainingAdminRoute() {
   }
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Training setup</h2>
-        <p className="muted">
-          Create new training sessions for the group, then manage attendance from the training tab.
-        </p>
+    <AdminPageShell
+      actions={
         <Link className="text-link" to="/training">
           Open training attendance
         </Link>
-      </section>
-
+      }
+      description="Create new training sessions for the group, then manage attendance from the training tab."
+      title="Training setup">
       <form className="card stack" onSubmit={handleAddSession}>
         <h3>Add training session</h3>
         <p className="muted">Set the title, date, time, and location for the next session.</p>
@@ -196,6 +193,6 @@ export function TrainingAdminRoute() {
           <p className="muted">No training sessions yet.</p>
         )}
       </section>
-    </section>
+    </AdminPageShell>
   );
 }

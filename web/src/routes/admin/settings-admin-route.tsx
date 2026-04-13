@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { ThemeOptionRow } from '@web/components/settings/theme-option-row';
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
@@ -44,15 +45,9 @@ export function SettingsAdminRoute() {
   }
 
   return (
-    <section className="page-grid">
-      <section className="panel stack">
-        <span className="eyebrow">Admin</span>
-        <h2>Settings</h2>
-        <p className="muted">
-          Adjust app-wide preferences and keep the experience consistent for volunteers and coaches.
-        </p>
-      </section>
-
+    <AdminPageShell
+      description="Adjust app-wide preferences and keep the experience consistent for volunteers and coaches."
+      title="Settings">
       <section className="card stack">
         <h3>Theme</h3>
         <p>
@@ -105,6 +100,6 @@ export function SettingsAdminRoute() {
           />
         );
       })}
-    </section>
+    </AdminPageShell>
   );
 }
