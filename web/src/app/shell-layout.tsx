@@ -1,25 +1,40 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
+import { PageSkeleton } from '@web/components/loading/page-skeleton';
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
 import { useSettings } from '@web/lib/settings-context';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home', end: true },
   { to: '/training', label: 'Training' },
   { to: '/matches', label: 'Matches' },
-  { to: '/admin', label: 'Admin' },
+  { to: '/admin', label: 'Admin', requires: 'admin' as const },
 ];
 
 export function ShellLayout() {
+  const location = useLocation();
   const { activeClub } = useClubAccess();
   const { signOut } = useAuth();
-  const { storageMode } = useClubData();
+  const { isHydrated, storageMode } = useClubData();
+  const { canAccessAdmin, canAccessPlayerApp } = useClubPermissions();
   const { setThemePreference, themePreference } = useSettings();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (item.requires === 'admin') {
+      return canAccessAdmin;
+    }
+
+    if (item.requires === 'player') {
+      return canAccessPlayerApp;
+    }
+
+    return true;
+  });
 
   async function handleSignOut() {
     const message = await signOut();
@@ -58,7 +73,7 @@ export function ShellLayout() {
           </div>
 
           <nav className="drawer-nav" id="primary-navigation" aria-label="Primary">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               return (
                 <NavLink
                   key={item.to}
@@ -115,7 +130,7 @@ export function ShellLayout() {
         </header>
 
         <main className="page-shell">
-          <Outlet />
+          {isHydrated ? <Outlet /> : <PageSkeleton pathname={location.pathname} />}
         </main>
       </div>
     </div>

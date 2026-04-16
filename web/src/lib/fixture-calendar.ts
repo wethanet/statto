@@ -110,6 +110,7 @@ export function parseCalendarFixtures(icsContent: string): ImportedFixtureInput[
       {
         opponent: details.opponent,
         grade: null,
+        squad: null,
         date: fixtureDate,
         venue: event.location?.trim() || 'TBC',
         isHome: details.isHome,

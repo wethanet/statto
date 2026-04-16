@@ -64,6 +64,12 @@ export function AdminHomeRoute() {
           action: 'Open rotation groups',
         },
         {
+          title: 'Player development',
+          body: 'Set season goals, track weekly growth, and generate focused coaching priorities.',
+          to: '/admin/development',
+          action: 'Open development plans',
+        },
+        {
           title: 'Player fines',
           body: `${fineSummary.outstandingCount} outstanding fines worth $${fineSummary.outstandingAmount}.`,
           to: '/admin/fines',

@@ -17,6 +17,7 @@ import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { MatchStatRow } from '@web/components/stats/match-stat-row';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
 
 type StatAction = {
   id: string;
@@ -52,9 +53,10 @@ function getLastWord(value: string) {
 export function MatchStatsRoute() {
   const { fixtureId = '' } = useParams();
   const { activeClub } = useClubAccess();
+  const { canAccessAdmin } = useClubPermissions();
   const { fixtures, isHydrated, matchStats, setMatchStats } = useClubData();
   const [selectedQuarter, setSelectedQuarter] = useState<MatchStatQuarter>('q1');
-  const [viewMode, setViewMode] = useState<StatsViewMode>('capture');
+  const [viewMode, setViewMode] = useState<StatsViewMode>(canAccessAdmin ? 'capture' : 'report');
   const [recentActions, setRecentActions] = useState<StatAction[]>([]);
   const fixture = getFixtureById(fixtureId, fixtures);
 
@@ -200,7 +202,7 @@ export function MatchStatsRoute() {
             </div>
             <span className="muted">
               {fixture.grade ? `${fixture.grade} • ` : ''}
-              Live entry
+              {canAccessAdmin ? 'Live entry' : 'Stats report'}
             </span>
           </div>
 
@@ -214,18 +216,22 @@ export function MatchStatsRoute() {
         </section>
 
         <section className="activity-rail">
-          <button
-            className="activity-rail__undo"
-            disabled={!latestAction}
-            onClick={undoLastAction}
-            type="button">
-            Undo Last Action
-          </button>
+          {canAccessAdmin ? (
+            <button
+              className="activity-rail__undo"
+              disabled={!latestAction}
+              onClick={undoLastAction}
+              type="button">
+              Undo Last Action
+            </button>
+          ) : null}
           <div className="activity-rail__chips">
-            {latestAction ? (
+            {canAccessAdmin && latestAction ? (
               <span className="activity-chip activity-chip--primary">{latestAction.label}</span>
-            ) : (
+            ) : canAccessAdmin ? (
               <span className="activity-chip">No actions yet</span>
+            ) : (
+              <span className="activity-chip activity-chip--primary">Read-only report</span>
             )}
             <span className="activity-chip">
               {viewMode === 'report'
@@ -233,9 +239,13 @@ export function MatchStatsRoute() {
                 : `Editing cumulative ${matchStatQuarterLabels[selectedQuarter]}`}
             </span>
             <span className="activity-chip">
-              {isHydrated ? 'Stats save as you tap.' : 'Loading saved match stats...'}
+              {isHydrated
+                ? canAccessAdmin
+                  ? 'Stats save as you tap.'
+                  : 'Showing the saved match report.'
+                : 'Loading saved match stats...'}
             </span>
-            {viewMode === 'capture' ? (
+            {canAccessAdmin && viewMode === 'capture' ? (
               <span className="activity-chip">
                 Through {matchStatQuarterLabels[selectedQuarter]} {selectedHomeScore.goals}.{selectedHomeScore.points} -{' '}
                 {selectedAwayScore.goals}.{selectedAwayScore.points}
@@ -245,46 +255,50 @@ export function MatchStatsRoute() {
         </section>
 
         <section className="stats-toolbar">
-          <div className="stats-toolbar__group">
-            <span className="stats-toolbar__label">View</span>
-            <div className="stats-toolbar__buttons">
-              {(['capture', 'report'] as StatsViewMode[]).map((mode) => {
-                const isSelected = mode === viewMode;
+          {canAccessAdmin ? (
+            <>
+              <div className="stats-toolbar__group">
+                <span className="stats-toolbar__label">View</span>
+                <div className="stats-toolbar__buttons">
+                  {(['capture', 'report'] as StatsViewMode[]).map((mode) => {
+                    const isSelected = mode === viewMode;
 
-                return (
-                  <button
-                    key={mode}
-                    className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
-                    onClick={() => setViewMode(mode)}
-                    type="button">
-                    {mode === 'capture' ? 'Capture' : 'Report'}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="stats-toolbar__group">
-            <span className="stats-toolbar__label">Period</span>
-            <div className="stats-toolbar__buttons">
-            {matchStatCaptureQuarterOrder.map((quarter) => {
-              const isSelected = quarter === selectedQuarter;
+                    return (
+                      <button
+                        key={mode}
+                        className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+                        onClick={() => setViewMode(mode)}
+                        type="button">
+                        {mode === 'capture' ? 'Capture' : 'Report'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="stats-toolbar__group">
+                <span className="stats-toolbar__label">Period</span>
+                <div className="stats-toolbar__buttons">
+                {matchStatCaptureQuarterOrder.map((quarter) => {
+                  const isSelected = quarter === selectedQuarter;
 
-              return (
-                <button
-                  key={quarter}
-                  className={
-                    isSelected
-                      ? 'pill-button pill-button--selected stats-toolbar__period-button'
-                      : 'pill-button stats-toolbar__period-button'
-                  }
-                  onClick={() => setSelectedQuarter(quarter)}
-                  type="button">
-                  {matchStatQuarterLabels[quarter]}
-                </button>
-              );
-            })}
-            </div>
-          </div>
+                  return (
+                    <button
+                      key={quarter}
+                      className={
+                        isSelected
+                          ? 'pill-button pill-button--selected stats-toolbar__period-button'
+                          : 'pill-button stats-toolbar__period-button'
+                      }
+                      onClick={() => setSelectedQuarter(quarter)}
+                      type="button">
+                      {matchStatQuarterLabels[quarter]}
+                    </button>
+                  );
+                })}
+                </div>
+              </div>
+            </>
+          ) : null}
         </section>
 
         {viewMode === 'capture' ? <div className="live-stats-grid">

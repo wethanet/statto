@@ -14,6 +14,7 @@ import { deleteAttendanceRecordsForPlayer } from '@/lib/attendance';
 import { deleteAvailabilityRecordsForPlayer } from '@/lib/availability';
 import { deleteFinesForPlayer } from '@/lib/fines';
 import { deleteFitnessResultsForPlayer } from '@/lib/fitness';
+import { deletePlayerDevelopmentEntriesForPlayer } from '@/lib/player-development';
 import {
   cyclePlayerRole,
   deletePlayer,
@@ -28,10 +29,12 @@ import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { TeamPlayerRow } from '@web/components/team/team-player-row';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
 import { upsertCloudPlayer } from '@web/lib/storage/cloud-core-data-storage';
 
 export function TeamAdminRoute() {
   const { activeClubId } = useClubAccess();
+  const { canManagePlayer } = useClubPermissions();
   const {
     isHydrated,
     players,
@@ -40,12 +43,14 @@ export function TeamAdminRoute() {
     setFitnessResults,
     setFines,
     setPlayers,
+    setPlayerDevelopmentEntries,
     setVoteEntries,
   } = useClubData();
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [squadFilter, setSquadFilter] = useState<'all' | PlayerSquad | 'unassigned'>('all');
-  const summary = getTeamSummary(players);
-  const roster = getSortedTeam(players);
+  const manageablePlayers = players.filter((player) => canManagePlayer(player));
+  const summary = getTeamSummary(manageablePlayers);
+  const roster = getSortedTeam(manageablePlayers);
   const rotationPlan = buildRotationPlan(players);
   const filteredRoster = roster.filter((player) => {
     if (squadFilter === 'all') {
@@ -71,6 +76,9 @@ export function TeamAdminRoute() {
     });
     setFitnessResults((current) => {
       return deleteFitnessResultsForPlayer(current, playerId);
+    });
+    setPlayerDevelopmentEntries((current) => {
+      return deletePlayerDevelopmentEntriesForPlayer(current, playerId);
     });
     setFines((current) => {
       return deleteFinesForPlayer(current, playerId);

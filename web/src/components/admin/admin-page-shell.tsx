@@ -1,6 +1,8 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 
+import { useClubPermissions } from '@web/lib/club-permissions';
+
 type AdminPageShellProps = PropsWithChildren<{
   title: string;
   description: string;
@@ -10,17 +12,32 @@ type AdminPageShellProps = PropsWithChildren<{
 const adminNavItems = [
   { label: 'Overview', to: '/admin' },
   { label: 'Team', to: '/admin/team' },
-  { label: 'Setup', to: '/admin/team-setup' },
+  { label: 'Setup', to: '/admin/team-setup', requires: 'admin' as const },
   { label: 'Rotations', to: '/admin/rotation-groups' },
+  { label: 'Development', to: '/admin/development' },
   { label: 'Training', to: '/admin/training' },
   { label: 'Matches', to: '/admin/matches' },
   { label: 'Fines', to: '/admin/fines' },
   { label: 'Fitness', to: '/admin/fitness' },
   { label: 'Votes', to: '/admin/votes' },
-  { label: 'Settings', to: '/admin/settings' },
+  { label: 'Settings', to: '/admin/settings', requires: 'admin' as const },
+  { label: 'Club', to: '/admin/club', requires: 'admin' as const },
 ] as const;
 
 export function AdminPageShell({ actions, children, description, title }: AdminPageShellProps) {
+  const { canManageClubMemberships, canManageRosterSetup } = useClubPermissions();
+  const navItems = adminNavItems.filter((item) => {
+    if (item.to === '/admin/club') {
+      return canManageClubMemberships;
+    }
+
+    if (item.to === '/admin/team-setup' || item.to === '/admin/settings') {
+      return canManageRosterSetup;
+    }
+
+    return true;
+  });
+
   return (
     <section className="page-grid admin-page">
       <section className="admin-page__hero">
@@ -34,7 +51,7 @@ export function AdminPageShell({ actions, children, description, title }: AdminP
         </div>
 
         <nav aria-label="Admin sections" className="admin-page__nav">
-          {adminNavItems.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               className={({ isActive }) => {
                 return isActive ? 'admin-page__nav-link admin-page__nav-link--active' : 'admin-page__nav-link';

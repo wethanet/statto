@@ -7,12 +7,17 @@ import type { PlayerSquad } from '@/lib/types';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
 
 export function RotationGroupsAdminRoute() {
   const { isHydrated, players } = useClubData();
+  const { canManagePlayer } = useClubPermissions();
   const [squadFilter, setSquadFilter] = useState<'all' | PlayerSquad | 'unassigned'>('all');
+  const manageablePlayers = useMemo(() => {
+    return players.filter((player) => canManagePlayer(player));
+  }, [canManagePlayer, players]);
   const filteredPlayers = useMemo(() => {
-    return players.filter((player) => {
+    return manageablePlayers.filter((player) => {
       if (squadFilter === 'all') {
         return true;
       }
@@ -23,7 +28,7 @@ export function RotationGroupsAdminRoute() {
 
       return player.squad === squadFilter;
     });
-  }, [players, squadFilter]);
+  }, [manageablePlayers, squadFilter]);
   const rotationPlan = useMemo(() => buildRotationPlan(filteredPlayers), [filteredPlayers]);
   const activePlayerCount = filteredPlayers.filter((player) => player.active).length;
 

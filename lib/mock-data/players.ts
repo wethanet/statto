@@ -12,6 +12,9 @@ export const players: Player[] = [
     secondaryPosition: 'W',
     runningProfile: 'high',
     rotationGroupOverrides: null,
+    seasonGoals: 'Become a dependable distributor who starts attacks from half-back.',
+    skillSummary: 'Covers ground well and uses the ball cleanly, but can still rush the last kick inside.',
+    developmentLevel: 'developing',
   },
   {
     id: 'p2',
@@ -24,6 +27,9 @@ export const players: Player[] = [
     secondaryPosition: 'Fol',
     runningProfile: 'balanced',
     rotationGroupOverrides: null,
+    seasonGoals: 'Own centre-bounce craft and build four-quarter stoppage impact.',
+    skillSummary: 'Reads the ruck well and competes hard, but his first step out of congestion can sharpen.',
+    developmentLevel: 'developing',
   },
   {
     id: 'p3',
@@ -36,6 +42,9 @@ export const players: Player[] = [
     secondaryPosition: null,
     runningProfile: 'managed',
     rotationGroupOverrides: null,
+    seasonGoals: 'Lead the forward line and finish more chances inside 50.',
+    skillSummary: 'Strong aerial target who works his defender deep, with scope to improve second efforts.',
+    developmentLevel: 'reliable',
   },
   {
     id: 'p4',
@@ -48,6 +57,9 @@ export const players: Player[] = [
     secondaryPosition: 'HF',
     runningProfile: 'balanced',
     rotationGroupOverrides: null,
+    seasonGoals: 'Provide repeat contest work and cleaner exit chains after the ruck contest.',
+    skillSummary: 'Physical and competitive around the ball, with improving touch by hand under pressure.',
+    developmentLevel: 'developing',
   },
   {
     id: 'p5',
@@ -60,6 +72,9 @@ export const players: Player[] = [
     secondaryPosition: 'HB',
     runningProfile: 'managed',
     rotationGroupOverrides: null,
+    seasonGoals: 'Become a one-on-one anchor who can also set up from intercept marks.',
+    skillSummary: 'Reliable stopper who defends the corridor well, but still defaults too safe with ball in hand.',
+    developmentLevel: 'reliable',
   },
   {
     id: 'p6',
@@ -72,6 +87,9 @@ export const players: Player[] = [
     secondaryPosition: 'HF',
     runningProfile: 'high',
     rotationGroupOverrides: null,
+    seasonGoals: 'Turn wing running into more direct territory gains and scoreboard impact.',
+    skillSummary: 'Elite runner who gets to dangerous space, with room to improve final-ball composure.',
+    developmentLevel: 'developing',
   },
   {
     id: 'p7',
@@ -84,6 +102,9 @@ export const players: Player[] = [
     secondaryPosition: 'C',
     runningProfile: 'high',
     rotationGroupOverrides: null,
+    seasonGoals: 'Connect midfield to forward half with more repeat entries and defensive chase.',
+    skillSummary: 'Smart link player with strong work rate and clean hands at speed.',
+    developmentLevel: 'reliable',
   },
   {
     id: 'p8',
@@ -96,6 +117,9 @@ export const players: Player[] = [
     secondaryPosition: 'W',
     runningProfile: 'balanced',
     rotationGroupOverrides: null,
+    seasonGoals: 'Grow into a balanced rebounding role and own the defensive wing lane.',
+    skillSummary: 'Reads the game well and works hard defensively, still building confidence with first possession.',
+    developmentLevel: 'emerging',
   },
   {
     id: 'p9',
@@ -108,6 +132,9 @@ export const players: Player[] = [
     secondaryPosition: 'HF',
     runningProfile: 'balanced',
     rotationGroupOverrides: null,
+    seasonGoals: 'Lock down a clear role and build consistency across back-to-back weeks.',
+    skillSummary: 'Athletic utility who competes strongly but still needs clearer habits around positioning.',
+    developmentLevel: 'emerging',
   },
   {
     id: 'p10',
@@ -120,5 +147,8 @@ export const players: Player[] = [
     secondaryPosition: 'HF',
     runningProfile: 'managed',
     rotationGroupOverrides: null,
+    seasonGoals: 'Return from injury-ready blocks with strong repeat leads and physical presence.',
+    skillSummary: 'Key forward body who marks well overhead, with load still being managed.',
+    developmentLevel: 'developing',
   },
 ];

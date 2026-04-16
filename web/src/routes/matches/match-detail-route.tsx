@@ -7,6 +7,7 @@ import {
   getDefaultFixtureSquad,
   getFixtureById,
   getPlayersForFixture,
+  isPlayerSelectedInOtherSameDayFixture,
   upsertAvailabilityRecord,
 } from '@/lib/availability';
 import {
@@ -14,13 +15,9 @@ import {
   getPlayersForFixtureLineup,
   upsertMatchLineupAssignment,
 } from '@/lib/match-lineup';
-import {
-  deleteMatchRotationAssignment,
-  getMatchRotationAssignment,
-  upsertMatchRotationAssignment,
-} from '@/lib/match-rotations';
 import { buildMatchRotationPlan, buildRotationPlan } from '@/lib/rotation-groups';
 import { getPlayerSortValue } from '@/lib/team';
+import { updatePlayerRotationGroupOverrides } from '@/lib/team';
 
 import { AvailabilityPlayerRow } from '@web/components/availability-player-row';
 import { useClubData } from '@web/lib/club-data-context';
@@ -51,11 +48,10 @@ export function MatchDetailRoute() {
     fixtures,
     isHydrated,
     matchLineupAssignments,
-    matchRotationAssignments,
     players,
     setAvailabilityRecords,
     setMatchLineupAssignments,
-    setMatchRotationAssignments,
+    setPlayers,
   } = useClubData();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const [defaultTeamMessage, setDefaultTeamMessage] = useState<string | null>(null);
@@ -97,8 +93,8 @@ export function MatchDetailRoute() {
       return { assignments: {} };
     }
 
-    return buildMatchRotationPlan(fixture.id, playersForFixture, rotationPlan.assignments, matchRotationAssignments);
-  }, [fixture, matchRotationAssignments, playersForFixture, rotationPlan.assignments]);
+    return buildMatchRotationPlan(playersForFixture, rotationPlan.assignments);
+  }, [fixture, playersForFixture, rotationPlan.assignments]);
 
   const groupedPlayers = useMemo(() => {
     return AVAILABILITY_GROUPS.map((group) => ({
@@ -275,9 +271,6 @@ export function MatchDetailRoute() {
                         setMatchLineupAssignments((current) => {
                           return deleteMatchLineupAssignment(current, fixture.id, player.id);
                         });
-                        setMatchRotationAssignments((current) => {
-                          return deleteMatchRotationAssignment(current, fixture.id, player.id);
-                        });
                       }
                     }}
                     onSelectPosition={(position) => {
@@ -290,21 +283,36 @@ export function MatchDetailRoute() {
                       });
                     }}
                     onSelectRotationGroup={(group) => {
-                      setMatchRotationAssignments((current) => {
-                        const existingAssignment = getMatchRotationAssignment(fixture.id, player.id, current);
+                      const existingProfileGroup =
+                        player.rotationGroupOverrides?.length === 1
+                          ? player.rotationGroupOverrides[0]
+                          : null;
 
-                        if (existingAssignment?.group === group) {
-                          return deleteMatchRotationAssignment(current, fixture.id, player.id);
-                        }
+                      if (existingProfileGroup === group) {
+                        setPlayers((current) => {
+                          return updatePlayerRotationGroupOverrides(current, player.id, null);
+                        });
+                        return;
+                      }
 
-                        return upsertMatchRotationAssignment(current, fixture.id, player.id, group);
+                      setPlayers((current) => {
+                        return updatePlayerRotationGroupOverrides(current, player.id, [group]);
                       });
                     }}
                     onResetRotationGroup={() => {
-                      setMatchRotationAssignments((current) => {
-                        return deleteMatchRotationAssignment(current, fixture.id, player.id);
+                      setPlayers((current) => {
+                        return updatePlayerRotationGroupOverrides(current, player.id, null);
                       });
                     }}
+                    hasSameDaySelectionConflict={
+                      player.availabilityStatus === 'uncertain' &&
+                      isPlayerSelectedInOtherSameDayFixture(
+                        fixture.id,
+                        player.id,
+                        fixtures,
+                        availabilityRecords
+                      )
+                    }
                     player={player}
                     rotationGroup={matchRotationPlan.assignments[player.id]?.group ?? null}
                     rotationGroupSource={matchRotationPlan.assignments[player.id]?.source ?? null}

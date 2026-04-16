@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
 
 import {
   deleteFitnessResult,
@@ -30,6 +31,7 @@ function formatRecordedAt(value: string) {
 
 export function FitnessAdminRoute() {
   const { fitnessResults, isHydrated, players, setFitnessResults } = useClubData();
+  const { canManagePlayer } = useClubPermissions();
   const [selectedPhase, setSelectedPhase] = useState<FitnessPhase>('start-of-season');
   const [selectedMetric, setSelectedMetric] = useState<FitnessMetric>('time-trial-1.2km');
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
@@ -38,8 +40,8 @@ export function FitnessAdminRoute() {
   const [formMessage, setFormMessage] = useState<string | null>(null);
 
   const sortedPlayers = useMemo(() => {
-    return getSortedTeam(players);
-  }, [players]);
+    return getSortedTeam(players.filter((player) => canManagePlayer(player)));
+  }, [canManagePlayer, players]);
 
   const filteredPlayers = useMemo(() => {
     const normalizedQuery = playerQuery.trim().toLowerCase();
@@ -58,9 +60,9 @@ export function FitnessAdminRoute() {
     ? getFitnessResultForPlayer(fitnessResults, selectedPlayer.id, selectedMetric, selectedPhase)
     : undefined;
   const selectedResults = useMemo(() => {
-    return getFitnessResultsForSelection(players, fitnessResults, selectedMetric, selectedPhase);
-  }, [fitnessResults, players, selectedMetric, selectedPhase]);
-  const selectedPhaseSummary = getFitnessSummary(players, fitnessResults, selectedPhase);
+    return getFitnessResultsForSelection(sortedPlayers, fitnessResults, selectedMetric, selectedPhase);
+  }, [fitnessResults, selectedMetric, selectedPhase, sortedPlayers]);
+  const selectedPhaseSummary = getFitnessSummary(sortedPlayers, fitnessResults, selectedPhase);
 
   useEffect(() => {
     if (!selectedPlayerId) {

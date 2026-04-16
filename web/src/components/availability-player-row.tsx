@@ -8,6 +8,7 @@ import type { AvailabilityStatus, MatchLinePosition, Player, PlayerRotationGroup
 type AvailabilityPlayerRowProps = {
   player: Player;
   status: AvailabilityStatus;
+  hasSameDaySelectionConflict?: boolean;
   onChange: (status: AvailabilityStatus) => void;
   selectedPosition: MatchLinePosition | null;
   onSelectPosition: (position: MatchLinePosition) => void;
@@ -46,6 +47,7 @@ function getAvailabilityTone(status: AvailabilityStatus) {
 export function AvailabilityPlayerRow({
   player,
   status,
+  hasSameDaySelectionConflict = false,
   onChange,
   onSelectPosition,
   selectedPosition,
@@ -54,7 +56,6 @@ export function AvailabilityPlayerRow({
   onSelectRotationGroup,
   onResetRotationGroup,
 }: AvailabilityPlayerRowProps) {
-  const metaParts = [player.number != null ? `#${player.number}` : null].filter(Boolean);
   const [isRotationMenuOpen, setIsRotationMenuOpen] = useState(false);
   const rotationMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -147,8 +148,15 @@ export function AvailabilityPlayerRow({
               ) : null}
             </div>
           ) : null}
-          {metaParts.length > 0 ? (
-            <span className="selection-row__meta">{metaParts.join(' • ')}</span>
+          {player.number != null ? (
+            <span
+              className={
+                hasSameDaySelectionConflict
+                  ? 'selection-row__meta selection-row__meta--conflict'
+                  : 'selection-row__meta'
+              }>
+              #{player.number}
+            </span>
           ) : null}
         </div>
       </div>

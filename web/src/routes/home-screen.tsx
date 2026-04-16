@@ -10,6 +10,7 @@ import type { Fixture, PlayerSquad } from '@/lib/types';
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
@@ -46,6 +47,7 @@ type MatchDashboardCard = {
 
 export function HomeScreen() {
   const { activeClub } = useClubAccess();
+  const { canAccessAdmin, canViewPlayer, canViewSquadItem } = useClubPermissions();
   const {
     attendanceRecords,
     availabilityRecords,
@@ -62,8 +64,11 @@ export function HomeScreen() {
   const [demoMessage, setDemoMessage] = useState<string | null>(null);
   const now = new Date();
   const todayKey = getLocalDateKey(now);
-  const sortedTrainingSessions = getSortedTrainingSessions(trainingSessions);
-  const sortedFixtures = getSortedFixtures(fixtures);
+  const visiblePlayers = players.filter((player) => canViewPlayer(player));
+  const visibleTrainingSessions = trainingSessions.filter((session) => canViewSquadItem(session.squad));
+  const visibleFixtures = fixtures.filter((fixture) => canViewSquadItem(fixture.squad));
+  const sortedTrainingSessions = getSortedTrainingSessions(visibleTrainingSessions);
+  const sortedFixtures = getSortedFixtures(visibleFixtures);
   const upcomingTrainingSessions = sortedTrainingSessions.filter((session) => {
     return new Date(session.date).getTime() >= now.getTime();
   });
@@ -72,9 +77,9 @@ export function HomeScreen() {
   });
 
   const hasAnyData =
-    trainingSessions.length > 0 ||
-    fixtures.length > 0 ||
-    players.length > 0 ||
+    visibleTrainingSessions.length > 0 ||
+    visibleFixtures.length > 0 ||
+    visiblePlayers.length > 0 ||
     attendanceRecords.length > 0 ||
     availabilityRecords.length > 0 ||
     matchStats.length > 0 ||
@@ -93,7 +98,7 @@ export function HomeScreen() {
     return getLocalDateKey(fixture.date) === todayKey;
   });
   const trainingSummary = displayedTraining
-    ? getAttendanceSummary(displayedTraining.id, players, attendanceRecords)
+    ? getAttendanceSummary(displayedTraining.id, visiblePlayers, attendanceRecords)
     : null;
   const prioritizedFixtures = displayedMatchesToday.length > 0 ? displayedMatchesToday : upcomingFixtures;
   const nextCupFixture =
@@ -105,7 +110,7 @@ export function HomeScreen() {
       return getDefaultFixtureSquad(fixture.grade) === 'plate';
     }) ?? null;
   const primaryMatch = nextCupFixture ?? nextPlateFixture ?? prioritizedFixtures[0] ?? null;
-  const teamSummary = getTeamSummary(players);
+  const teamSummary = getTeamSummary(visiblePlayers);
   const fineSummary = getFineSummary(fines);
   const trainingHeading = todaysTraining.length > 0 ? 'Today’s training' : 'Next training';
   const matchesHeading = displayedMatchesToday.length > 0 ? 'Today’s match' : 'Next match';
@@ -116,7 +121,7 @@ export function HomeScreen() {
     matchCards.push({
       fixture: nextCupFixture,
       squad: 'cup',
-      summary: getAvailabilitySummary(nextCupFixture.id, players, availabilityRecords),
+      summary: getAvailabilitySummary(nextCupFixture.id, visiblePlayers, availabilityRecords),
       heading: displayedMatchesToday.some((fixture) => fixture.id === nextCupFixture.id)
         ? 'Today’s Cup match'
         : 'Next Cup match',
@@ -127,7 +132,7 @@ export function HomeScreen() {
     matchCards.push({
       fixture: nextPlateFixture,
       squad: 'plate',
-      summary: getAvailabilitySummary(nextPlateFixture.id, players, availabilityRecords),
+      summary: getAvailabilitySummary(nextPlateFixture.id, visiblePlayers, availabilityRecords),
       heading: displayedMatchesToday.some((fixture) => fixture.id === nextPlateFixture.id)
         ? 'Today’s Plate match'
         : 'Next Plate match',
@@ -136,7 +141,7 @@ export function HomeScreen() {
 
   const attentionItems: AttentionItem[] = [];
 
-  if (players.length === 0) {
+  if (canAccessAdmin && visiblePlayers.length === 0) {
     attentionItems.push({
       title: 'Add the playing list',
       detail: 'Get players into the club first so selections, attendance, and stats can flow properly.',
@@ -165,7 +170,7 @@ export function HomeScreen() {
     }
   });
 
-  if (fineSummary.outstandingCount > 0) {
+  if (canAccessAdmin && fineSummary.outstandingCount > 0) {
     attentionItems.push({
       title: 'Outstanding fines still need collecting',
       detail: `${fineSummary.outstandingCount} fines are unpaid, worth $${fineSummary.outstandingAmount}.`,
@@ -174,7 +179,7 @@ export function HomeScreen() {
     });
   }
 
-  if (trainingSessions.length === 0) {
+  if (canAccessAdmin && visibleTrainingSessions.length === 0) {
     attentionItems.push({
       title: 'No training sessions scheduled',
       detail: 'Add the next session so coaches can mark attendance from the training tab.',
@@ -183,7 +188,7 @@ export function HomeScreen() {
     });
   }
 
-  if (fixtures.length === 0) {
+  if (canAccessAdmin && visibleFixtures.length === 0) {
     attentionItems.push({
       title: 'No fixtures scheduled',
       detail: 'Create the next fixture before availability and lineup work starts.',
@@ -227,14 +232,16 @@ export function HomeScreen() {
 
           <div className="home-hero__actions">
             <Link className="schedule-card__action" to={displayedTraining ? `/training/${displayedTraining.id}` : '/training'}>
-              {displayedTraining ? 'Open training' : 'View training'}
+              {canAccessAdmin && displayedTraining ? 'Open training' : 'View training'}
             </Link>
             <Link className="schedule-card__action" to={primaryMatch ? `/matches/${primaryMatch.id}` : '/matches'}>
-              {primaryMatch ? 'Open next match' : 'View matches'}
+              {canAccessAdmin && primaryMatch ? 'Open next match' : 'View matches'}
             </Link>
-            <Link className="schedule-card__action" to="/admin">
-              Open admin
-            </Link>
+            {canAccessAdmin ? (
+              <Link className="schedule-card__action" to="/admin">
+                Open admin
+              </Link>
+            ) : null}
           </div>
         </div>
 
@@ -274,49 +281,55 @@ export function HomeScreen() {
           <div className="stack-sm">
             <h3>Get started</h3>
             <p className="muted">
-              Set up the roster first, then add training and matches so coaches can work from live club data.
+              {canAccessAdmin
+                ? 'Set up the roster first, then add training and matches so coaches can work from live club data.'
+                : 'Your coach or admin will add the roster, training, and matches here.'}
             </p>
           </div>
 
-          <div className="two-column">
-            <Link className="home-action-row" to="/admin/team-setup">
-              <div className="stack-sm">
-                <strong>Add or import players</strong>
-                <span className="muted">Build the roster before selections and attendance start.</span>
+          {canAccessAdmin ? (
+            <>
+              <div className="two-column">
+                <Link className="home-action-row" to="/admin/team-setup">
+                  <div className="stack-sm">
+                    <strong>Add or import players</strong>
+                    <span className="muted">Build the roster before selections and attendance start.</span>
+                  </div>
+                  <span className="text-link">Open setup</span>
+                </Link>
+                <Link className="home-action-row" to="/admin/training">
+                  <div className="stack-sm">
+                    <strong>Create the first training session</strong>
+                    <span className="muted">Give coaches somewhere to mark weekly attendance.</span>
+                  </div>
+                  <span className="text-link">Open training</span>
+                </Link>
+                <Link className="home-action-row" to="/admin/matches">
+                  <div className="stack-sm">
+                    <strong>Create the first fixture</strong>
+                    <span className="muted">Start availability, lineup, and match-day workflows.</span>
+                  </div>
+                  <span className="text-link">Open matches</span>
+                </Link>
+                <button
+                  className="home-action-row home-action-row--button"
+                  disabled={!isHydrated}
+                  onClick={() => {
+                    loadDemoData();
+                    setDemoMessage('Dummy data loaded into this club workspace.');
+                  }}
+                  type="button">
+                  <div className="stack-sm">
+                    <strong>Load dummy data</strong>
+                    <span className="muted">Explore the full workflow with sample players, sessions, and matches.</span>
+                  </div>
+                  <span className="text-link">Load demo</span>
+                </button>
               </div>
-              <span className="text-link">Open setup</span>
-            </Link>
-            <Link className="home-action-row" to="/admin/training">
-              <div className="stack-sm">
-                <strong>Create the first training session</strong>
-                <span className="muted">Give coaches somewhere to mark weekly attendance.</span>
-              </div>
-              <span className="text-link">Open training</span>
-            </Link>
-            <Link className="home-action-row" to="/admin/matches">
-              <div className="stack-sm">
-                <strong>Create the first fixture</strong>
-                <span className="muted">Start availability, lineup, and match-day workflows.</span>
-              </div>
-              <span className="text-link">Open matches</span>
-            </Link>
-            <button
-              className="home-action-row home-action-row--button"
-              disabled={!isHydrated}
-              onClick={() => {
-                loadDemoData();
-                setDemoMessage('Dummy data loaded into this club workspace.');
-              }}
-              type="button">
-              <div className="stack-sm">
-                <strong>Load dummy data</strong>
-                <span className="muted">Explore the full workflow with sample players, sessions, and matches.</span>
-              </div>
-              <span className="text-link">Load demo</span>
-            </button>
-          </div>
 
-          {demoMessage ? <p className="muted">{demoMessage}</p> : null}
+              {demoMessage ? <p className="muted">{demoMessage}</p> : null}
+            </>
+          ) : null}
         </section>
       ) : (
         <>
@@ -351,18 +364,30 @@ export function HomeScreen() {
                       <span className="metric metric--negative">{trainingSummary.absent} marked absent</span>
                       <span className="metric metric--neutral">{trainingSummary.unknown} not marked</span>
                     </div>
-                    <Link className="text-link" to={`/training/${displayedTraining.id}`}>
-                      Mark attendance
-                    </Link>
+                    {canAccessAdmin ? (
+                      <Link className="text-link" to={`/training/${displayedTraining.id}`}>
+                        Mark attendance
+                      </Link>
+                    ) : (
+                      <Link className="text-link" to="/training">
+                        View training
+                      </Link>
+                    )}
                   </section>
                 ) : (
                   <section className="home-focus-card">
                     <span className="eyebrow">{trainingHeading}</span>
                     <h3>No session scheduled</h3>
-                    <p className="muted">Add the next training session to start marking attendance.</p>
-                    <Link className="text-link" to="/admin/training">
-                      Create training
-                    </Link>
+                    <p className="muted">
+                      {canAccessAdmin
+                        ? 'Add the next training session to start marking attendance.'
+                        : 'Training sessions will appear here when they are scheduled.'}
+                    </p>
+                    {canAccessAdmin ? (
+                      <Link className="text-link" to="/admin/training">
+                        Create training
+                      </Link>
+                    ) : null}
                   </section>
                 )}
 
@@ -378,8 +403,8 @@ export function HomeScreen() {
                         <span className="metric metric--negative">{card.summary.unavailable} unavailable</span>
                         <span className="metric metric--neutral">{card.summary.uncertain} not selected</span>
                       </div>
-                      <Link className="text-link" to={`/matches/${card.fixture.id}`}>
-                        Manage availability
+                      <Link className="text-link" to={canAccessAdmin ? `/matches/${card.fixture.id}` : '/matches'}>
+                        {canAccessAdmin ? 'Manage availability' : 'View fixture'}
                       </Link>
                     </section>
                   ))
@@ -387,10 +412,16 @@ export function HomeScreen() {
                   <section className="home-focus-card">
                     <span className="eyebrow">{matchesHeading}</span>
                     <h3>No fixture scheduled</h3>
-                    <p className="muted">Create the next match to open availability and lineup planning.</p>
-                    <Link className="text-link" to="/admin/matches">
-                      Create match
-                    </Link>
+                    <p className="muted">
+                      {canAccessAdmin
+                        ? 'Create the next match to open availability and lineup planning.'
+                        : 'Fixtures will appear here when they are scheduled.'}
+                    </p>
+                    {canAccessAdmin ? (
+                      <Link className="text-link" to="/admin/matches">
+                        Create match
+                      </Link>
+                    ) : null}
                   </section>
                 )}
               </div>
@@ -425,12 +456,16 @@ export function HomeScreen() {
                 <Link className="schedule-card__action" to="/matches">
                   Matches
                 </Link>
-                <Link className="schedule-card__action" to="/admin/team">
-                  Team
-                </Link>
-                <Link className="schedule-card__action" to="/admin">
-                  Admin hub
-                </Link>
+                {canAccessAdmin ? (
+                  <Link className="schedule-card__action" to="/admin/team">
+                    Team
+                  </Link>
+                ) : null}
+                {canAccessAdmin ? (
+                  <Link className="schedule-card__action" to="/admin">
+                    Admin hub
+                  </Link>
+                ) : null}
               </div>
             </section>
           </div>

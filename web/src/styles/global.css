@@ -154,6 +154,113 @@ button {
   padding: 0 0 48px;
 }
 
+.skeleton-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-panel--contrast {
+  background: linear-gradient(180deg, #0c3d96 0%, #072b72 100%);
+}
+
+.skeleton-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-block {
+  --skeleton-base: rgba(9, 30, 74, 0.08);
+  --skeleton-glow: rgba(255, 255, 255, 0.58);
+  display: block;
+  height: 1rem;
+  max-width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-base) 32%,
+    var(--skeleton-glow) 50%,
+    var(--skeleton-base) 68%,
+    var(--skeleton-base) 100%
+  );
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-block--contrast {
+  --skeleton-base: rgba(255, 255, 255, 0.18);
+  --skeleton-glow: rgba(255, 255, 255, 0.34);
+}
+
+.skeleton-block--eyebrow {
+  height: 0.78rem;
+}
+
+.skeleton-block--title {
+  height: 1.25rem;
+}
+
+.skeleton-block--hero-title {
+  height: 2.5rem;
+  border-radius: 18px;
+}
+
+.skeleton-block--text {
+  height: 0.95rem;
+}
+
+.skeleton-block--button {
+  height: 2.5rem;
+}
+
+.skeleton-block--chip {
+  height: 1.75rem;
+}
+
+.skeleton-block--stat {
+  height: 1.9rem;
+}
+
+.skeleton-block--track {
+  height: 0.8rem;
+  border-radius: 999px;
+}
+
+.skeleton-block--logo {
+  border-radius: 18px;
+}
+
+.skeleton-card__metrics {
+  align-items: flex-end;
+}
+
+.selection-row--skeleton {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.selection-row--skeleton:first-child {
+  padding-top: 0;
+}
+
+.selection-row--skeleton:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 .page-grid,
 .stack,
 .stack-lg,
@@ -453,6 +560,88 @@ button {
   justify-content: flex-end;
 }
 
+.player-fixture-card,
+.player-session-card {
+  gap: 18px;
+  padding: 22px 24px;
+}
+
+.player-fixture-card__header,
+.player-session-card__header {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.player-fixture-card__meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.player-fixture-card__meta span + span::before {
+  content: '•';
+  margin-right: 10px;
+  color: var(--surface-border);
+}
+
+.player-fixture-card__response,
+.player-session-card__response {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  text-align: right;
+}
+
+.player-fixture-card__label,
+.player-session-card__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.player-fixture-card__actions,
+.player-session-card__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 14px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.player-fixture-card__actions .pill-button,
+.player-session-card__actions .pill-button {
+  min-width: 112px;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.player-fixture-card__footer {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.player-fixture-card__result {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.player-fixture-card--past,
+.player-session-card--past {
+  opacity: 0.9;
+}
+
 .stats-card,
 .board-panel {
   padding: 18px;
@@ -616,6 +805,10 @@ button {
   gap: 18px;
 }
 
+.player-page {
+  gap: 18px;
+}
+
 .admin-page__hero {
   display: grid;
   gap: 18px;
@@ -623,6 +816,18 @@ button {
   border-radius: 28px;
   background:
     linear-gradient(135deg, rgba(9, 30, 74, 0.05), rgba(0, 102, 255, 0.1)),
+    var(--surface);
+  border: 1px solid rgba(9, 30, 74, 0.08);
+  box-shadow: var(--shadow);
+}
+
+.player-page__hero {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(0, 51, 255, 0.06), rgba(0, 102, 255, 0.14)),
     var(--surface);
   border: 1px solid rgba(9, 30, 74, 0.08);
   box-shadow: var(--shadow);
@@ -641,11 +846,106 @@ button {
   max-width: 720px;
 }
 
+.player-page__copy {
+  display: grid;
+  gap: 8px;
+  max-width: 720px;
+}
+
 .admin-page__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+.training-planner,
+.training-planner__list,
+.training-run-plan-list,
+.training-media-editor-list {
+  display: grid;
+  gap: 14px;
+}
+
+.training-planner {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--surface-border);
+  background: rgba(0, 51, 255, 0.03);
+}
+
+.training-drill-editor,
+.training-run-plan-card,
+.training-media-editor-card,
+.training-focus-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-strong);
+}
+
+.training-planner__header,
+.training-structure__header {
+  align-items: center;
+}
+
+.training-structure__summary {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.training-structure__summary strong {
+  font-size: 1.4rem;
+  color: var(--text);
+}
+
+.training-run-plan-card__duration {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 51, 255, 0.09);
+  color: var(--primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.training-media-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.training-media-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+}
+
+.training-media-card--link {
+  align-content: start;
+}
+
+.training-media-card__image,
+.training-media-card__video {
+  width: 100%;
+  border-radius: 12px;
+  background: #0f172a;
+  object-fit: cover;
+}
+
+.training-media-card__image {
+  min-height: 180px;
+}
+
+.training-media-card__video {
+  aspect-ratio: 16 / 9;
 }
 
 .admin-page__nav {
@@ -704,6 +1004,106 @@ button {
   justify-content: space-between;
   align-items: flex-end;
   gap: 12px;
+}
+
+.development-layout {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
+  align-items: start;
+}
+
+.development-player-list {
+  position: sticky;
+  top: 20px;
+}
+
+.development-player-list__items,
+.development-history {
+  display: grid;
+  gap: 10px;
+}
+
+.development-player-list__button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-strong);
+  color: var(--text);
+  text-align: left;
+}
+
+.development-player-list__button--selected {
+  border-color: rgba(0, 51, 255, 0.24);
+  background: rgba(0, 51, 255, 0.08);
+}
+
+.development-history__item {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-strong);
+}
+
+.development-focus-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.development-task-list {
+  display: grid;
+  gap: 10px;
+}
+
+.development-task-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) minmax(160px, 220px) auto;
+  align-items: center;
+}
+
+.development-chat,
+.development-chat__messages {
+  display: grid;
+  gap: 12px;
+}
+
+.development-chat__messages {
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.development-chat__message {
+  display: grid;
+  gap: 8px;
+  max-width: min(720px, 100%);
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--surface-border);
+}
+
+.development-chat__message p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.development-chat__message--assistant {
+  background: var(--surface-strong);
+}
+
+.development-chat__message--coach {
+  margin-left: auto;
+  background: rgba(0, 51, 255, 0.08);
+  border-color: rgba(0, 51, 255, 0.18);
+}
+
+.development-chat__draft {
+  background: rgba(0, 51, 255, 0.04);
 }
 
 .selection-table {
@@ -845,17 +1245,22 @@ button {
 }
 
 .selection-row__rotation-dot--key-position-players, .team-sheet__player-dot--key-position-players {
-  background: #cad056;
+  background: #FFC100;
 }
 
 .selection-row__rotation-dot--utility-players, .team-sheet__player-dot--utility-players {
-  background: #a09df8;
+  background: #6C7D47;
 }
 
 .selection-row__meta {
   color: var(--text-muted);
   font-size: 0.9rem;
   white-space: nowrap;
+}
+
+.selection-row__meta--conflict {
+  color: var(--negative);
+  font-weight: 700;
 }
 
 .selection-row__actions {
@@ -2243,6 +2648,16 @@ button {
   background: #ffe2df;
 }
 
+.button--ghost-danger {
+  background: transparent;
+  color: var(--negative);
+  border: 1px solid rgba(229, 106, 84, 0.35);
+}
+
+.button--ghost-danger:hover {
+  background: #fff1f0;
+}
+
 .eyebrow {
   display: inline-block;
   font-size: 0.82rem;
@@ -2281,7 +2696,12 @@ p {
   .live-stats-grid,
   .report-stats-grid,
   .stats-report-sides,
-  .admin-summary-grid {
+  .admin-summary-grid,
+  .development-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .development-task-row {
     grid-template-columns: 1fr;
   }
 
@@ -2289,7 +2709,8 @@ p {
   .shell-drawer__brand,
   .admin-page__top,
   .home-hero,
-  .home-dashboard__grid {
+  .home-dashboard__grid,
+  .selection-row--skeleton {
     grid-template-columns: 1fr;
     display: grid;
   }
@@ -2404,15 +2825,34 @@ p {
     grid-template-columns: 1fr;
   }
 
+  .player-fixture-card__header,
+  .player-session-card__header,
   .schedule-card__layout,
-  .schedule-card__side {
+  .schedule-card__side,
+  .skeleton-card__metrics {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .player-fixture-card__response,
+  .player-session-card__response,
   .schedule-card__status {
     justify-items: start;
     text-align: left;
+  }
+
+  .player-fixture-card__meta span + span::before {
+    content: '';
+    margin-right: 0;
+  }
+
+  .player-fixture-card__actions .pill-button,
+  .player-session-card__actions .pill-button {
+    flex: 1 1 140px;
+  }
+
+  .player-fixture-card__footer {
+    align-items: flex-start;
   }
 
   .score-strip__team,
@@ -2454,6 +2894,15 @@ p {
 
   .rotation-groups-grid {
     grid-template-columns: 1fr;
+  }
+
+  .training-media-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .training-structure__summary {
+    justify-items: start;
+    text-align: left;
   }
 
   .mobile-topbar__title {

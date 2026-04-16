@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { FineRow } from '@web/components/fines/fine-row';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
 
 import {
   addFine,
@@ -16,18 +17,28 @@ import { getPlayerDisplayName, getPlayerSortValue } from '@/lib/team';
 
 export function FinesAdminRoute() {
   const { fines, isHydrated, players, setFines } = useClubData();
+  const { canManagePlayer } = useClubPermissions();
+  const manageablePlayers = useMemo(() => {
+    return players.filter((player) => canManagePlayer(player));
+  }, [canManagePlayer, players]);
+  const manageablePlayerIds = useMemo(() => {
+    return new Set(manageablePlayers.map((player) => player.id));
+  }, [manageablePlayers]);
+  const visibleFines = useMemo(() => {
+    return fines.filter((fine) => manageablePlayerIds.has(fine.playerId));
+  }, [fines, manageablePlayerIds]);
   const activePlayers = useMemo(() => {
-    return [...players]
+    return [...manageablePlayers]
       .filter((player) => player.active)
       .sort((left, right) => getPlayerSortValue(left.number) - getPlayerSortValue(right.number));
-  }, [players]);
+  }, [manageablePlayers]);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [playerQuery, setPlayerQuery] = useState('');
   const [reason, setReason] = useState('');
   const [amount, setAmount] = useState('');
   const [formMessage, setFormMessage] = useState<string | null>(null);
-  const summary = getFineSummary(fines);
-  const sortedFines = getSortedFines(fines);
+  const summary = getFineSummary(visibleFines);
+  const sortedFines = getSortedFines(visibleFines);
   const filteredPlayers = useMemo(() => {
     const normalizedQuery = playerQuery.trim().toLowerCase();
 
@@ -195,7 +206,7 @@ export function FinesAdminRoute() {
               setFines((current) => toggleFinePaidStatus(current, fine.id));
             }}
             paid={fine.paid}
-            playerName={getFinePlayerName(fine.playerId, players)}
+            playerName={getFinePlayerName(fine.playerId, manageablePlayers)}
             reason={fine.reason}
           />
         );

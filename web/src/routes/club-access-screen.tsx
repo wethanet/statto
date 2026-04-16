@@ -77,7 +77,8 @@ export function ClubAccessScreen() {
           <h1>Choose your club workspace</h1>
           <p className="muted">
             Create a club for your team or join an existing club so managers can work from the same
-            synced data.
+            synced data. If an admin has already assigned your email to a player or coach role,
+            join with the club code and that access will be applied automatically.
           </p>
         </div>
 
@@ -103,6 +104,10 @@ export function ClubAccessScreen() {
 
           <form className="card stack" onSubmit={handleJoinClub}>
             <h2>Join a club</h2>
+            <p className="muted">
+              Use the club invite code. If your email has a pending invite, your role and linked
+              player profile will be picked up when you join.
+            </p>
             <label className="field">
               <span>Invite code</span>
               <input

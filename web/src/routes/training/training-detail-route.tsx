@@ -4,12 +4,15 @@ import { Link, useParams } from 'react-router-dom';
 import {
   getAttendanceSummary,
   getPlayersForSession,
+  getTrainingRunPlanDuration,
   getTrainingSessionById,
   upsertAttendanceRecord,
 } from '@/lib/attendance';
 import { getPlayerSortValue } from '@/lib/team';
+import { resolveTrainingSessionStructure } from '@/lib/training-session-suggestions';
 
 import { AttendancePlayerRow } from '@web/components/attendance-player-row';
+import { TrainingSessionStructureCard } from '@web/components/training/training-session-structure-card';
 import { useClubData } from '@web/lib/club-data-context';
 
 type PlayerSort = 'name' | 'number';
@@ -71,9 +74,16 @@ export function TrainingDetailRoute() {
   }
 
   const summary = getAttendanceSummary(session.id, players, attendanceRecords);
+  const resolvedStructure = resolveTrainingSessionStructure(session, trainingSessions);
+  const displaySession = {
+    ...session,
+    focus: resolvedStructure.focus,
+    runPlan: resolvedStructure.runPlan,
+  };
   const totalPlayers = players.length;
   const respondedCount = summary.present + summary.absent;
   const responseRate = totalPlayers > 0 ? Math.round((respondedCount / totalPlayers) * 100) : 0;
+  const plannedMinutes = getTrainingRunPlanDuration(displaySession);
   const responseLabel =
     respondedCount > 0
       ? `${respondedCount} of ${totalPlayers} players have checked in`
@@ -86,7 +96,14 @@ export function TrainingDetailRoute() {
         <h2>{session.title}</h2>
         <p className="muted">{formatDate(session.date)}</p>
         <p className="muted">{session.location}</p>
+        <p className="muted">
+          {displaySession.runPlan.length}{' '}
+          {displaySession.runPlan.length === 1 ? 'drill planned' : 'drills planned'}
+          {plannedMinutes > 0 ? ` • ${plannedMinutes} min run plan` : ''}
+        </p>
       </section>
+
+      <TrainingSessionStructureCard isSuggested={resolvedStructure.isSuggested} session={displaySession} />
 
       <section className="card stack">
         <div className="split-row availability-summary__header">

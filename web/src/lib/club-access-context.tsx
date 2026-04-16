@@ -9,11 +9,12 @@ import {
 } from 'react';
 
 import { createClubId, createInviteCode, normalizeInviteCode } from '@/lib/club';
-import type { Club, ClubMembershipRole } from '@/lib/types';
+import type { Club, ClubMembershipRole, PlayerSquad } from '@/lib/types';
 
 import { useAuth } from '@web/lib/auth-context';
 import { readJsonStorage, writeJsonStorage } from '@web/lib/storage/local-storage';
 import { supabase } from '@web/lib/supabase';
+import { normalizePlayerSquads } from '@/lib/team';
 
 type ClubAccessContextValue = {
   clubs: Club[];
@@ -23,18 +24,38 @@ type ClubAccessContextValue = {
   createClub: (name: string) => Promise<string | null>;
   joinClub: (inviteCode: string) => Promise<string | null>;
   renameClub: (clubId: string, name: string) => Promise<string | null>;
+  refreshClubs: () => Promise<void>;
   setActiveClubId: (clubId: string) => Promise<void>;
 };
 
 type MembershipRow = {
   club_id: string;
-  role: ClubMembershipRole;
+  role: string;
+  email: string | null;
+  player_id: string | null;
+  squads: unknown;
 };
 
 type ClubRow = {
   id: string;
   name: string;
   invite_code: string;
+};
+
+type ClubInviteRow = {
+  email: string;
+  role: string;
+  player_id: string | null;
+  squads: unknown;
+};
+
+type JoinClubRpcRow = {
+  id: string;
+  name: string;
+  invite_code: string;
+  membership_role: string;
+  player_id: string | null;
+  squads: unknown;
 };
 
 const ACTIVE_CLUB_ID_STORAGE_KEY = 'active-club-id.json';
@@ -49,6 +70,209 @@ async function saveActiveClubId(clubId: string | null) {
   await writeJsonStorage(ACTIVE_CLUB_ID_STORAGE_KEY, clubId);
 }
 
+function isMissingClubMembershipColumnError(error: unknown) {
+  const message =
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : null;
+
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes("'club_memberships'") &&
+    (message.includes("'email' column") ||
+      message.includes("'player_id' column") ||
+      message.includes("'squads' column"))
+  );
+}
+
+function getSupabaseErrorMessage(error: unknown) {
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return null;
+}
+
+function isClubMembershipRoleConstraintError(error: unknown) {
+  const message = getSupabaseErrorMessage(error);
+
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes('club_memberships_role_check') ||
+    message.includes('violates check constraint') && message.includes('club_memberships')
+  );
+}
+
+function isMissingClubInviteSchemaError(error: unknown) {
+  const message = getSupabaseErrorMessage(error);
+
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes("'club_member_invites'") ||
+    message.includes('relation "public.club_member_invites" does not exist')
+  );
+}
+
+function normalizeClubMembershipRole(role: string | null | undefined): ClubMembershipRole {
+  if (role === 'admin' || role === 'coach' || role === 'player') {
+    return role;
+  }
+
+  if (role === 'owner' || role === 'manager') {
+    return 'admin';
+  }
+
+  return 'player';
+}
+
+async function insertMembershipWithFallback(input: {
+  club_id: string;
+  user_id: string;
+  role: ClubMembershipRole;
+  email: string | null;
+  player_id: string | null;
+  squads: PlayerSquad[];
+}) {
+  if (!supabase) {
+    return 'Supabase is not configured yet.';
+  }
+
+  const normalizedRole = normalizeClubMembershipRole(input.role);
+  const { error } = await supabase.from('club_memberships').insert({
+    ...input,
+    role: normalizedRole,
+  });
+
+  if (!error) {
+    return null;
+  }
+
+  if (isClubMembershipRoleConstraintError(error)) {
+    const { error: safeInsertError } = await supabase.from('club_memberships').insert({
+      ...input,
+      role: 'player',
+      email: null,
+      player_id: null,
+      squads: [],
+    });
+
+    if (safeInsertError) {
+      return safeInsertError.message;
+    }
+
+    if (normalizedRole !== 'player') {
+      const { error: upgradeRoleError } = await supabase
+        .from('club_memberships')
+        .update({
+          role: normalizedRole,
+          email: input.email,
+          player_id: input.player_id,
+          squads: normalizedRole === 'admin' ? [] : input.squads,
+        })
+        .eq('club_id', input.club_id)
+        .eq('user_id', input.user_id);
+
+      if (upgradeRoleError) {
+        return upgradeRoleError.message;
+      }
+    }
+
+    return null;
+  }
+
+  if (!isMissingClubMembershipColumnError(error)) {
+    return error.message;
+  }
+
+  const { error: legacyInsertError } = await supabase.from('club_memberships').insert({
+    club_id: input.club_id,
+    user_id: input.user_id,
+    role: normalizedRole,
+  });
+
+  return legacyInsertError?.message ?? null;
+}
+
+async function loadClubInviteForUser(clubId: string, email: string | null | undefined) {
+  if (!supabase || !email) {
+    return null;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('club_member_invites')
+    .select('email, role, player_id, squads')
+    .eq('club_id', clubId)
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingClubInviteSchemaError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+
+  const invite = data as ClubInviteRow | null;
+
+  if (!invite) {
+    return null;
+  }
+
+  return {
+    email: invite.email,
+    role: normalizeClubMembershipRole(invite.role),
+    playerId: invite.player_id,
+    squads: normalizePlayerSquads(invite.squads),
+  };
+}
+
+async function deleteClubInvite(clubId: string, email: string | null | undefined) {
+  if (!supabase || !email) {
+    return;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from('club_member_invites')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('email', normalizedEmail);
+
+  if (error && !isMissingClubInviteSchemaError(error)) {
+    throw error;
+  }
+}
+
 async function loadUserClubs(userId: string) {
   if (!supabase) {
     return [];
@@ -56,14 +280,33 @@ async function loadUserClubs(userId: string) {
 
   const { data: memberships, error: membershipError } = await supabase
     .from('club_memberships')
-    .select('club_id, role')
+    .select('club_id, role, email, player_id, squads')
     .eq('user_id', userId);
 
-  if (membershipError) {
+  let membershipRows = (memberships ?? []) as MembershipRow[];
+
+  if (membershipError && isMissingClubMembershipColumnError(membershipError)) {
+    const { data: legacyMemberships, error: legacyMembershipError } = await supabase
+      .from('club_memberships')
+      .select('club_id, role')
+      .eq('user_id', userId);
+
+    if (legacyMembershipError) {
+      throw legacyMembershipError;
+    }
+
+    membershipRows = ((legacyMemberships ?? []) as Array<{ club_id: string; role: string }>).map(
+      (membership) => ({
+        club_id: membership.club_id,
+        role: membership.role,
+        email: null,
+        player_id: null,
+        squads: [],
+      })
+    );
+  } else if (membershipError) {
     throw membershipError;
   }
-
-  const membershipRows = (memberships ?? []) as MembershipRow[];
 
   if (membershipRows.length === 0) {
     return [];
@@ -93,7 +336,10 @@ async function loadUserClubs(userId: string) {
         id: club.id,
         name: club.name,
         inviteCode: club.invite_code,
-        role: membership.role,
+        role: normalizeClubMembershipRole(membership.role),
+        email: membership.email,
+        playerId: membership.player_id,
+        squads: normalizePlayerSquads(membership.squads),
       } satisfies Club;
     })
     .filter((club): club is Club => club !== null)
@@ -105,6 +351,36 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [activeClubId, setActiveClubIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(isConfigured);
+
+  const refreshClubs = useCallback(async () => {
+    if (!isConfigured || !user?.id) {
+      setClubs([]);
+      setActiveClubIdState(null);
+      await saveActiveClubId(null);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const [nextClubs, storedActiveClubId] = await Promise.all([
+        loadUserClubs(user.id),
+        loadActiveClubId(),
+      ]);
+
+      setClubs(nextClubs);
+
+      const hasStoredClub = storedActiveClubId
+        ? nextClubs.some((club) => club.id === storedActiveClubId)
+        : false;
+      const nextActiveClubId = hasStoredClub ? storedActiveClubId : nextClubs[0]?.id ?? null;
+
+      setActiveClubIdState(nextActiveClubId);
+      await saveActiveClubId(nextActiveClubId);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isConfigured, user?.id]);
 
   useEffect(() => {
     if (isAuthLoading) {
@@ -119,48 +395,19 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
     }
 
     let isMounted = true;
-    const userId = user.id;
-    setIsLoading(true);
-
-    async function hydrate() {
-      try {
-        const [nextClubs, storedActiveClubId] = await Promise.all([
-          loadUserClubs(userId),
-          loadActiveClubId(),
-        ]);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setClubs(nextClubs);
-
-        const hasStoredClub = storedActiveClubId
-          ? nextClubs.some((club) => club.id === storedActiveClubId)
-          : false;
-        const nextActiveClubId = hasStoredClub ? storedActiveClubId : nextClubs[0]?.id ?? null;
-
-        setActiveClubIdState(nextActiveClubId);
-        await saveActiveClubId(nextActiveClubId);
-      } catch (error: unknown) {
-        if (!isMounted) {
-          return;
-        }
-
-        console.warn('Failed to load club memberships', error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+    refreshClubs().catch((error: unknown) => {
+      if (!isMounted) {
+        return;
       }
-    }
 
-    hydrate();
+      console.warn('Failed to load club memberships', error);
+      setIsLoading(false);
+    });
 
     return () => {
       isMounted = false;
     };
-  }, [isAuthLoading, isConfigured, user?.id]);
+  }, [isAuthLoading, isConfigured, refreshClubs, user?.id]);
 
   const setActiveClubId = useCallback(async (clubId: string) => {
     setActiveClubIdState(clubId);
@@ -193,21 +440,27 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
         return clubError.message;
       }
 
-      const { error: membershipError } = await supabase.from('club_memberships').insert({
+      const membershipError = await insertMembershipWithFallback({
         club_id: clubId,
         user_id: user.id,
-        role: 'owner',
+        role: 'admin',
+        email: user.email ?? null,
+        player_id: null,
+        squads: [],
       });
 
       if (membershipError) {
-        return membershipError.message;
+        return membershipError;
       }
 
       const nextClub: Club = {
         id: clubId,
         name: normalizedName,
         inviteCode,
-        role: 'owner',
+        role: 'admin',
+        email: user.email ?? null,
+        playerId: null,
+        squads: [],
       };
 
       setClubs((current) => {
@@ -233,6 +486,44 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
         return 'Enter an invite code.';
       }
 
+      const joinRpc = await supabase.rpc('join_club_by_invite_code', {
+        invite_code_input: normalizedCode,
+      });
+
+      if (!joinRpc.error) {
+        const joinRow = Array.isArray(joinRpc.data)
+          ? (joinRpc.data[0] as JoinClubRpcRow | undefined)
+          : undefined;
+
+        if (!joinRow) {
+          return 'No club matched that invite code.';
+        }
+
+        const nextClub: Club = {
+          id: joinRow.id,
+          name: joinRow.name,
+          inviteCode: joinRow.invite_code,
+          role: normalizeClubMembershipRole(joinRow.membership_role),
+          email: user.email ?? null,
+          playerId: joinRow.player_id,
+          squads: normalizePlayerSquads(joinRow.squads),
+        };
+
+        setClubs((current) => {
+          const filtered = current.filter((club) => club.id !== nextClub.id);
+          return [...filtered, nextClub].sort((left, right) => left.name.localeCompare(right.name));
+        });
+        setActiveClubIdState(nextClub.id);
+        await saveActiveClubId(nextClub.id);
+        return null;
+      }
+
+      const rpcMessage = getSupabaseErrorMessage(joinRpc.error);
+
+      if (rpcMessage && !rpcMessage.includes('join_club_by_invite_code')) {
+        return rpcMessage;
+      }
+
       const { data, error } = await supabase.rpc('find_club_by_invite_code', {
         invite_code_input: normalizedCode,
       });
@@ -255,21 +546,41 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
         return null;
       }
 
-      const { error: membershipError } = await supabase.from('club_memberships').insert({
+      let pendingInvite: Awaited<ReturnType<typeof loadClubInviteForUser>> | null = null;
+
+      try {
+        pendingInvite = await loadClubInviteForUser(clubRow.id, user.email ?? null);
+      } catch (error: unknown) {
+        return getSupabaseErrorMessage(error) ?? 'Could not load the club invite for this user.';
+      }
+
+      const membershipError = await insertMembershipWithFallback({
         club_id: clubRow.id,
         user_id: user.id,
-        role: 'manager',
+        role: pendingInvite?.role ?? 'player',
+        email: user.email ?? null,
+        player_id: pendingInvite?.playerId ?? null,
+        squads: pendingInvite?.squads ?? [],
       });
 
       if (membershipError) {
-        return membershipError.message;
+        return membershipError;
+      }
+
+      try {
+        await deleteClubInvite(clubRow.id, user.email ?? null);
+      } catch (error: unknown) {
+        console.warn('Failed to clear accepted club invite', error);
       }
 
       const nextClub: Club = {
         id: clubRow.id,
         name: clubRow.name,
         inviteCode: clubRow.invite_code,
-        role: 'manager',
+        role: pendingInvite?.role ?? 'player',
+        email: user.email ?? null,
+        playerId: pendingInvite?.playerId ?? null,
+        squads: pendingInvite?.squads ?? [],
       };
 
       setClubs((current) => {
@@ -332,9 +643,10 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
       createClub,
       joinClub,
       renameClub,
+      refreshClubs,
       setActiveClubId,
     };
-  }, [activeClubId, clubs, createClub, isLoading, joinClub, renameClub, setActiveClubId]);
+  }, [activeClubId, clubs, createClub, isLoading, joinClub, refreshClubs, renameClub, setActiveClubId]);
 
   return <ClubAccessContext.Provider value={value}>{children}</ClubAccessContext.Provider>;
 }

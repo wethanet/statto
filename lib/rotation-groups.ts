@@ -2,7 +2,6 @@ import { getPlayerSortValue } from '@/lib/team';
 import type {
   AvailabilityStatus,
   MatchLinePosition,
-  MatchRotationAssignment,
   Player,
   PlayerPositionProfile,
   PlayerRotationGroup,
@@ -288,10 +287,8 @@ function getGroupScarcity(
 }
 
 export function buildMatchRotationPlan(
-  fixtureId: string,
   players: MatchRotationPlayer[],
-  profileAssignments: RotationPlan['assignments'],
-  manualAssignments: MatchRotationAssignment[]
+  profileAssignments: RotationPlan['assignments']
 ): MatchRotationPlan {
   const selectedPlayers = [...players]
     .filter((player) => {
@@ -304,36 +301,24 @@ export function buildMatchRotationPlan(
         left.name.localeCompare(right.name)
       );
     });
-  const manualAssignmentMap = new Map(
-    manualAssignments
-      .filter((assignment) => {
-        return assignment.fixtureId === fixtureId;
-      })
-      .map((assignment) => [assignment.playerId, assignment] as const)
-  );
   const counts = new Map<PlayerRotationGroup, number>(groupOrder.map((group) => [group, 0]));
   const assignments: MatchRotationPlan['assignments'] = {};
   const generatedPlayers = selectedPlayers
     .map((player) => {
       const candidates = getMatchRotationCandidates(player, profileAssignments);
-      const manualAssignment = manualAssignmentMap.get(player.id);
-
-      if (manualAssignment) {
-        assignments[player.id] = {
-          group: manualAssignment.group,
-          source: 'manual',
-          candidates,
-        };
-        counts.set(manualAssignment.group, (counts.get(manualAssignment.group) ?? 0) + 1);
-        return null;
-      }
+      const profileSource = profileAssignments[player.id]?.source ?? 'generated';
 
       return {
         player,
         candidates,
+        source: profileSource,
       };
     })
-    .filter((entry): entry is { player: MatchRotationPlayer; candidates: PlayerRotationGroup[] } => {
+    .filter((entry): entry is {
+      player: MatchRotationPlayer;
+      candidates: PlayerRotationGroup[];
+      source: 'generated' | 'manual';
+    } => {
       return entry !== null;
     })
     .sort((left, right) => {
@@ -374,7 +359,7 @@ export function buildMatchRotationPlan(
 
     assignments[entry.player.id] = {
       group: selectedGroup,
-      source: 'generated',
+      source: entry.source,
       candidates: entry.candidates,
     };
     counts.set(selectedGroup, (counts.get(selectedGroup) ?? 0) + 1);

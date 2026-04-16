@@ -1,4 +1,4 @@
-export type ClubMembershipRole = 'owner' | 'manager';
+export type ClubMembershipRole = 'admin' | 'coach' | 'player';
 export type PlayerPositionProfile = 'B' | 'HB' | 'W' | 'C' | 'HF' | 'F' | 'Fol';
 export type PlayerRunningProfile = 'high' | 'balanced' | 'managed';
 export type PlayerRotationGroup =
@@ -6,12 +6,23 @@ export type PlayerRotationGroup =
   | 'running-players'
   | 'key-position-players'
   | 'utility-players';
+export type PlayerDevelopmentLevel = 'emerging' | 'developing' | 'reliable' | 'advanced';
+export type PlayerDevelopmentProgressStatus = 'not-started' | 'building' | 'on-track' | 'banked';
+export type PlayerDevelopmentTask = {
+  id: string;
+  title: string;
+  priority: number;
+  progressStatus: PlayerDevelopmentProgressStatus;
+};
 
 export type Club = {
   id: string;
   name: string;
   inviteCode: string;
   role: ClubMembershipRole;
+  email: string | null;
+  playerId: string | null;
+  squads: PlayerSquad[];
 };
 
 export type Player = {
@@ -25,6 +36,9 @@ export type Player = {
   secondaryPosition: PlayerPositionProfile | null;
   runningProfile: PlayerRunningProfile | null;
   rotationGroupOverrides: PlayerRotationGroup[] | null;
+  seasonGoals: string | null;
+  skillSummary: string | null;
+  developmentLevel: PlayerDevelopmentLevel | null;
 };
 
 export type PlayerRole = 'player' | 'captain' | 'vice-captain' | 'leader';
@@ -35,6 +49,25 @@ export type TrainingSession = {
   title: string;
   date: string;
   location: string;
+  squad: PlayerSquad | null;
+  focus: string | null;
+  runPlan: TrainingSessionDrill[];
+};
+
+export type TrainingSessionDrill = {
+  id: string;
+  title: string;
+  durationMinutes: number | null;
+  description: string | null;
+  coachingPoints: string | null;
+  media: TrainingSessionDrillMedia[];
+};
+
+export type TrainingSessionDrillMedia = {
+  id: string;
+  type: 'image' | 'video';
+  url: string;
+  caption: string | null;
 };
 
 export type AttendanceStatus = 'present' | 'absent' | 'unknown';
@@ -49,6 +82,7 @@ export type Fixture = {
   id: string;
   opponent: string;
   grade: string | null;
+  squad: PlayerSquad | null;
   date: string;
   venue: string;
   isHome: boolean;
@@ -131,4 +165,16 @@ export type FitnessResult = {
   phase: FitnessPhase;
   value: number;
   recordedAt: string;
+};
+
+export type PlayerDevelopmentEntry = {
+  playerId: string;
+  weekStart: string;
+  tasks: PlayerDevelopmentTask[];
+  coachingNote: string | null;
+  progressStatus: PlayerDevelopmentProgressStatus;
+  proficiency: 1 | 2 | 3 | 4 | 5 | null;
+  progressNote: string | null;
+  generatedAt: string | null;
+  updatedAt: string;
 };

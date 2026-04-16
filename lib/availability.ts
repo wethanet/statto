@@ -1,4 +1,5 @@
 import type { AvailabilityRecord, AvailabilityStatus, Fixture, Player, PlayerSquad } from '@/lib/types';
+import { normalizePlayerSquad } from '@/lib/team';
 
 type AvailabilitySummary = {
   available: number;
@@ -10,6 +11,15 @@ function byDateAscending<T extends { date: string }>(items: T[]) {
   return [...items].sort((left, right) => {
     return new Date(left.date).getTime() - new Date(right.date).getTime();
   });
+}
+
+function getFixtureDayKey(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 export function getSortedFixtures(fixtures: Fixture[]) {
@@ -35,6 +45,7 @@ export function addFixture(
   input: {
     opponent: string;
     grade?: string | null;
+    squad?: PlayerSquad | null;
     date: string;
     venue: string;
     isHome: boolean;
@@ -44,6 +55,7 @@ export function addFixture(
     id: `fx-${Date.now()}`,
     opponent: input.opponent.trim(),
     grade: input.grade?.trim() || null,
+    squad: input.squad ?? null,
     date: input.date,
     venue: input.venue.trim(),
     isHome: input.isHome,
@@ -58,6 +70,7 @@ export function updateFixture(
   input: {
     opponent: string;
     grade?: string | null;
+    squad?: PlayerSquad | null;
     date: string;
     venue: string;
     isHome: boolean;
@@ -72,6 +85,7 @@ export function updateFixture(
       ...fixture,
       opponent: input.opponent.trim(),
       grade: input.grade?.trim() || null,
+      squad: input.squad ?? null,
       date: input.date,
       venue: input.venue.trim(),
       isHome: input.isHome,
@@ -123,6 +137,29 @@ export function getPlayersForFixture(
   });
 }
 
+export function isPlayerSelectedInOtherSameDayFixture(
+  fixtureId: string,
+  playerId: string,
+  fixtures: Fixture[],
+  records: AvailabilityRecord[]
+) {
+  const currentFixture = getFixtureById(fixtureId, fixtures);
+
+  if (!currentFixture) {
+    return false;
+  }
+
+  const currentDayKey = getFixtureDayKey(currentFixture.date);
+
+  return fixtures.some((fixture) => {
+    return (
+      fixture.id !== fixtureId &&
+      getFixtureDayKey(fixture.date) === currentDayKey &&
+      getAvailabilityStatusForPlayer(fixture.id, playerId, records) === 'available'
+    );
+  });
+}
+
 export function upsertAvailabilityRecord(
   records: AvailabilityRecord[],
   fixtureId: string,
@@ -152,12 +189,16 @@ export function getDefaultFixtureSquad(grade: Fixture['grade']): PlayerSquad | n
   return null;
 }
 
+export function normalizeFixtureSquad(fixture: Pick<Fixture, 'grade' | 'squad'>): PlayerSquad | null {
+  return fixture.squad ?? normalizePlayerSquad(fixture.grade);
+}
+
 export function applyDefaultAvailabilityForFixture(
   records: AvailabilityRecord[],
   fixture: Fixture,
   players: Player[]
 ) {
-  const squad = getDefaultFixtureSquad(fixture.grade);
+  const squad = normalizeFixtureSquad(fixture);
 
   if (!squad) {
     return { records, squad: null, selectedCount: 0 };

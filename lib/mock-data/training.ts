@@ -6,18 +6,99 @@ export const trainingSessions: TrainingSession[] = [
     title: 'Skills and Ball Movement',
     date: '2026-04-07T18:00:00+10:00',
     location: 'Central Oval',
+    squad: 'cup',
+    focus: 'Sharp ball use under pressure, with quick support and cleaner exits from stoppage.',
+    runPlan: [
+      {
+        id: 'ts1-drill-1',
+        title: 'Touch and release warm-up',
+        durationMinutes: 12,
+        description: 'Short passing circle with quick give-and-go movement after every release.',
+        coachingPoints: 'Hands early, communicate before receiving, accelerate through the return lane.',
+        media: [
+          {
+            id: 'ts1-drill-1-image',
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1518604666860-9ed391f76460?auto=format&fit=crop&w=1200&q=80',
+            caption: 'Set the passing circle wide enough to force players to move their feet.',
+          },
+        ],
+      },
+      {
+        id: 'ts1-drill-2',
+        title: 'Half-ground overlap drill',
+        durationMinutes: 20,
+        description: 'Move the ball from defensive flank to attacking half with a mandatory overlap receive.',
+        coachingPoints: 'Use width first, hit the overlap runner in stride, and finish inside 50 with purpose.',
+        media: [
+          {
+            id: 'ts1-drill-2-video',
+            type: 'video',
+            url: 'https://samplelib.com/lib/preview/mp4/sample-5s.mp4',
+            caption: 'Quick example of the overlap timing we want after the second kick.',
+          },
+        ],
+      },
+    ],
   },
   {
     id: 'ts2',
     title: "Captain's Run",
     date: '2026-04-09T18:30:00+10:00',
     location: 'Central Oval',
+    squad: 'plate',
+    focus: 'Keep legs fresh while walking through structure, roles, and first-possession setups.',
+    runPlan: [
+      {
+        id: 'ts2-drill-1',
+        title: 'Opening centre bounce walk-through',
+        durationMinutes: 10,
+        description: 'Walk through starting positions and first two movements after the opening bounce.',
+        coachingPoints: 'Be loud with triggers, lock in spacing, and confirm fallback options.',
+        media: [],
+      },
+      {
+        id: 'ts2-drill-2',
+        title: 'Forward half entries',
+        durationMinutes: 15,
+        description: 'Light tempo repetition of entry patterns and marks inside 50.',
+        coachingPoints: 'Hit dangerous grass, don’t crowd the kicker, and front-and-square every contest.',
+        media: [],
+      },
+    ],
   },
   {
     id: 'ts3',
     title: 'Recovery and Review',
     date: '2026-04-14T18:00:00+10:00',
     location: 'Clubrooms',
+    squad: null,
+    focus: 'Recover well, reset after the weekend, and connect the next training block to team standards.',
+    runPlan: [
+      {
+        id: 'ts3-drill-1',
+        title: 'Mobility circuit',
+        durationMinutes: 15,
+        description: 'Guided recovery circuit across hips, calves, thoracic rotation, and trunk stability.',
+        coachingPoints: 'Move with control and use the full station time instead of rushing to finish.',
+        media: [],
+      },
+      {
+        id: 'ts3-drill-2',
+        title: 'Review clips and discussion',
+        durationMinutes: 20,
+        description: 'Watch selected clips and talk through what we want to repeat next session.',
+        coachingPoints: 'Keep feedback specific, constructive, and connected to role clarity.',
+        media: [
+          {
+            id: 'ts3-drill-2-video',
+            type: 'video',
+            url: 'https://samplelib.com/lib/preview/mp4/sample-5s.mp4',
+            caption: 'Placeholder review clip link that can be swapped for team footage.',
+          },
+        ],
+      },
+    ],
   },
 ];
 

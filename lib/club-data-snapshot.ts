@@ -7,11 +7,14 @@ import {
   matchStats,
   matchLineupAssignments,
   matchRotationAssignments,
+  playerDevelopmentEntries,
   players,
   trainingSessions,
   voteEntries,
 } from '@/lib/mock-data';
+import { normalizeTrainingSessions } from '@/lib/attendance';
 import { normalizeMatchStats } from '@/lib/match-stats';
+import { normalizePlayerDevelopmentEntries } from '@/lib/player-development';
 import { normalizeVoteEntries } from '@/lib/votes';
 import type {
   AttendanceRecord,
@@ -23,6 +26,7 @@ import type {
   MatchLineupAssignment,
   MatchRotationAssignment,
   Player,
+  PlayerDevelopmentEntry,
   TrainingSession,
   VoteEntry,
 } from '@/lib/types';
@@ -37,6 +41,7 @@ export type ClubDataSnapshot = {
   matchStats: MatchStatEntry[];
   matchLineupAssignments: MatchLineupAssignment[];
   matchRotationAssignments: MatchRotationAssignment[];
+  playerDevelopmentEntries: PlayerDevelopmentEntry[];
   fitnessResults: FitnessResult[];
   fines: Fine[];
   voteEntries: VoteEntry[];
@@ -51,6 +56,7 @@ export const emptyClubDataSnapshot: ClubDataSnapshot = {
   matchStats: [],
   matchLineupAssignments: [],
   matchRotationAssignments: [],
+  playerDevelopmentEntries: [],
   fitnessResults: [],
   fines: [],
   voteEntries: [],
@@ -69,13 +75,14 @@ function cloneList<T>(items: T[]) {
 export function createDemoClubDataSnapshot(): ClubDataSnapshot {
   return {
     fixtures: cloneList(fixtures),
-    trainingSessions: cloneList(trainingSessions),
+    trainingSessions: normalizeTrainingSessions(cloneList(trainingSessions)),
     attendanceRecords: cloneList(attendanceRecords),
     players: normalizePlayers(cloneList(players)),
     availabilityRecords: cloneList(availabilityRecords),
     matchStats: normalizeMatchStats(cloneList(matchStats)),
     matchLineupAssignments: cloneList(matchLineupAssignments),
     matchRotationAssignments: cloneList(matchRotationAssignments),
+    playerDevelopmentEntries: normalizePlayerDevelopmentEntries(cloneList(playerDevelopmentEntries)),
     fitnessResults: cloneList(fitnessResults),
     fines: cloneList(fines),
     voteEntries: normalizeVoteEntries(cloneList(voteEntries)),
@@ -89,7 +96,9 @@ function asList<T>(value: unknown, fallback: T[]) {
 export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | null | undefined) {
   return {
     fixtures: asList(snapshot?.fixtures, emptyClubDataSnapshot.fixtures),
-    trainingSessions: asList(snapshot?.trainingSessions, emptyClubDataSnapshot.trainingSessions),
+    trainingSessions: normalizeTrainingSessions(
+      asList(snapshot?.trainingSessions, emptyClubDataSnapshot.trainingSessions)
+    ),
     attendanceRecords: asList(snapshot?.attendanceRecords, emptyClubDataSnapshot.attendanceRecords),
     players: normalizePlayers(asList(snapshot?.players, emptyClubDataSnapshot.players)),
     availabilityRecords: asList(snapshot?.availabilityRecords, emptyClubDataSnapshot.availabilityRecords),
@@ -101,6 +110,9 @@ export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | 
     matchRotationAssignments: asList(
       snapshot?.matchRotationAssignments,
       emptyClubDataSnapshot.matchRotationAssignments
+    ),
+    playerDevelopmentEntries: normalizePlayerDevelopmentEntries(
+      asList(snapshot?.playerDevelopmentEntries, emptyClubDataSnapshot.playerDevelopmentEntries)
     ),
     fitnessResults: asList(snapshot?.fitnessResults, emptyClubDataSnapshot.fitnessResults),
     fines: asList(snapshot?.fines, emptyClubDataSnapshot.fines),

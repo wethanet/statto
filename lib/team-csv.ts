@@ -144,6 +144,9 @@ export function parsePlayersCsv(csvContent: string): Player[] {
         runningProfileIndex === -1 ? undefined : values[runningProfileIndex]
       ),
       rotationGroupOverrides: null,
+      seasonGoals: null,
+      skillSummary: null,
+      developmentLevel: null,
     };
   });
 }

@@ -139,8 +139,7 @@ function RotationDots({ group }: { group: PlayerRotationGroup | null }) {
 export function TeamSelectionGraphicRoute() {
   const { fixtureId = '' } = useParams();
   const { activeClub } = useClubAccess();
-  const { availabilityRecords, fixtures, matchLineupAssignments, matchRotationAssignments, players } =
-    useClubData();
+  const { availabilityRecords, fixtures, matchLineupAssignments, players } = useClubData();
   const teamSheetRef = useRef<HTMLElement | null>(null);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -165,8 +164,8 @@ export function TeamSelectionGraphicRoute() {
       return { assignments: {} };
     }
 
-    return buildMatchRotationPlan(fixture.id, lineupPlayers, rotationPlan.assignments, matchRotationAssignments);
-  }, [fixture, lineupPlayers, matchRotationAssignments, rotationPlan.assignments]);
+    return buildMatchRotationPlan(lineupPlayers, rotationPlan.assignments);
+  }, [fixture, lineupPlayers, rotationPlan.assignments]);
 
   const selectionByPosition = useMemo(() => {
     const selectedPlayers = sortPlayers(

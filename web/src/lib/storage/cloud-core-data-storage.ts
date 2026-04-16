@@ -2,7 +2,9 @@ import type {
   AttendanceRecord,
   AvailabilityRecord,
   FitnessResult,
+  Fine,
   Fixture,
+  PlayerDevelopmentEntry,
   MatchStatEntry,
   MatchLineupAssignment,
   MatchRotationAssignment,
@@ -11,8 +13,11 @@ import type {
   VoteEntry,
 } from '@/lib/types';
 import { normalizeMatchStats } from '@/lib/match-stats';
-import { normalizePlayers } from '@/lib/team';
+import { normalizePlayerDevelopmentEntries } from '@/lib/player-development';
+import { normalizePlayers, normalizePlayerSquad } from '@/lib/team';
 import { normalizeVoteEntries, normalizeVoteType } from '@/lib/votes';
+import { normalizeTrainingSessions } from '@/lib/attendance';
+import { normalizeFixtureSquad } from '@/lib/availability';
 
 import { supabase } from '@web/lib/supabase';
 
@@ -25,8 +30,10 @@ export type CloudCoreData = {
   matchStats: MatchStatEntry[];
   matchLineupAssignments: MatchLineupAssignment[];
   matchRotationAssignments: MatchRotationAssignment[];
+  playerDevelopmentEntries: PlayerDevelopmentEntry[];
   voteEntries: VoteEntry[];
   fitnessResults: FitnessResult[];
+  fines: Fine[];
 };
 
 function requireSupabase() {
@@ -49,6 +56,36 @@ function logCloudCollectionError(label: string, error: { message?: string } | nu
   }
 }
 
+function isMissingTableError(error: { code?: string; message?: string } | null) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === 'PGRST205' ||
+    error.message?.includes('Could not find the table') === true
+  );
+}
+
+function isMissingColumnError(
+  error: { code?: string; message?: string } | null,
+  columnName?: string
+) {
+  if (!error) {
+    return false;
+  }
+
+  if (error.code !== '42703') {
+    return false;
+  }
+
+  if (!columnName) {
+    return true;
+  }
+
+  return error.message?.includes(`column ${columnName} does not exist`) === true;
+}
+
 async function loadCloudPlayers(clubId: string) {
   if (!supabase) {
     return { data: null, error: null };
@@ -57,7 +94,7 @@ async function loadCloudPlayers(clubId: string) {
   const preferredResult = await supabase
     .from('club_players')
     .select(
-      'id, name, number, squad, role, active, primary_position, secondary_position, running_profile, rotation_group_overrides'
+      'id, name, number, squad, role, active, primary_position, secondary_position, running_profile, rotation_group_overrides, season_goals, skill_summary, development_level'
     )
     .eq('club_id', clubId)
     .order('number', { ascending: true });
@@ -111,6 +148,60 @@ async function loadCloudMatchStats(clubId: string) {
   return preferredResult;
 }
 
+async function loadCloudTrainingSessions(clubId: string) {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  return supabase
+    .from('club_training_sessions')
+    .select('*')
+    .eq('club_id', clubId)
+    .order('date', { ascending: true });
+}
+
+async function loadCloudMatchRotationAssignments(clubId: string) {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  const result = await supabase
+    .from('club_match_rotation_assignments')
+    .select('fixture_id, player_id, rotation_group')
+    .eq('club_id', clubId)
+    .order('fixture_id', { ascending: true });
+
+  if (isMissingTableError(result.error)) {
+    console.warn(
+      'Rotation assignments are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable rotation groups.'
+    );
+    return { data: [], error: null };
+  }
+
+  return result;
+}
+
+async function loadCloudFines(clubId: string) {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  const result = await supabase
+    .from('club_fines')
+    .select('id, player_id, reason, amount, issued_at, paid')
+    .eq('club_id', clubId)
+    .order('issued_at', { ascending: false });
+
+  if (isMissingTableError(result.error)) {
+    console.warn(
+      'Fines are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable synced fines.'
+    );
+    return { data: [], error: null };
+  }
+
+  return result;
+}
+
 export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCoreData> | null> {
   if (!supabase) {
     return null;
@@ -118,6 +209,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
 
   const playersResultPromise = loadCloudPlayers(clubId);
   const matchStatsResultPromise = loadCloudMatchStats(clubId);
+  const trainingSessionsResultPromise = loadCloudTrainingSessions(clubId);
+  const matchRotationAssignmentsResultPromise = loadCloudMatchRotationAssignments(clubId);
+  const finesResultPromise = loadCloudFines(clubId);
 
   const [
     playersResult,
@@ -128,22 +222,20 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     matchStatsResult,
     matchLineupAssignmentsResult,
     matchRotationAssignmentsResult,
+    playerDevelopmentEntriesResult,
     voteEntriesResult,
     fitnessResultsResult,
+    finesResult,
   ] = await Promise.all([
     playersResultPromise,
-    supabase
-      .from('club_training_sessions')
-      .select('id, title, date, location')
-      .eq('club_id', clubId)
-      .order('date', { ascending: true }),
+    trainingSessionsResultPromise,
     supabase
       .from('club_attendance_records')
       .select('session_id, player_id, status')
       .eq('club_id', clubId),
     supabase
-      .from('club_fixtures')
-      .select('id, opponent, grade, date, venue, is_home')
+    .from('club_fixtures')
+      .select('id, opponent, grade, squad, date, venue, is_home')
       .eq('club_id', clubId)
       .order('date', { ascending: true }),
     supabase
@@ -155,10 +247,14 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
       .from('club_match_lineup_assignments')
       .select('fixture_id, player_id, position')
       .eq('club_id', clubId),
+    matchRotationAssignmentsResultPromise,
     supabase
-      .from('club_match_rotation_assignments')
-      .select('fixture_id, player_id, rotation_group')
-      .eq('club_id', clubId),
+      .from('club_player_development_entries')
+      .select(
+        'player_id, week_start, focus_areas, coaching_note, progress_status, proficiency, progress_note, generated_at, updated_at'
+      )
+      .eq('club_id', clubId)
+      .order('week_start', { ascending: false }),
     supabase
       .from('club_vote_entries')
       .select('fixture_id, player_id, vote_type, points')
@@ -167,6 +263,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
       .from('club_fitness_results')
       .select('player_id, metric, phase, value, recorded_at')
       .eq('club_id', clubId),
+    finesResultPromise,
   ]);
 
   const snapshot: Partial<CloudCoreData> = {};
@@ -182,7 +279,19 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
   if (trainingSessionsResult.error) {
     logCloudCollectionError('training sessions', trainingSessionsResult.error);
   } else {
-    snapshot.trainingSessions = (trainingSessionsResult.data ?? []) as TrainingSession[];
+    snapshot.trainingSessions = normalizeTrainingSessions(
+      (trainingSessionsResult.data ?? []).map((session) => {
+        return {
+          id: session.id as string,
+          title: session.title as string,
+          date: session.date as string,
+          location: session.location as string,
+          squad: normalizePlayerSquad((session.squad as string | null | undefined) ?? null),
+          focus: (session.focus as string | null | undefined) ?? null,
+          runPlan: Array.isArray(session.run_plan) ? session.run_plan : [],
+        };
+      })
+    );
     hasSuccessfulRead = true;
   }
 
@@ -207,6 +316,11 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
         id: fixture.id as string,
         opponent: fixture.opponent as string,
         grade: (fixture.grade as string | null | undefined) ?? null,
+        squad: normalizeFixtureSquad({
+          grade: (fixture.grade as string | null | undefined) ?? null,
+          squad: normalizePlayerSquad((fixture.squad as string | null | undefined) ?? null,
+          ),
+        }),
         date: fixture.date as string,
         venue: fixture.venue as string,
         isHome: fixture.is_home as boolean,
@@ -271,6 +385,27 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
+  if (playerDevelopmentEntriesResult.error) {
+    logCloudCollectionError('player development entries', playerDevelopmentEntriesResult.error);
+  } else {
+    snapshot.playerDevelopmentEntries = normalizePlayerDevelopmentEntries(
+      (playerDevelopmentEntriesResult.data ?? []).map((entry) => {
+        return {
+          playerId: entry.player_id as string,
+          weekStart: entry.week_start as string,
+          tasks: entry.focus_areas,
+          coachingNote: (entry.coaching_note as string | null | undefined) ?? null,
+          progressStatus: (entry.progress_status as string | null | undefined) ?? 'not-started',
+          proficiency: entry.proficiency,
+          progressNote: (entry.progress_note as string | null | undefined) ?? null,
+          generatedAt: (entry.generated_at as string | null | undefined) ?? null,
+          updatedAt: (entry.updated_at as string | null | undefined) ?? new Date().toISOString(),
+        };
+      })
+    );
+    hasSuccessfulRead = true;
+  }
+
   if (voteEntriesResult.error) {
     logCloudCollectionError('vote entries', voteEntriesResult.error);
   } else {
@@ -302,6 +437,22 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
+  if (finesResult.error) {
+    logCloudCollectionError('fines', finesResult.error);
+  } else {
+    snapshot.fines = (finesResult.data ?? []).map((fine) => {
+      return {
+        id: fine.id as string,
+        playerId: fine.player_id as string,
+        reason: fine.reason as string,
+        amount: Number(fine.amount),
+        issuedAt: fine.issued_at as string,
+        paid: fine.paid as boolean,
+      };
+    });
+    hasSuccessfulRead = true;
+  }
+
   return hasSuccessfulRead ? snapshot : null;
 }
 
@@ -320,6 +471,9 @@ export async function upsertCloudPlayer(clubId: string, player: Player) {
       secondary_position: player.secondaryPosition,
       running_profile: player.runningProfile,
       rotation_group_overrides: player.rotationGroupOverrides,
+      season_goals: player.seasonGoals,
+      skill_summary: player.skillSummary,
+      development_level: player.developmentLevel,
     },
     { onConflict: 'club_id,id' }
   );
@@ -342,9 +496,32 @@ export async function upsertCloudTrainingSession(clubId: string, session: Traini
       title: session.title,
       date: session.date,
       location: session.location,
+      squad: session.squad,
+      focus: session.focus,
+      run_plan: session.runPlan,
     },
     { onConflict: 'club_id,id' }
   );
+
+  if (isMissingColumnError(error, 'club_training_sessions.focus')) {
+    const legacyResult = await client.from('club_training_sessions').upsert(
+      {
+        club_id: clubId,
+        id: session.id,
+        title: session.title,
+        date: session.date,
+        location: session.location,
+      },
+      { onConflict: 'club_id,id' }
+    );
+
+    if (!legacyResult.error) {
+      console.warn(
+        'Saved training session without focus/run plan because the remote Supabase schema is behind. Run the latest supabase/schema.sql to enable structured training sessions.'
+      );
+      return;
+    }
+  }
 
   await throwOnError(error);
 }
@@ -417,6 +594,7 @@ export async function upsertCloudFixture(clubId: string, fixture: Fixture) {
       id: fixture.id,
       opponent: fixture.opponent,
       grade: fixture.grade,
+      squad: fixture.squad,
       date: fixture.date,
       venue: fixture.venue,
       is_home: fixture.isHome,
@@ -616,6 +794,13 @@ export async function upsertCloudMatchRotationAssignment(
     { onConflict: 'club_id,fixture_id,player_id' }
   );
 
+  if (isMissingTableError(error)) {
+    console.warn(
+      'Skipped saving a rotation assignment because the remote Supabase schema does not include club_match_rotation_assignments yet.'
+    );
+    return;
+  }
+
   await throwOnError(error);
 }
 
@@ -631,6 +816,11 @@ export async function deleteCloudMatchRotationAssignment(
     .eq('club_id', clubId)
     .eq('fixture_id', fixtureId)
     .eq('player_id', playerId);
+
+  if (isMissingTableError(error)) {
+    return;
+  }
+
   await throwOnError(error);
 }
 
@@ -641,6 +831,11 @@ export async function deleteCloudMatchRotationAssignmentsForFixture(clubId: stri
     .delete()
     .eq('club_id', clubId)
     .eq('fixture_id', fixtureId);
+
+  if (isMissingTableError(error)) {
+    return;
+  }
+
   await throwOnError(error);
 }
 
@@ -651,6 +846,11 @@ export async function deleteCloudMatchRotationAssignmentsForPlayer(clubId: strin
     .delete()
     .eq('club_id', clubId)
     .eq('player_id', playerId);
+
+  if (isMissingTableError(error)) {
+    return;
+  }
+
   await throwOnError(error);
 }
 
@@ -793,6 +993,106 @@ export async function deleteCloudFitnessResultsForPlayer(clubId: string, playerI
   const client = requireSupabase();
   const { error } = await client
     .from('club_fitness_results')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudFine(clubId: string, fine: Fine) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_fines').upsert(
+    {
+      club_id: clubId,
+      id: fine.id,
+      player_id: fine.playerId,
+      reason: fine.reason,
+      amount: fine.amount,
+      issued_at: fine.issuedAt,
+      paid: fine.paid,
+    },
+    { onConflict: 'club_id,id' }
+  );
+
+  if (isMissingTableError(error)) {
+    console.warn(
+      'Skipped saving a fine because the remote Supabase schema does not include club_fines yet.'
+    );
+    return;
+  }
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudFine(clubId: string, fineId: string) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_fines').delete().eq('club_id', clubId).eq('id', fineId);
+
+  if (isMissingTableError(error)) {
+    return;
+  }
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudFinesForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_fines')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
+
+  if (isMissingTableError(error)) {
+    return;
+  }
+
+  await throwOnError(error);
+}
+
+export async function upsertCloudPlayerDevelopmentEntry(
+  clubId: string,
+  entry: PlayerDevelopmentEntry
+) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_player_development_entries').upsert(
+    {
+      club_id: clubId,
+      player_id: entry.playerId,
+      week_start: entry.weekStart,
+      focus_areas: entry.tasks,
+      coaching_note: entry.coachingNote,
+      progress_status: entry.progressStatus,
+      proficiency: entry.proficiency,
+      progress_note: entry.progressNote,
+      generated_at: entry.generatedAt,
+      updated_at: entry.updatedAt,
+    },
+    { onConflict: 'club_id,player_id,week_start' }
+  );
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudPlayerDevelopmentEntry(
+  clubId: string,
+  playerId: string,
+  weekStart: string
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_player_development_entries')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('player_id', playerId)
+    .eq('week_start', weekStart);
+  await throwOnError(error);
+}
+
+export async function deleteCloudPlayerDevelopmentEntriesForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_player_development_entries')
     .delete()
     .eq('club_id', clubId)
     .eq('player_id', playerId);

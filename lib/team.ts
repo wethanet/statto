@@ -1,4 +1,5 @@
 import type {
+  PlayerDevelopmentLevel,
   Player,
   PlayerPositionProfile,
   PlayerRole,
@@ -16,6 +17,18 @@ const validRotationGroups: PlayerRotationGroup[] = [
   'key-position-players',
   'utility-players',
 ];
+const validDevelopmentLevels: PlayerDevelopmentLevel[] = [
+  'emerging',
+  'developing',
+  'reliable',
+  'advanced',
+];
+
+function normalizeOptionalText(value: string | null | undefined) {
+  const normalizedValue = value?.trim();
+
+  return normalizedValue ? normalizedValue : null;
+}
 
 type TeamSummary = {
   total: number;
@@ -112,6 +125,9 @@ export function addPlayer(
     secondaryPosition: input.secondaryPosition ?? null,
     runningProfile: input.runningProfile ?? null,
     rotationGroupOverrides: input.rotationGroupOverrides ?? null,
+    seasonGoals: null,
+    skillSummary: null,
+    developmentLevel: null,
   };
 
   return [...players, player];
@@ -144,6 +160,46 @@ export function updatePlayerDetails(
       secondaryPosition: input.secondaryPosition ?? null,
       runningProfile: input.runningProfile ?? null,
       rotationGroupOverrides: input.rotationGroupOverrides ?? null,
+    };
+  });
+}
+
+export function updatePlayerDevelopmentProfile(
+  players: Player[],
+  playerId: string,
+  input: {
+    seasonGoals?: string | null;
+    skillSummary?: string | null;
+    developmentLevel?: PlayerDevelopmentLevel | null;
+  }
+) {
+  return players.map((player) => {
+    if (player.id !== playerId) {
+      return player;
+    }
+
+    return {
+      ...player,
+      seasonGoals: normalizeOptionalText(input.seasonGoals) ?? null,
+      skillSummary: normalizeOptionalText(input.skillSummary) ?? null,
+      developmentLevel: input.developmentLevel ?? null,
+    };
+  });
+}
+
+export function updatePlayerRotationGroupOverrides(
+  players: Player[],
+  playerId: string,
+  rotationGroupOverrides: PlayerRotationGroup[] | null
+) {
+  return players.map((player) => {
+    if (player.id !== playerId) {
+      return player;
+    }
+
+    return {
+      ...player,
+      rotationGroupOverrides,
     };
   });
 }
@@ -197,6 +253,22 @@ export function normalizePlayerSquad(value: string | null | undefined): PlayerSq
   }
 
   return null;
+}
+
+export function normalizePlayerSquads(value: unknown): PlayerSquad[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map((entry) => {
+          return typeof entry === 'string' ? normalizePlayerSquad(entry) : null;
+        })
+        .filter((entry): entry is PlayerSquad => entry !== null)
+    )
+  );
 }
 
 export function normalizePlayerPositionProfile(
@@ -257,11 +329,30 @@ export function normalizePlayerRotationGroups(value: unknown): PlayerRotationGro
   return Array.from(new Set(normalizedValue));
 }
 
+export function normalizePlayerDevelopmentLevel(
+  value: string | null | undefined
+): PlayerDevelopmentLevel | null {
+  const normalizedValue = value?.trim().toLowerCase() as PlayerDevelopmentLevel | undefined;
+
+  if (normalizedValue && validDevelopmentLevels.includes(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  return null;
+}
+
 export function normalizePlayers(
   players: Array<
     Omit<
       Player,
-      'squad' | 'primaryPosition' | 'secondaryPosition' | 'runningProfile' | 'rotationGroupOverrides'
+      | 'squad'
+      | 'primaryPosition'
+      | 'secondaryPosition'
+      | 'runningProfile'
+      | 'rotationGroupOverrides'
+      | 'seasonGoals'
+      | 'skillSummary'
+      | 'developmentLevel'
     > & {
       squad?: string | null;
       primaryPosition?: string | null;
@@ -272,6 +363,12 @@ export function normalizePlayers(
       primary_position?: string | null;
       secondary_position?: string | null;
       running_profile?: string | null;
+      seasonGoals?: string | null;
+      skillSummary?: string | null;
+      developmentLevel?: string | null;
+      season_goals?: string | null;
+      skill_summary?: string | null;
+      development_level?: string | null;
     }
   >
 ): Player[] {
@@ -290,6 +387,11 @@ export function normalizePlayers(
       runningProfile: normalizePlayerRunningProfile(player.runningProfile ?? player.running_profile),
       rotationGroupOverrides: normalizePlayerRotationGroups(
         player.rotationGroupOverrides ?? player.rotation_group_overrides
+      ),
+      seasonGoals: normalizeOptionalText(player.seasonGoals ?? player.season_goals),
+      skillSummary: normalizeOptionalText(player.skillSummary ?? player.skill_summary),
+      developmentLevel: normalizePlayerDevelopmentLevel(
+        player.developmentLevel ?? player.development_level
       ),
     };
   });
@@ -342,5 +444,20 @@ export function getPlayerRotationGroupLabel(group: PlayerRotationGroup) {
       return 'Key-position players';
     case 'utility-players':
       return 'Utility players';
+  }
+}
+
+export function getPlayerDevelopmentLevelLabel(level: PlayerDevelopmentLevel | null) {
+  switch (level) {
+    case 'emerging':
+      return 'Emerging';
+    case 'developing':
+      return 'Developing';
+    case 'reliable':
+      return 'Reliable';
+    case 'advanced':
+      return 'Advanced';
+    default:
+      return 'Unassigned';
   }
 }

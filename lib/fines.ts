@@ -37,6 +37,12 @@ export function getFinePlayerName(playerId: string, players: Player[]) {
   })?.name ?? 'Unknown player';
 }
 
+export function getFinesForPlayer(fines: Fine[], playerId: string) {
+  return fines.filter((fine) => {
+    return fine.playerId === playerId;
+  });
+}
+
 export function toggleFinePaidStatus(fines: Fine[], fineId: string) {
   return fines.map((fine) => {
     if (fine.id !== fineId) {

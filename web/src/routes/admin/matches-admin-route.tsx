@@ -9,6 +9,8 @@ import {
   updateFixture,
 } from '@/lib/availability';
 import { deleteMatchStatsForFixture } from '@/lib/match-stats';
+import { getPlayerSquadLabel, normalizePlayerSquad } from '@/lib/team';
+import type { PlayerSquad } from '@/lib/types';
 import { deleteVoteEntriesForFixture } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
@@ -23,6 +25,7 @@ type FixtureFormResult =
       input: {
         opponent: string;
         grade: string | null;
+        squad: PlayerSquad | null;
         date: string;
         venue: string;
         isHome: boolean;
@@ -44,6 +47,7 @@ export function MatchesAdminRoute() {
     useClubData();
   const [opponent, setOpponent] = useState('');
   const [grade, setGrade] = useState('');
+  const [squad, setSquad] = useState('');
   const [fixtureDate, setFixtureDate] = useState('');
   const [fixtureTime, setFixtureTime] = useState('');
   const [venue, setVenue] = useState('');
@@ -60,6 +64,7 @@ export function MatchesAdminRoute() {
   function resetFixtureForm() {
     setOpponent('');
     setGrade('');
+    setSquad('');
     setFixtureDate('');
     setFixtureTime('');
     setVenue('');
@@ -70,6 +75,7 @@ export function MatchesAdminRoute() {
   function getFixtureInputFromForm(): FixtureFormResult {
     const normalizedOpponent = opponent.trim();
     const normalizedGrade = grade.trim() || null;
+    const normalizedSquad = normalizePlayerSquad(squad);
     const normalizedDate = fixtureDate.trim();
     const normalizedTime = fixtureTime.trim();
     const normalizedVenue = venue.trim();
@@ -100,6 +106,7 @@ export function MatchesAdminRoute() {
       input: {
         opponent: normalizedOpponent,
         grade: normalizedGrade,
+        squad: normalizedSquad,
         date: fixtureTimestamp,
         venue: normalizedVenue,
         isHome,
@@ -143,6 +150,7 @@ export function MatchesAdminRoute() {
     setEditingFixtureId(fixture.id);
     setOpponent(fixture.opponent);
     setGrade(fixture.grade ?? '');
+    setSquad(fixture.squad ?? '');
     setFixtureDate(datePart ?? '');
     setFixtureTime(timePart);
     setVenue(fixture.venue);
@@ -248,6 +256,21 @@ export function MatchesAdminRoute() {
             placeholder="Grade (optional)"
             value={grade}
           />
+        </label>
+
+        <label className="field">
+          <span>Squad access</span>
+          <select
+            className="input"
+            onChange={(event) => {
+              setSquad(event.target.value);
+              setFormMessage(null);
+            }}
+            value={squad}>
+            <option value="">All squads</option>
+            <option value="cup">{getPlayerSquadLabel('cup')}</option>
+            <option value="plate">{getPlayerSquadLabel('plate')}</option>
+          </select>
         </label>
 
         <div className="two-column">
