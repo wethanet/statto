@@ -1,18 +1,28 @@
 import { getPlayerDisplayName } from '@/lib/team';
-import { getVoteLeaderboard, voteTypes } from '@/lib/votes';
+import { aggregatePlayerVoteBallots, getVoteLeaderboard, voteTypes } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 
 export function VotesAdminRoute() {
-  const { isHydrated, players, voteEntries } = useClubData();
+  const { isHydrated, playerVoteBallots, players, voteEntries } = useClubData();
   const { canViewPlayer } = useClubPermissions();
   const visiblePlayers = players.filter((player) => canViewPlayer(player));
+  const aggregatedPlayerVotes = aggregatePlayerVoteBallots(playerVoteBallots);
   const leaderboards = voteTypes.map((voteType) => {
+    const sourceEntries =
+      voteType.id === 'players'
+        ? [
+            ...voteEntries.filter((entry) => entry.voteType !== 'players'),
+            ...voteEntries.filter((entry) => entry.voteType === 'players'),
+            ...aggregatedPlayerVotes,
+          ]
+        : voteEntries;
+
     return {
       ...voteType,
-      leaderboard: getVoteLeaderboard(visiblePlayers, voteEntries, voteType.id),
+      leaderboard: getVoteLeaderboard(visiblePlayers, sourceEntries, voteType.id),
     };
   });
 

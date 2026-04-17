@@ -20,6 +20,7 @@ const rotationGroupOptions: PlayerRotationGroup[] = [
 
 type TeamPlayerSaveInput = {
   name: string;
+  nickname: string;
   number: string;
   squad: string;
   primaryPosition: string;
@@ -49,6 +50,7 @@ export function TeamPlayerRow({
 }: TeamPlayerRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(player.name);
+  const [nickname, setNickname] = useState(player.nickname ?? '');
   const [number, setNumber] = useState(player.number?.toString() ?? '');
   const [squad, setSquad] = useState(player.squad ?? '');
   const [primaryPosition, setPrimaryPosition] = useState(player.primaryPosition ?? '');
@@ -65,6 +67,7 @@ export function TeamPlayerRow({
 
     const nextMessage = await onSaveDetails({
       name,
+      nickname,
       number,
       squad,
       primaryPosition,
@@ -89,6 +92,7 @@ export function TeamPlayerRow({
       <div className="split-row">
         <div className="stack-sm">
           <h3>{getPlayerDisplayName(player)}</h3>
+          {player.nickname ? <p className="muted">Nickname: {player.nickname}</p> : null}
           <p className="muted">{getPlayerRoleLabel(player.role)} • {getPlayerSquadLabel(player.squad)}</p>
           <p className="muted">
             {getPlayerPositionLabel(player.primaryPosition)} primary
@@ -117,6 +121,17 @@ export function TeamPlayerRow({
                   setMessage(null);
                 }}
                 value={name}
+              />
+            </label>
+            <label className="field">
+              <span>Nickname</span>
+              <input
+                className="input"
+                onChange={(event) => {
+                  setNickname(event.target.value);
+                  setMessage(null);
+                }}
+                value={nickname}
               />
             </label>
             <label className="field">
@@ -246,6 +261,7 @@ export function TeamPlayerRow({
               disabled={isSaving}
               onClick={() => {
                 setName(player.name);
+                setNickname(player.nickname ?? '');
                 setNumber(player.number?.toString() ?? '');
                 setSquad(player.squad ?? '');
                 setPrimaryPosition(player.primaryPosition ?? '');

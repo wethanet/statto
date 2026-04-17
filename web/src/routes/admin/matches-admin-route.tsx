@@ -11,7 +11,7 @@ import {
 import { deleteMatchStatsForFixture } from '@/lib/match-stats';
 import { getPlayerSquadLabel, normalizePlayerSquad } from '@/lib/team';
 import type { PlayerSquad } from '@/lib/types';
-import { deleteVoteEntriesForFixture } from '@/lib/votes';
+import { deletePlayerVoteBallotsForFixture, deleteVoteEntriesForFixture } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { importFixturesFromCalendarUrl, normalizeWebcalUrl } from '@web/lib/fixture-calendar';
@@ -43,7 +43,7 @@ function formatDate(value: string) {
 }
 
 export function MatchesAdminRoute() {
-  const { fixtures, setAvailabilityRecords, setFixtures, setMatchStats, setVoteEntries } =
+  const { fixtures, setAvailabilityRecords, setFixtures, setMatchStats, setPlayerVoteBallots, setVoteEntries } =
     useClubData();
   const [opponent, setOpponent] = useState('');
   const [grade, setGrade] = useState('');
@@ -208,6 +208,9 @@ export function MatchesAdminRoute() {
     });
     setVoteEntries((current) => {
       return deleteVoteEntriesForFixture(current, fixtureId);
+    });
+    setPlayerVoteBallots((current) => {
+      return deletePlayerVoteBallotsForFixture(current, fixtureId);
     });
     setMatchStats((current) => {
       return deleteMatchStatsForFixture(current, fixtureId);

@@ -98,7 +98,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     if (!data.session) {
-      return 'Account created. Check your email to confirm the account before signing in.';
+      return 'Account created. Check your email to confirm it. If this email has a club invite, you will be added automatically after confirmation.';
     }
 
     return null;

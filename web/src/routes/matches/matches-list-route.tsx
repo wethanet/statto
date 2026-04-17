@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { getAvailabilityStatusForPlayer, getAvailabilitySummary, getSortedFixtures, upsertAvailabilityRecord } from '@/lib/availability';
 import { getFixtureScoreSummary } from '@/lib/match-stats';
+import { getLineupPlayerIdsForFixture, getPlayerVoteBallot } from '@/lib/votes';
 
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
@@ -50,6 +51,15 @@ function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | 'uncert
   return 'status-pill status-pill--neutral';
 }
 
+function renderBoardMetric(value: number, label: string, tone: 'positive' | 'negative' | 'neutral') {
+  return (
+    <span className={`schedule-board__metric schedule-board__metric--${tone}`}>
+      <span className="schedule-board__metric-value">{value}</span>
+      <span className="schedule-board__metric-label">{label}</span>
+    </span>
+  );
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
     weekday: 'short',
@@ -65,8 +75,16 @@ function isPastItem(value: string) {
 }
 
 export function MatchesListRoute() {
-  const { availabilityRecords, fixtures, matchStats, players, setAvailabilityRecords } = useClubData();
-  const { canAccessAdmin, canAccessPlayerApp, canViewPlayer, canViewSquadItem, isPlayer } = useClubPermissions();
+  const {
+    availabilityRecords,
+    fixtures,
+    matchLineupAssignments,
+    matchStats,
+    playerVoteBallots,
+    players,
+    setAvailabilityRecords,
+  } = useClubData();
+  const { canAccessAdmin, canViewPlayer, canViewSquadItem, isPlayer } = useClubPermissions();
   const { selectedPlayer } = usePlayerProfile();
   const visiblePlayers = useMemo(() => {
     return players.filter((player) => canViewPlayer(player));
@@ -130,183 +148,184 @@ export function MatchesListRoute() {
         </section>
       ) : null}
 
-      {upcomingFixtures.map((fixture) => {
-        const summary = isPlayer ? null : getAvailabilitySummary(fixture.id, visiblePlayers, availabilityRecords);
-        const playerAvailability =
-          selectedPlayer && isPlayer
-            ? getAvailabilityStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
-            : null;
-        const hasMatchStats = matchStats.some((entry) => {
-          return entry.fixtureId === fixture.id;
-        });
-        const label = fixture.isHome ? 'Home' : 'Away';
-        const isPastFixture = isPastItem(fixture.date);
-        const scoreSummary = getFixtureScoreSummary(fixture.id, matchStats);
-        const leftScore = fixture.isHome ? scoreSummary.ours : scoreSummary.theirs;
-        const rightScore = fixture.isHome ? scoreSummary.theirs : scoreSummary.ours;
-        const hasRecordedScore =
-          leftScore.goals + leftScore.points + rightScore.goals + rightScore.points > 0;
+      {!isPlayer ? (
+        <section className="schedule-board">
+          <div className="schedule-board__header schedule-board__row--matches">
+            <span>Fixture</span>
+            <span>Venue</span>
+            <span>Availability</span>
+            <span>Result</span>
+            <span>Action</span>
+          </div>
+          <div className="schedule-board__body">
+            {upcomingFixtures.map((fixture) => {
+              const summary = getAvailabilitySummary(fixture.id, visiblePlayers, availabilityRecords);
+              const label = fixture.isHome ? 'Home' : 'Away';
+              const isPastFixture = isPastItem(fixture.date);
+              const scoreSummary = getFixtureScoreSummary(fixture.id, matchStats);
+              const leftScore = fixture.isHome ? scoreSummary.ours : scoreSummary.theirs;
+              const rightScore = fixture.isHome ? scoreSummary.theirs : scoreSummary.ours;
+              const hasRecordedScore =
+                leftScore.goals + leftScore.points + rightScore.goals + rightScore.points > 0;
 
-        if (isPlayer && playerAvailability) {
-          return (
-            <section
-              key={fixture.id}
-              ref={fixture.id === targetFixtureId ? targetFixtureRef : null}
-              className={isPastFixture ? 'card stack player-fixture-card player-fixture-card--past' : 'card stack player-fixture-card'}>
-              <div className="player-fixture-card__header">
-                <div className="stack-sm">
-                  <h3>{fixture.grade ? `${fixture.grade} • ` : ''}vs {fixture.opponent}</h3>
-                  <div className="player-fixture-card__meta">
-                    <span>{label}</span>
-                    <span>{formatDate(fixture.date)}</span>
+              return (
+                <section
+                  key={fixture.id}
+                  ref={fixture.id === targetFixtureId ? targetFixtureRef : null}
+                  className={
+                    isPastFixture
+                      ? 'schedule-board__row schedule-board__row--matches schedule-board__row--past'
+                      : 'schedule-board__row schedule-board__row--matches'
+                  }>
+                  <div className="schedule-board__cell schedule-board__primary">
+                    <h3 className="schedule-board__title">{fixture.grade ? `${fixture.grade} • ` : ''}vs {fixture.opponent}</h3>
+                    <p className="schedule-board__meta">
+                      {label} • {formatDate(fixture.date)}
+                    </p>
                   </div>
-                  <p className="muted">{fixture.venue}</p>
-                </div>
 
-                <div className="player-fixture-card__response">
-                  <span className="player-fixture-card__label">Your response</span>
-                  <span className={getPlayerAvailabilityTone(playerAvailability)}>
-                    {getPlayerAvailabilityLabel(playerAvailability)}
-                  </span>
-                </div>
-              </div>
+                  <div className="schedule-board__cell">
+                    <p className="schedule-board__venue">{fixture.venue}</p>
+                  </div>
 
-              {!isPastFixture && selectedPlayer ? (
-                <div className="player-fixture-card__actions">
-                  {availabilityOptions.map((option) => {
-                    const isSelected = option.value === playerAvailability;
+                  <div className="schedule-board__cell">
+                    <div className="schedule-board__metrics">
+                      {renderBoardMetric(summary.available, 'selected', 'positive')}
+                      {renderBoardMetric(summary.unavailable, 'unavailable', 'negative')}
+                      {renderBoardMetric(summary.uncertain, 'not selected', 'neutral')}
+                    </div>
+                  </div>
 
-                    return (
-                      <button
-                        key={option.value}
-                        className={isSelected ? `${option.className} pill-button--selected` : option.className}
-                        onClick={() => {
-                          setAvailabilityRecords((current) => {
-                            return upsertAvailabilityRecord(current, fixture.id, selectedPlayer.id, option.value);
-                          });
-                        }}
-                        type="button">
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {hasRecordedScore || hasMatchStats ? (
-                <div className="player-fixture-card__footer">
-                  {hasRecordedScore ? (
-                    <span className="player-fixture-card__result">
-                      Final {leftScore.goals}.{leftScore.points} ({leftScore.score}) - {rightScore.goals}.{rightScore.points} ({rightScore.score})
+                  <div className="schedule-board__cell">
+                    <span className={hasRecordedScore ? 'schedule-board__result' : 'schedule-board__hint'}>
+                      {hasRecordedScore
+                        ? `Final ${leftScore.goals}.${leftScore.points} (${leftScore.score}) - ${rightScore.goals}.${rightScore.points} (${rightScore.score})`
+                        : isPastFixture
+                          ? 'No score entered'
+                          : 'Upcoming'}
                     </span>
-                  ) : (
-                    <span className="muted">Match report available</span>
-                  )}
-                  {hasMatchStats ? (
-                    <Link className="text-link" to={`/matches/${fixture.id}/stats`}>
-                      View stats report
-                    </Link>
-                  ) : null}
+                  </div>
+
+                  <div className="schedule-board__cell">
+                    {canAccessAdmin ? (
+                      <Link className="schedule-card__action schedule-board__action text-link" to={`/matches/${fixture.id}`}>
+                        Open fixture
+                      </Link>
+                    ) : null}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {isPlayer
+        ? upcomingFixtures.map((fixture) => {
+            const playerAvailability =
+              selectedPlayer && isPlayer
+                ? getAvailabilityStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
+                : null;
+            const hasMatchStats = matchStats.some((entry) => {
+              return entry.fixtureId === fixture.id;
+            });
+            const label = fixture.isHome ? 'Home' : 'Away';
+            const isPastFixture = isPastItem(fixture.date);
+            const scoreSummary = getFixtureScoreSummary(fixture.id, matchStats);
+            const leftScore = fixture.isHome ? scoreSummary.ours : scoreSummary.theirs;
+            const rightScore = fixture.isHome ? scoreSummary.theirs : scoreSummary.ours;
+            const hasRecordedScore =
+              leftScore.goals + leftScore.points + rightScore.goals + rightScore.points > 0;
+            const lineupPlayerIds = selectedPlayer
+              ? getLineupPlayerIdsForFixture(fixture.id, matchLineupAssignments)
+              : [];
+            const canVotePlayersPlayer =
+              Boolean(selectedPlayer) &&
+              isPastFixture &&
+              selectedPlayer != null &&
+              lineupPlayerIds.includes(selectedPlayer.id) &&
+              lineupPlayerIds.some((playerId) => playerId !== selectedPlayer.id);
+            const playerVoteBallot =
+              selectedPlayer && canVotePlayersPlayer
+                ? getPlayerVoteBallot(fixture.id, selectedPlayer.id, playerVoteBallots)
+                : null;
+
+            if (!playerAvailability) {
+              return null;
+            }
+
+            return (
+              <section
+                key={fixture.id}
+                ref={fixture.id === targetFixtureId ? targetFixtureRef : null}
+                className={
+                  isPastFixture ? 'card stack player-fixture-card player-fixture-card--past' : 'card stack player-fixture-card'
+                }>
+                <div className="player-fixture-card__header">
+                  <div className="stack-sm">
+                    <h3>{fixture.grade ? `${fixture.grade} • ` : ''}vs {fixture.opponent}</h3>
+                    <div className="player-fixture-card__meta">
+                      <span>{label}</span>
+                      <span>{formatDate(fixture.date)}</span>
+                    </div>
+                    <p className="muted">{fixture.venue}</p>
+                  </div>
+
+                  <div className="player-fixture-card__response">
+                    <span className="player-fixture-card__label">Your response</span>
+                    <span className={getPlayerAvailabilityTone(playerAvailability)}>
+                      {getPlayerAvailabilityLabel(playerAvailability)}
+                    </span>
+                  </div>
                 </div>
-              ) : null}
-            </section>
-          );
-        }
 
-        return (
-          <section
-            key={fixture.id}
-            ref={fixture.id === targetFixtureId ? targetFixtureRef : null}
-            className={isPastFixture ? 'card stack schedule-card schedule-card--past' : 'card stack schedule-card'}>
-            <div className="schedule-card__layout">
-              <div className="stack-sm schedule-card__main">
-                <h3>{fixture.grade ? `${fixture.grade} • ` : ''}vs {fixture.opponent}</h3>
-                <p className="muted">
-                  {label} • {formatDate(fixture.date)}
-                </p>
-                <p className="muted">{fixture.venue}</p>
-              </div>
+                {!isPastFixture && selectedPlayer ? (
+                  <div className="player-fixture-card__actions">
+                    {availabilityOptions.map((option) => {
+                      const isSelected = option.value === playerAvailability;
 
-              <div className="schedule-card__side">
-                {canAccessAdmin ? (
-                  <Link className="schedule-card__action text-link" to={`/matches/${fixture.id}`}>
-                    Open fixture
-                  </Link>
+                      return (
+                        <button
+                          key={option.value}
+                          className={isSelected ? `${option.className} pill-button--selected` : option.className}
+                          onClick={() => {
+                            setAvailabilityRecords((current) => {
+                              return upsertAvailabilityRecord(current, fixture.id, selectedPlayer.id, option.value);
+                            });
+                          }}
+                          type="button">
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : null}
 
-                <div className="schedule-card__status">
-                  {isPastFixture && hasRecordedScore ? (
-                    <span className="schedule-card__score">
-                      Final {leftScore.goals}.{leftScore.points} ({leftScore.score}) - {rightScore.goals}.
-                      {rightScore.points} ({rightScore.score})
-                    </span>
-                  ) : null}
-                  <div className="schedule-card__metrics">
-                    {isPlayer ? (
-                      <>
-                        <span
-                          className={
-                            playerAvailability === 'available'
-                              ? 'metric metric--positive'
-                              : playerAvailability === 'unavailable'
-                                ? 'metric metric--negative'
-                                : 'metric metric--neutral'
-                          }>
-                          {playerAvailability === 'available'
-                            ? 'You are available'
-                            : playerAvailability === 'unavailable'
-                              ? 'You are unavailable'
-                              : 'Awaiting your response'}
-                        </span>
-                        {!isPastFixture && selectedPlayer ? (
-                          <div className="stack-sm">
-                            <span className="muted">Set your availability</span>
-                            <div className="inline-actions">
-                              {availabilityOptions.map((option) => {
-                                const isSelected = option.value === playerAvailability;
-
-                                return (
-                                  <button
-                                    key={option.value}
-                                    className={isSelected ? `${option.className} pill-button--selected` : option.className}
-                                    onClick={() => {
-                                      setAvailabilityRecords((current) => {
-                                        return upsertAvailabilityRecord(
-                                          current,
-                                          fixture.id,
-                                          selectedPlayer.id,
-                                          option.value
-                                        );
-                                      });
-                                    }}
-                                    type="button">
-                                    {option.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ) : null}
-                        {hasMatchStats ? (
-                          <Link className="text-link" to={`/matches/${fixture.id}/stats`}>
-                            View stats report
-                          </Link>
-                        ) : null}
-                      </>
+                {hasRecordedScore || hasMatchStats || canVotePlayersPlayer ? (
+                  <div className="player-fixture-card__footer">
+                    {hasRecordedScore ? (
+                      <span className="player-fixture-card__result">
+                        Final {leftScore.goals}.{leftScore.points} ({leftScore.score}) - {rightScore.goals}.{rightScore.points} ({rightScore.score})
+                      </span>
                     ) : (
-                      <>
-                        <span className="metric metric--positive">{summary?.available ?? 0} selected</span>
-                        <span className="metric metric--negative">{summary?.unavailable ?? 0} unavailable</span>
-                        <span className="metric metric--neutral">{summary?.uncertain ?? 0} not selected</span>
-                      </>
+                      <span className="muted">Match report available</span>
                     )}
+                    {canVotePlayersPlayer ? (
+                      <Link className="text-link" to="/player/votes">
+                        {playerVoteBallot ? 'Update players\' player vote' : 'Vote players\' player'}
+                      </Link>
+                    ) : null}
+                    {hasMatchStats ? (
+                      <Link className="text-link" to={`/matches/${fixture.id}/stats`}>
+                        View stats report
+                      </Link>
+                    ) : null}
                   </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        );
-      })}
+                ) : null}
+              </section>
+            );
+          })
+        : null}
     </section>
   );
 }

@@ -19,6 +19,7 @@ import { VotesAdminRoute } from '@web/routes/admin/votes-admin-route';
 import { PlayerAvailabilityRoute } from '@web/routes/player/player-availability-route';
 import { PlayerFinesRoute } from '@web/routes/player/player-fines-route';
 import { PlayerHomeRoute } from '@web/routes/player/player-home-route';
+import { PlayerVotesRoute } from '@web/routes/player/player-votes-route';
 import { MatchDetailRoute } from '@web/routes/matches/match-detail-route';
 import { MatchesListRoute } from '@web/routes/matches/matches-list-route';
 import { MatchStatsRoute } from '@web/routes/matches/match-stats-route';
@@ -65,7 +66,7 @@ function AccessGate({ allow, children, redirectTo }: AccessGateProps) {
 export function AppRouter() {
   const { isConfigured, isLoading, session } = useAuth();
   const { activeClub, isLoading: isClubAccessLoading } = useClubAccess();
-  const { canAccessAdmin, canAccessPlayerApp, canManageClubMemberships, canManageRosterSetup } =
+  const { canAccessAdmin, canAccessPlayerApp, canManageClubMemberships, canManageRosterSetup, isPlayer } =
     useClubPermissions();
   const requiresAuth = isConfigured;
   const hasSession = !requiresAuth || Boolean(session);
@@ -151,6 +152,14 @@ export function AppRouter() {
             element={
               <AccessGate allow={canAccessPlayerApp} redirectTo="/">
                 <PlayerFinesRoute />
+              </AccessGate>
+            }
+          />
+          <Route
+            path="/player/votes"
+            element={
+              <AccessGate allow={isPlayer} redirectTo="/player">
+                <PlayerVotesRoute />
               </AccessGate>
             }
           />

@@ -14,12 +14,6 @@ type PlayerPageShellProps = PropsWithChildren<{
   emptyState?: ReactNode;
 }>;
 
-const playerNavItems = [
-  { label: 'Overview', to: '/player' },
-  { label: 'Availability', to: '/player/availability' },
-  { label: 'Fines', to: '/player/fines' },
-] as const;
-
 export function PlayerPageShell({
   children,
   description,
@@ -28,7 +22,7 @@ export function PlayerPageShell({
 }: PlayerPageShellProps) {
   const { activeClub } = useClubAccess();
   const { players } = useClubData();
-  const { canManagePlayer } = useClubPermissions();
+  const { canManagePlayer, isPlayer } = useClubPermissions();
   const {
     clearSelectedPlayer,
     isLoading,
@@ -45,6 +39,12 @@ export function PlayerPageShell({
         left.name.localeCompare(right.name)
       );
     });
+  const playerNavItems = [
+    { label: 'Overview', to: '/player' },
+    { label: 'Availability', to: '/player/availability' },
+    ...(isPlayer ? ([{ label: 'Votes', to: '/player/votes' }] as const) : []),
+    { label: 'Fines', to: '/player/fines' },
+  ];
 
   return (
     <section className="page-grid player-page">

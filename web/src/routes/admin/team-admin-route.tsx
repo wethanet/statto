@@ -23,7 +23,7 @@ import {
   togglePlayerActive,
   updatePlayerDetails,
 } from '@/lib/team';
-import { deleteVoteEntriesForPlayer } from '@/lib/votes';
+import { deletePlayerVoteBallotsForPlayer, deleteVoteEntriesForPlayer } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { TeamPlayerRow } from '@web/components/team/team-player-row';
@@ -44,6 +44,7 @@ export function TeamAdminRoute() {
     setFines,
     setPlayers,
     setPlayerDevelopmentEntries,
+    setPlayerVoteBallots,
     setVoteEntries,
   } = useClubData();
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -86,6 +87,9 @@ export function TeamAdminRoute() {
     setVoteEntries((current) => {
       return deleteVoteEntriesForPlayer(current, playerId);
     });
+    setPlayerVoteBallots((current) => {
+      return deletePlayerVoteBallotsForPlayer(current, playerId);
+    });
     setImportMessage(`${playerName} was removed from the roster.`);
   }
 
@@ -94,6 +98,7 @@ export function TeamAdminRoute() {
     playerName: string,
     input: {
       name: string;
+      nickname: string;
       number: string;
       squad: string;
       primaryPosition: string;
@@ -103,6 +108,7 @@ export function TeamAdminRoute() {
     }
   ) {
     const normalizedName = input.name.trim();
+    const normalizedNickname = input.nickname.trim();
     const normalizedNumberInput = input.number.trim();
     const normalizedNumber = normalizedNumberInput ? Number(normalizedNumberInput) : null;
     const normalizedSquad = normalizePlayerSquad(input.squad);
@@ -152,6 +158,7 @@ export function TeamAdminRoute() {
     const nextPlayer = {
       ...currentPlayer,
       name: normalizedName,
+      nickname: normalizedNickname || null,
       number: normalizedNumber,
       squad: normalizedSquad,
       primaryPosition: normalizedPrimaryPosition,
@@ -163,6 +170,7 @@ export function TeamAdminRoute() {
     setPlayers((current) => {
       return updatePlayerDetails(current, playerId, {
         name: normalizedName,
+        nickname: normalizedNickname || null,
         number: normalizedNumber,
         squad: normalizedSquad,
         primaryPosition: normalizedPrimaryPosition,

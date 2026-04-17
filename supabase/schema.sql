@@ -146,6 +146,15 @@ create table if not exists public.club_vote_entries (
   primary key (club_id, fixture_id, player_id, vote_type)
 );
 
+create table if not exists public.club_player_vote_ballots (
+  club_id text not null references public.clubs (id) on delete cascade,
+  fixture_id text not null,
+  voter_player_id text not null,
+  nominee_player_id text not null,
+  updated_at timestamptz not null default timezone('utc', now()),
+  primary key (club_id, fixture_id, voter_player_id)
+);
+
 create table if not exists public.club_fitness_results (
   club_id text not null references public.clubs (id) on delete cascade,
   player_id text not null,
@@ -344,6 +353,7 @@ alter table public.club_match_lineup_assignments enable row level security;
 alter table public.club_match_rotation_assignments enable row level security;
 alter table public.club_player_development_entries enable row level security;
 alter table public.club_vote_entries enable row level security;
+alter table public.club_player_vote_ballots enable row level security;
 alter table public.club_fitness_results enable row level security;
 alter table public.club_fines enable row level security;
 
@@ -373,6 +383,7 @@ begin
     'club_match_rotation_assignments',
     'club_player_development_entries',
     'club_vote_entries',
+    'club_player_vote_ballots',
     'club_fitness_results',
     'club_fines'
   ] loop
@@ -458,6 +469,10 @@ drop policy if exists "Club members can read votes" on public.club_vote_entries;
 drop policy if exists "Club members can insert votes" on public.club_vote_entries;
 drop policy if exists "Club members can update votes" on public.club_vote_entries;
 drop policy if exists "Club members can delete votes" on public.club_vote_entries;
+drop policy if exists "Users can read allowed player vote ballots" on public.club_player_vote_ballots;
+drop policy if exists "Players can insert their own eligible player vote ballots" on public.club_player_vote_ballots;
+drop policy if exists "Players can update their own eligible player vote ballots" on public.club_player_vote_ballots;
+drop policy if exists "Players can delete their own player vote ballots" on public.club_player_vote_ballots;
 drop policy if exists "Club members can read fitness results" on public.club_fitness_results;
 drop policy if exists "Club members can insert fitness results" on public.club_fitness_results;
 drop policy if exists "Club members can update fitness results" on public.club_fitness_results;
@@ -1121,6 +1136,46 @@ using (
   )
 );
 
+create policy "Users can read allowed player vote ballots"
+on public.club_player_vote_ballots
+for select
+to authenticated
+using (
+  private.current_membership_role(club_id) = 'admin'
+  or private.can_manage_player(club_id, voter_player_id)
+  or private.can_manage_player(club_id, nominee_player_id)
+  or private.current_membership_player_id(club_id) = voter_player_id
+);
+
+create policy "Players can insert their own eligible player vote ballots"
+on public.club_player_vote_ballots
+for insert
+to authenticated
+with check (
+  private.can_submit_player_vote(club_id, fixture_id, voter_player_id, nominee_player_id)
+);
+
+create policy "Players can update their own eligible player vote ballots"
+on public.club_player_vote_ballots
+for update
+to authenticated
+using (
+  private.current_membership_role(club_id) = 'admin'
+  or private.current_membership_player_id(club_id) = voter_player_id
+)
+with check (
+  private.can_submit_player_vote(club_id, fixture_id, voter_player_id, nominee_player_id)
+);
+
+create policy "Players can delete their own player vote ballots"
+on public.club_player_vote_ballots
+for delete
+to authenticated
+using (
+  private.current_membership_role(club_id) = 'admin'
+  or private.current_membership_player_id(club_id) = voter_player_id
+);
+
 create policy "Club members can read fitness results"
 on public.club_fitness_results
 for select
@@ -1281,7 +1336,7 @@ begin
   select *
   into target_club
   from public.clubs
-  where invite_code = upper(trim(invite_code_input))
+  where clubs.invite_code = upper(trim(invite_code_input))
   limit 1;
 
   if not found then
@@ -1342,6 +1397,51 @@ end;
 $$;
 
 grant execute on function public.join_club_by_invite_code(text) to authenticated;
+
+create or replace function public.claim_pending_club_invites()
+returns integer
+language plpgsql
+set search_path = public
+as $$
+declare
+  normalized_email text;
+  claimed_count integer := 0;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in to claim club invites.';
+  end if;
+
+  normalized_email := lower(coalesce(auth.jwt() ->> 'email', ''));
+
+  if normalized_email = '' then
+    return 0;
+  end if;
+
+  insert into public.club_memberships (club_id, user_id, role, email, player_id, squads)
+  select
+    club_member_invites.club_id,
+    auth.uid(),
+    case
+      when club_member_invites.role in ('admin', 'coach', 'player') then club_member_invites.role
+      else 'player'
+    end,
+    normalized_email,
+    club_member_invites.player_id,
+    coalesce(club_member_invites.squads, '[]'::jsonb)
+  from public.club_member_invites
+  where club_member_invites.email = normalized_email
+  on conflict (club_id, user_id) do nothing;
+
+  get diagnostics claimed_count = row_count;
+
+  delete from public.club_member_invites
+  where email = normalized_email;
+
+  return claimed_count;
+end;
+$$;
+
+grant execute on function public.claim_pending_club_invites() to authenticated;
 
 alter table public.club_memberships
 add column if not exists email text;
@@ -1671,8 +1771,9 @@ set search_path = public
 as $$
   select case
     when private.current_membership_role(target_club_id) = 'admin' then true
+    when private.current_membership_role(target_club_id) = 'player' then true
     when private.current_membership_player_id(target_club_id) = target_player_id then true
-    when private.current_membership_role(target_club_id) in ('coach', 'player') then exists (
+    when private.current_membership_role(target_club_id) = 'coach' then exists (
       select 1
       from public.club_players
       where club_players.club_id = target_club_id
@@ -1686,10 +1787,51 @@ as $$
   end;
 $$;
 
-grant usage on schema private to authenticated;
+create or replace function private.can_submit_player_vote(
+  target_club_id text,
+  target_fixture_id text,
+  target_voter_player_id text,
+  target_nominee_player_id text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when private.current_membership_role(target_club_id) = 'admin' then true
+    when private.current_membership_role(target_club_id) <> 'player' then false
+    when private.current_membership_player_id(target_club_id) <> target_voter_player_id then false
+    when target_voter_player_id = target_nominee_player_id then false
+    else exists (
+      select 1
+      from public.club_fixtures
+      where club_fixtures.club_id = target_club_id
+        and club_fixtures.id = target_fixture_id
+        and (club_fixtures.date)::timestamptz <= timezone('utc', now())
+        and exists (
+          select 1
+          from public.club_match_lineup_assignments voter_assignment
+          where voter_assignment.club_id = target_club_id
+            and voter_assignment.fixture_id = target_fixture_id
+            and voter_assignment.player_id = target_voter_player_id
+        )
+        and exists (
+          select 1
+          from public.club_match_lineup_assignments nominee_assignment
+          where nominee_assignment.club_id = target_club_id
+            and nominee_assignment.fixture_id = target_fixture_id
+            and nominee_assignment.player_id = target_nominee_player_id
+        )
+    )
+  end;
+$$;
+
+grant usage on schema private to anon, authenticated, service_role;
 revoke all on all functions in schema private from public;
-revoke all on all functions in schema private from anon;
-grant execute on all functions in schema private to authenticated;
+grant execute on all functions in schema private to anon, authenticated, service_role;
+alter default privileges in schema private grant execute on functions to anon, authenticated, service_role;
 
 drop policy if exists "Users can read their own memberships" on public.club_memberships;
 drop policy if exists "Users can create their own memberships" on public.club_memberships;
@@ -1911,13 +2053,12 @@ using (
   or private.current_membership_player_id(club_id) = player_id
 );
 
-create policy "Admins and coaches can insert fines"
+create policy "Admins, coaches, and players can insert fines"
 on public.club_fines
 for insert
 to authenticated
 with check (
-  private.current_membership_role(club_id) = 'admin'
-  or private.can_manage_player(club_id, player_id)
+  private.current_membership_role(club_id) in ('admin', 'coach', 'player')
 );
 
 create policy "Users can update allowed fines"

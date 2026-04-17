@@ -10,6 +10,7 @@ import type {
   MatchRotationAssignment,
   Player,
   TrainingSession,
+  PlayerVoteBallot,
   VoteEntry,
 } from '@/lib/types';
 import { normalizeMatchStats } from '@/lib/match-stats';
@@ -34,6 +35,7 @@ export type CloudCoreData = {
   voteEntries: VoteEntry[];
   fitnessResults: FitnessResult[];
   fines: Fine[];
+  playerVoteBallots: PlayerVoteBallot[];
 };
 
 function requireSupabase() {
@@ -54,6 +56,12 @@ function logCloudCollectionError(label: string, error: { message?: string } | nu
   if (error) {
     console.warn(`Failed to load ${label} from Supabase`, error);
   }
+}
+
+function logMissingOptionalTable(label: string, tableName: string) {
+  console.warn(
+    `Skipping ${label} because ${tableName} is missing in Supabase. Run the latest supabase/schema.sql to align the remote schema.`
+  );
 }
 
 function isMissingTableError(error: { code?: string; message?: string } | null) {
@@ -94,7 +102,7 @@ async function loadCloudPlayers(clubId: string) {
   const preferredResult = await supabase
     .from('club_players')
     .select(
-      'id, name, number, squad, role, active, primary_position, secondary_position, running_profile, rotation_group_overrides, season_goals, skill_summary, development_level'
+      'id, name, nickname, number, squad, role, active, primary_position, secondary_position, running_profile, rotation_group_overrides, season_goals, skill_summary, development_level'
     )
     .eq('club_id', clubId)
     .order('number', { ascending: true });
@@ -224,6 +232,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     matchRotationAssignmentsResult,
     playerDevelopmentEntriesResult,
     voteEntriesResult,
+    playerVoteBallotsResult,
     fitnessResultsResult,
     finesResult,
   ] = await Promise.all([
@@ -258,6 +267,10 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     supabase
       .from('club_vote_entries')
       .select('fixture_id, player_id, vote_type, points')
+      .eq('club_id', clubId),
+    supabase
+      .from('club_player_vote_ballots')
+      .select('fixture_id, voter_player_id, nominee_player_id')
       .eq('club_id', clubId),
     supabase
       .from('club_fitness_results')
@@ -422,6 +435,25 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
+  if (playerVoteBallotsResult.error) {
+    if (isMissingTableError(playerVoteBallotsResult.error)) {
+      snapshot.playerVoteBallots = [];
+      logMissingOptionalTable('player vote ballots', 'public.club_player_vote_ballots');
+      hasSuccessfulRead = true;
+    } else {
+      logCloudCollectionError('player vote ballots', playerVoteBallotsResult.error);
+    }
+  } else {
+    snapshot.playerVoteBallots = (playerVoteBallotsResult.data ?? []).map((ballot) => {
+      return {
+        fixtureId: ballot.fixture_id as string,
+        voterPlayerId: ballot.voter_player_id as string,
+        nomineePlayerId: ballot.nominee_player_id as string,
+      };
+    });
+    hasSuccessfulRead = true;
+  }
+
   if (fitnessResultsResult.error) {
     logCloudCollectionError('fitness results', fitnessResultsResult.error);
   } else {
@@ -463,6 +495,7 @@ export async function upsertCloudPlayer(clubId: string, player: Player) {
       club_id: clubId,
       id: player.id,
       name: player.name,
+      nickname: player.nickname,
       number: player.number,
       squad: player.squad,
       role: player.role,
@@ -952,6 +985,75 @@ export async function deleteCloudVoteEntriesForPlayer(clubId: string, playerId: 
     .delete()
     .eq('club_id', clubId)
     .eq('player_id', playerId);
+  await throwOnError(error);
+}
+
+export async function upsertCloudPlayerVoteBallot(clubId: string, ballot: PlayerVoteBallot) {
+  const client = requireSupabase();
+  const { error } = await client.from('club_player_vote_ballots').upsert(
+    {
+      club_id: clubId,
+      fixture_id: ballot.fixtureId,
+      voter_player_id: ballot.voterPlayerId,
+      nominee_player_id: ballot.nomineePlayerId,
+    },
+    { onConflict: 'club_id,fixture_id,voter_player_id' }
+  );
+
+  if (isMissingTableError(error)) {
+    throw new Error('Player vote ballots are not enabled on this club yet. Run the latest supabase/schema.sql.');
+  }
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudPlayerVoteBallot(
+  clubId: string,
+  fixtureId: string,
+  voterPlayerId: string
+) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_player_vote_ballots')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId)
+    .eq('voter_player_id', voterPlayerId);
+
+  if (isMissingTableError(error)) {
+    throw new Error('Player vote ballots are not enabled on this club yet. Run the latest supabase/schema.sql.');
+  }
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudPlayerVoteBallotsForFixture(clubId: string, fixtureId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_player_vote_ballots')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId);
+
+  if (isMissingTableError(error)) {
+    throw new Error('Player vote ballots are not enabled on this club yet. Run the latest supabase/schema.sql.');
+  }
+
+  await throwOnError(error);
+}
+
+export async function deleteCloudPlayerVoteBallotsForPlayer(clubId: string, playerId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('club_player_vote_ballots')
+    .delete()
+    .eq('club_id', clubId)
+    .or(`voter_player_id.eq.${playerId},nominee_player_id.eq.${playerId}`);
+
+  if (isMissingTableError(error)) {
+    throw new Error('Player vote ballots are not enabled on this club yet. Run the latest supabase/schema.sql.');
+  }
+
   await throwOnError(error);
 }
 

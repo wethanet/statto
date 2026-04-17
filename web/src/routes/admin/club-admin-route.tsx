@@ -32,6 +32,12 @@ type PendingInvite = {
   createdAt: string;
 };
 
+type SendClubInviteResponse = {
+  inviteSaved: boolean;
+  emailSent: boolean;
+  message?: string | null;
+};
+
 const roleOptions: ClubMembershipRole[] = ['admin', 'coach', 'player'];
 const squadOptions: PlayerSquad[] = ['cup', 'plate'];
 
@@ -351,19 +357,16 @@ export function ClubAdminRoute() {
 
     setIsSavingInvite(true);
 
-    const { error } = await supabase.from('club_member_invites').upsert(
-      {
-        club_id: activeClubId,
+    const { data, error } = await supabase.functions.invoke<SendClubInviteResponse>('send-club-invite', {
+      body: {
+        clubId: activeClubId,
         email: normalizedEmail,
         role: inviteRole,
-        player_id: inviteRole === 'player' ? invitePlayerId : null,
+        playerId: inviteRole === 'player' ? invitePlayerId : null,
         squads: inviteRole === 'admin' ? [] : inviteSquads,
-        invited_by: user?.id ?? null,
+        redirectTo: window.location.origin,
       },
-      {
-        onConflict: 'club_id,email',
-      }
-    );
+    });
 
     setIsSavingInvite(false);
 
@@ -391,7 +394,11 @@ export function ClubAdminRoute() {
     });
     resetInviteForm();
     setMessage(
-      `Invite saved for ${normalizedEmail}. They can now sign in and join with code ${activeClub?.inviteCode ?? ''}.`
+      data?.emailSent
+        ? `Invite emailed to ${normalizedEmail}. When they sign up or accept the invite, they will be added to ${activeClub?.name ?? 'the club'} automatically.`
+        : data?.message?.trim()
+          ? data.message
+          : `Invite saved for ${normalizedEmail}. If they already have an account, they can sign in with that email and will be added to ${activeClub?.name ?? 'the club'} automatically.`
     );
   }
 
@@ -442,7 +449,7 @@ export function ClubAdminRoute() {
       <section className="card stack">
         <h3>Email invite and player linking</h3>
         <p className="muted">
-          Pre-assign a role, squad access, and linked player to an email address. When that person signs in and joins with the club invite code, the assignment is applied automatically.
+          Pre-assign a role, squad access, and linked player to an email address. We will email them an invite, and when they sign up or accept it with that email, they will be added to the club automatically.
         </p>
 
         <div className="two-column">
@@ -529,14 +536,14 @@ export function ClubAdminRoute() {
 
         <div className="inline-actions">
           <button className="button" disabled={isSavingInvite} onClick={() => void handleCreateInvite()} type="button">
-            {isSavingInvite ? 'Saving invite...' : 'Save invite'}
+            {isSavingInvite ? 'Sending invite...' : 'Send invite email'}
           </button>
         </div>
       </section>
 
       <section className="card stack">
         <h3>Pending invites</h3>
-        <p className="muted">These invites will be consumed the next time the matching email joins the club.</p>
+        <p className="muted">These invites will be consumed automatically the next time the matching email signs in.</p>
 
         {pendingInvites.length > 0 ? (
           pendingInvites.map((invite) => (

@@ -28,6 +28,7 @@ export type Club = {
 export type Player = {
   id: string;
   name: string;
+  nickname: string | null;
   number: number | null;
   squad: PlayerSquad | null;
   role: PlayerRole;
@@ -124,6 +125,12 @@ export type VoteEntry = {
   playerId: string;
   voteType: VoteType;
   points: number;
+};
+
+export type PlayerVoteBallot = {
+  fixtureId: string;
+  voterPlayerId: string;
+  nomineePlayerId: string;
 };
 
 export type VoteType = 'players' | 'coaches' | 'best-and-fairest';

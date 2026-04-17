@@ -4,6 +4,7 @@ export const players: Player[] = [
   {
     id: 'p1',
     name: 'Jack Murphy',
+    nickname: null,
     number: 2,
     squad: 'cup',
     role: 'leader',
@@ -19,6 +20,7 @@ export const players: Player[] = [
   {
     id: 'p2',
     name: 'Liam Carter',
+    nickname: null,
     number: 5,
     squad: 'cup',
     role: 'player',
@@ -34,6 +36,7 @@ export const players: Player[] = [
   {
     id: 'p3',
     name: 'Ben Walsh',
+    nickname: null,
     number: 7,
     squad: 'cup',
     role: 'captain',
@@ -49,6 +52,7 @@ export const players: Player[] = [
   {
     id: 'p4',
     name: 'Tom Hayes',
+    nickname: null,
     number: 9,
     squad: 'cup',
     role: 'vice-captain',
@@ -64,6 +68,7 @@ export const players: Player[] = [
   {
     id: 'p5',
     name: 'Noah Sullivan',
+    nickname: null,
     number: 11,
     squad: 'plate',
     role: 'player',
@@ -79,6 +84,7 @@ export const players: Player[] = [
   {
     id: 'p6',
     name: 'Ethan Brooks',
+    nickname: null,
     number: 14,
     squad: 'plate',
     role: 'player',
@@ -94,6 +100,7 @@ export const players: Player[] = [
   {
     id: 'p7',
     name: "Sam O'Connor",
+    nickname: null,
     number: 18,
     squad: 'cup',
     role: 'leader',
@@ -109,6 +116,7 @@ export const players: Player[] = [
   {
     id: 'p8',
     name: 'Cooper Davis',
+    nickname: null,
     number: 21,
     squad: 'plate',
     role: 'player',
@@ -124,6 +132,7 @@ export const players: Player[] = [
   {
     id: 'p9',
     name: 'Harry Quinn',
+    nickname: null,
     number: 24,
     squad: null,
     role: 'player',
@@ -139,6 +148,7 @@ export const players: Player[] = [
   {
     id: 'p10',
     name: 'Mason Reid',
+    nickname: null,
     number: 27,
     squad: 'plate',
     role: 'player',

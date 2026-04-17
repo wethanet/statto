@@ -1,5 +1,5 @@
 import { getPlayerSortValue } from '@/lib/team';
-import type { Player, VoteEntry, VoteType } from '@/lib/types';
+import type { MatchLineupAssignment, Player, PlayerVoteBallot, VoteEntry, VoteType } from '@/lib/types';
 
 type PlayerWithVotes = Player & {
   points: number;
@@ -146,5 +146,86 @@ export function deleteVoteEntriesForPlayer(voteEntries: VoteEntry[], playerId: s
 export function deleteVoteEntriesForFixture(voteEntries: VoteEntry[], fixtureId: string) {
   return voteEntries.filter((entry) => {
     return entry.fixtureId !== fixtureId;
+  });
+}
+
+export function getLineupPlayerIdsForFixture(
+  fixtureId: string,
+  matchLineupAssignments: MatchLineupAssignment[]
+) {
+  return matchLineupAssignments
+    .filter((assignment) => {
+      return assignment.fixtureId === fixtureId;
+    })
+    .map((assignment) => assignment.playerId);
+}
+
+export function getPlayerVoteBallot(
+  fixtureId: string,
+  voterPlayerId: string,
+  playerVoteBallots: PlayerVoteBallot[]
+) {
+  return (
+    playerVoteBallots.find((ballot) => {
+      return ballot.fixtureId === fixtureId && ballot.voterPlayerId === voterPlayerId;
+    }) ?? null
+  );
+}
+
+export function upsertPlayerVoteBallot(
+  playerVoteBallots: PlayerVoteBallot[],
+  fixtureId: string,
+  voterPlayerId: string,
+  nomineePlayerId: string | null
+) {
+  const nextBallots = playerVoteBallots.filter((ballot) => {
+    return !(ballot.fixtureId === fixtureId && ballot.voterPlayerId === voterPlayerId);
+  });
+
+  if (nomineePlayerId && nomineePlayerId !== voterPlayerId) {
+    nextBallots.push({
+      fixtureId,
+      voterPlayerId,
+      nomineePlayerId,
+    });
+  }
+
+  return nextBallots;
+}
+
+export function deletePlayerVoteBallotsForPlayer(
+  playerVoteBallots: PlayerVoteBallot[],
+  playerId: string
+) {
+  return playerVoteBallots.filter((ballot) => {
+    return ballot.voterPlayerId !== playerId && ballot.nomineePlayerId !== playerId;
+  });
+}
+
+export function deletePlayerVoteBallotsForFixture(
+  playerVoteBallots: PlayerVoteBallot[],
+  fixtureId: string
+) {
+  return playerVoteBallots.filter((ballot) => {
+    return ballot.fixtureId !== fixtureId;
+  });
+}
+
+export function aggregatePlayerVoteBallots(playerVoteBallots: PlayerVoteBallot[]) {
+  const totals = new Map<string, number>();
+
+  playerVoteBallots.forEach((ballot) => {
+    const key = `${ballot.fixtureId}::${ballot.nomineePlayerId}`;
+    totals.set(key, (totals.get(key) ?? 0) + 1);
+  });
+
+  return Array.from(totals.entries()).map(([key, points]) => {
+    const [fixtureId, playerId] = key.split('::');
+    return {
+      fixtureId,
+      playerId,
+      voteType: 'players' as const,
+      points,
+    } satisfies VoteEntry;
   });
 }

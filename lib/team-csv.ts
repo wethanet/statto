@@ -130,6 +130,7 @@ export function parsePlayersCsv(csvContent: string): Player[] {
     return {
       id: makePlayerId(name, number, rowIndex),
       name,
+      nickname: null,
       number,
       squad: normalizePlayerSquad(squadValue),
       role: normalizeRole(roleIndex === -1 ? undefined : values[roleIndex]),

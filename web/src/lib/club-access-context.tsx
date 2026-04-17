@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -128,6 +129,19 @@ function isMissingClubInviteSchemaError(error: unknown) {
   return (
     message.includes("'club_member_invites'") ||
     message.includes('relation "public.club_member_invites" does not exist')
+  );
+}
+
+function isMissingClaimPendingInvitesFunctionError(error: unknown) {
+  const message = getSupabaseErrorMessage(error);
+
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes('claim_pending_club_invites') &&
+    (message.includes('does not exist') || message.includes('Could not find the function'))
   );
 }
 
@@ -273,6 +287,18 @@ async function deleteClubInvite(clubId: string, email: string | null | undefined
   }
 }
 
+async function claimPendingClubInvitesForCurrentUser() {
+  if (!supabase) {
+    return;
+  }
+
+  const { error } = await supabase.rpc('claim_pending_club_invites');
+
+  if (error && !isMissingClaimPendingInvitesFunctionError(error) && !isMissingClubInviteSchemaError(error)) {
+    throw error;
+  }
+}
+
 async function loadUserClubs(userId: string) {
   if (!supabase) {
     return [];
@@ -351,8 +377,9 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [activeClubId, setActiveClubIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(isConfigured);
+  const refreshPromiseRef = useRef<Promise<void> | null>(null);
 
-  const refreshClubs = useCallback(async () => {
+  const runClubRefresh = useCallback(async (options?: { claimPendingInvites?: boolean }) => {
     if (!isConfigured || !user?.id) {
       setClubs([]);
       setActiveClubIdState(null);
@@ -360,27 +387,46 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      const [nextClubs, storedActiveClubId] = await Promise.all([
-        loadUserClubs(user.id),
-        loadActiveClubId(),
-      ]);
-
-      setClubs(nextClubs);
-
-      const hasStoredClub = storedActiveClubId
-        ? nextClubs.some((club) => club.id === storedActiveClubId)
-        : false;
-      const nextActiveClubId = hasStoredClub ? storedActiveClubId : nextClubs[0]?.id ?? null;
-
-      setActiveClubIdState(nextActiveClubId);
-      await saveActiveClubId(nextActiveClubId);
-    } finally {
-      setIsLoading(false);
+    if (refreshPromiseRef.current) {
+      await refreshPromiseRef.current;
+      return;
     }
+
+    const refreshPromise = (async () => {
+      setIsLoading(true);
+
+      try {
+        if (options?.claimPendingInvites) {
+          await claimPendingClubInvitesForCurrentUser();
+        }
+
+        const [nextClubs, storedActiveClubId] = await Promise.all([
+          loadUserClubs(user.id),
+          loadActiveClubId(),
+        ]);
+
+        setClubs(nextClubs);
+
+        const hasStoredClub = storedActiveClubId
+          ? nextClubs.some((club) => club.id === storedActiveClubId)
+          : false;
+        const nextActiveClubId = hasStoredClub ? storedActiveClubId : nextClubs[0]?.id ?? null;
+
+        setActiveClubIdState(nextActiveClubId);
+        await saveActiveClubId(nextActiveClubId);
+      } finally {
+        setIsLoading(false);
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    refreshPromiseRef.current = refreshPromise;
+    await refreshPromise;
   }, [isConfigured, user?.id]);
+
+  const refreshClubs = useCallback(async () => {
+    await runClubRefresh();
+  }, [runClubRefresh]);
 
   useEffect(() => {
     if (isAuthLoading) {
@@ -395,7 +441,7 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
     }
 
     let isMounted = true;
-    refreshClubs().catch((error: unknown) => {
+    runClubRefresh({ claimPendingInvites: true }).catch((error: unknown) => {
       if (!isMounted) {
         return;
       }
@@ -407,7 +453,51 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
     return () => {
       isMounted = false;
     };
-  }, [isAuthLoading, isConfigured, refreshClubs, user?.id]);
+  }, [isAuthLoading, isConfigured, runClubRefresh, user?.id]);
+
+  useEffect(() => {
+    if (!isConfigured || !user?.id || !supabase) {
+      return;
+    }
+
+    const normalizedEmail = user.email?.trim().toLowerCase() ?? '';
+    const client = supabase;
+    let channel = client
+      .channel(`club-access:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'club_memberships',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void refreshClubs();
+        }
+      );
+
+    if (normalizedEmail) {
+      channel = channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'club_member_invites',
+          filter: `email=eq.${normalizedEmail}`,
+        },
+        () => {
+          void refreshClubs();
+        }
+      );
+    }
+
+    channel.subscribe();
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [isConfigured, refreshClubs, user?.email, user?.id]);
 
   const setActiveClubId = useCallback(async (clubId: string) => {
     setActiveClubIdState(clubId);

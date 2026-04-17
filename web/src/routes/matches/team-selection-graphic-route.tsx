@@ -1,6 +1,6 @@
+import { toPng } from 'html-to-image';
 import { useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { toPng } from 'html-to-image';
 
 import { getFixtureById, getPlayersForFixture } from '@/lib/availability';
 import { getPlayersForFixtureLineup } from '@/lib/match-lineup';
@@ -17,6 +17,15 @@ type AnnouncementPlayer = Player & {
   matchPosition: MatchLinePosition | null;
 };
 
+type PlayerLabelMode = 'full-name' | 'nickname';
+type GraphicVariant = 'selection' | 'rotation-groups';
+const rotationGroupOrder: PlayerRotationGroup[] = [
+  'inside-mids',
+  'running-players',
+  'key-position-players',
+  'utility-players',
+];
+
 function formatFixtureDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
     weekday: 'short',
@@ -27,17 +36,17 @@ function formatFixtureDate(value: string) {
   }).format(new Date(value));
 }
 
-function getPlayerLabel(player: Player) {
-  const nameParts = player.name.trim().split(/\s+/);
+function getPlayerLabel(player: Player, labelMode: PlayerLabelMode) {
+  const baseLabel =
+    labelMode === 'nickname' && player.nickname?.trim()
+      ? player.nickname.trim()
+      : player.name.trim();
 
-  if (nameParts.length === 1) {
-    return nameParts[0];
+  if (player.role === 'captain') {
+    return `${baseLabel} (c)`;
   }
 
-  const firstName = nameParts[0];
-  const surname = nameParts[nameParts.length - 1];
-
-  return `${firstName.charAt(0).toUpperCase()}. ${surname}`;
+  return baseLabel;
 }
 
 function sortPlayers(players: AnnouncementPlayer[]) {
@@ -120,20 +129,41 @@ function getCentreSquarePlayers(centrePlayers: AnnouncementPlayer[], followerPla
   return [centrePlayer, ...followerPlayers].filter((player): player is AnnouncementPlayer => player !== null);
 }
 
-function RotationDots({ group }: { group: PlayerRotationGroup | null }) {
-  if (!group) {
+function RotationMarker({
+  group,
+  variant,
+  isVisible,
+}: {
+  group: PlayerRotationGroup | null;
+  variant: GraphicVariant;
+  isVisible: boolean;
+}) {
+  if (!group || !isVisible) {
     return null;
   }
+
+  const markerClassName =
+    variant === 'rotation-groups'
+      ? `team-sheet__rotation-marker team-sheet__rotation-marker--${group}`
+      : `team-sheet__player-dot team-sheet__player-dot--${group}`;
 
   return (
     <span aria-label="Rotation groups" className="team-sheet__player-dots">
       <span
         aria-hidden="true"
-        className={`team-sheet__player-dot team-sheet__player-dot--${group}`}
+        className={markerClassName}
         title={getPlayerRotationGroupLabel(group)}
       />
     </span>
   );
+}
+
+function getRotationGroupCardClass(group: PlayerRotationGroup | null, variant: GraphicVariant) {
+  if (!group || variant !== 'rotation-groups') {
+    return '';
+  }
+
+  return ` team-sheet__rotation-card team-sheet__rotation-card--${group}`;
 }
 
 export function TeamSelectionGraphicRoute() {
@@ -142,7 +172,9 @@ export function TeamSelectionGraphicRoute() {
   const { availabilityRecords, fixtures, matchLineupAssignments, players } = useClubData();
   const teamSheetRef = useRef<HTMLElement | null>(null);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState<GraphicVariant | null>(null);
+  const [playerLabelMode, setPlayerLabelMode] = useState<PlayerLabelMode>('full-name');
+  const [graphicVariant, setGraphicVariant] = useState<GraphicVariant>('selection');
   const fixture = getFixtureById(fixtureId, fixtures);
 
   const lineupPlayers = useMemo(() => {
@@ -201,6 +233,64 @@ export function TeamSelectionGraphicRoute() {
   const halfForwardLinePlayers = getThreeSpotLinePlayers(selectionByPosition.HF);
   const forwardLinePlayers = getThreeSpotLinePlayers(selectionByPosition.F);
   const interchangePlayers = selectionByPosition.Int;
+  const rotationGroupColumns = useMemo(() => {
+    return rotationGroupOrder
+      .map((group) => {
+        const groupPlayers = sortPlayers(
+          lineupPlayers.filter((player) => {
+            return matchRotationPlan.assignments[player.id]?.group === group;
+          })
+        );
+
+        return {
+          group,
+          players: groupPlayers,
+        };
+      })
+      .filter((entry) => entry.players.length > 0);
+  }, [lineupPlayers, matchRotationPlan.assignments]);
+
+  async function waitForRenderFrame() {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+  }
+
+  async function downloadGraphic(variant: GraphicVariant) {
+    if (!teamSheetRef.current) {
+      setDownloadMessage('The team sheet is not ready to download yet.');
+      return;
+    }
+
+    try {
+      setIsDownloading(variant);
+      setDownloadMessage(null);
+      await waitForRenderFrame();
+
+      const dataUrl = await toPng(teamSheetRef.current, {
+        backgroundColor: '#2a7f39',
+        cacheBust: true,
+        pixelRatio: 2,
+      });
+      const link = document.createElement('a');
+
+      link.href = dataUrl;
+      link.download =
+        variant === 'rotation-groups'
+          ? `team-selection-rotation-groups-${fixtureId}.png`
+          : `team-selection-${fixtureId}.png`;
+      link.click();
+      setDownloadMessage('PNG downloaded.');
+    } catch (error: unknown) {
+      setDownloadMessage(
+        error instanceof Error ? error.message : 'Unable to download the team sheet right now.'
+      );
+    } finally {
+      setIsDownloading(null);
+    }
+  }
 
   if (!fixture) {
     return (
@@ -226,40 +316,62 @@ export function TeamSelectionGraphicRoute() {
           This screen keeps a fixed desktop layout so you can download the same social-ready image from a phone or desktop.
         </p>
         <div className="inline-actions announcement-actions">
+          <div className="button-group">
+            <div aria-label="Player label mode" className="button-group__controls" role="group">
+              <button
+                className={
+                  playerLabelMode === 'full-name'
+                    ? 'pill-button pill-button--compact pill-button--selected'
+                    : 'pill-button pill-button--compact'
+                }
+                onClick={() => setPlayerLabelMode('full-name')}
+                type="button">
+                Full name
+              </button>
+              <button
+                className={
+                  playerLabelMode === 'nickname'
+                    ? 'pill-button pill-button--compact pill-button--selected'
+                    : 'pill-button pill-button--compact'
+                }
+                onClick={() => setPlayerLabelMode('nickname')}
+                type="button">
+                Nickname
+              </button>
+            </div>
+          </div>
+          <div className="button-group">
+            <div aria-label="Announcement layout" className="button-group__controls" role="group">
+              <button
+                className={
+                  graphicVariant === 'selection'
+                    ? 'pill-button pill-button--compact pill-button--selected'
+                    : 'pill-button pill-button--compact'
+                }
+                onClick={() => setGraphicVariant('selection')}
+                type="button">
+                Field view
+              </button>
+              <button
+                className={
+                  graphicVariant === 'rotation-groups'
+                    ? 'pill-button pill-button--compact pill-button--selected'
+                    : 'pill-button pill-button--compact'
+                }
+                onClick={() => setGraphicVariant('rotation-groups')}
+                type="button">
+                Rotation groups
+              </button>
+            </div>
+          </div>
           <button
             className="button"
-            disabled={isDownloading}
+            disabled={isDownloading !== null}
             type="button"
-            onClick={async () => {
-              if (!teamSheetRef.current) {
-                setDownloadMessage('The team sheet is not ready to download yet.');
-                return;
-              }
-
-              try {
-                setIsDownloading(true);
-                setDownloadMessage(null);
-
-                const dataUrl = await toPng(teamSheetRef.current, {
-                  backgroundColor: '#2a7f39',
-                  cacheBust: true,
-                  pixelRatio: 2,
-                });
-                const link = document.createElement('a');
-
-                link.href = dataUrl;
-                link.download = `team-selection-${fixture.id}.png`;
-                link.click();
-                setDownloadMessage('PNG downloaded.');
-              } catch (error: unknown) {
-                setDownloadMessage(
-                  error instanceof Error ? error.message : 'Unable to download the team sheet right now.'
-                );
-              } finally {
-                setIsDownloading(false);
-              }
+            onClick={() => {
+              void downloadGraphic(graphicVariant);
             }}>
-            {isDownloading ? 'Downloading...' : 'Download image'}
+            {isDownloading !== null ? 'Downloading...' : 'Download image'}
           </button>
         </div>
         {downloadMessage ? <p className="muted">{downloadMessage}</p> : null}
@@ -270,11 +382,19 @@ export function TeamSelectionGraphicRoute() {
 
       <section className="card team-sheet-stage">
         <div className="team-sheet-stage__scroll">
-          <section className="team-sheet" ref={teamSheetRef}>
+          <section
+            className={
+              graphicVariant === 'rotation-groups'
+                ? 'team-sheet team-sheet--rotation-groups'
+                : 'team-sheet'
+            }
+            ref={teamSheetRef}>
             <header className="team-sheet__header">
               <div className="team-sheet__header-copy">
                 <span className="team-sheet__eyebrow">{activeClub?.name ?? 'Warners Bay Bulldogs'}</span>
-                <h1 className="team-sheet__title">Team Selection</h1>
+                <h1 className="team-sheet__title">
+                  {graphicVariant === 'rotation-groups' ? 'Rotation Groups' : 'Team Selection'}
+                </h1>
                 <div className="team-sheet__meta-row">
                   <span className="team-sheet__badge">{fixture.grade?.trim() || 'Match day'}</span>
                   <span className="team-sheet__meta">
@@ -290,6 +410,40 @@ export function TeamSelectionGraphicRoute() {
               </div>
             </header>
 
+            {graphicVariant === 'rotation-groups' ? (
+              <section className="rotation-board" aria-label="Players grouped by rotation group">
+                <div
+                  className="rotation-board__grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.max(rotationGroupColumns.length, 1)}, minmax(0, 1fr))`,
+                  }}>
+                  {rotationGroupColumns.map((column) => (
+                    <section
+                      className={`rotation-board__column rotation-board__column--${column.group}`}
+                      key={column.group}>
+                      <div className="rotation-board__column-header">
+                        <span
+                          aria-hidden="true"
+                          className={`rotation-board__swatch rotation-board__swatch--${column.group}`}
+                        />
+                        <span className="rotation-board__count">
+                          {column.players.length} player{column.players.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+
+                      <div className="rotation-board__list">
+                        {column.players.map((player) => (
+                          <article className="rotation-board__player" key={`rotation-board-${column.group}-${player.id}`}>
+                            <span className="rotation-board__number">{player.number ?? '--'}</span>
+                            <span className="rotation-board__name">{getPlayerLabel(player, playerLabelMode)}</span>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </section>
+            ) : (
             <section className="team-sheet__field" aria-label="Players shown in their match positions on a football field">
               <div aria-hidden="true" className="team-sheet__oval" />
               <div aria-hidden="true" className="team-sheet__arc team-sheet__arc--top" />
@@ -303,44 +457,78 @@ export function TeamSelectionGraphicRoute() {
 
               {backLinePlayers.map(({ player, slot }) => (
                 <article
-                  className={`team-sheet__field-player team-sheet__field-player--back-${slot}`}
+                  className={`team-sheet__field-player team-sheet__field-player--back-${slot}${getRotationGroupCardClass(
+                    matchRotationPlan.assignments[player.id]?.group ?? null,
+                    graphicVariant
+                  )}`}
                   key={`back-${player.id}`}>
                   <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
                   <div className="team-sheet__player-copy">
-                    <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
-                    <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
+                    <RotationMarker
+                      group={matchRotationPlan.assignments[player.id]?.group ?? null}
+                      isVisible={playerLabelMode === 'nickname'}
+                      variant={graphicVariant}
+                    />
                   </div>
                 </article>
               ))}
 
               {halfBackLinePlayers.map(({ player, slot }) => (
                 <article
-                  className={`team-sheet__field-player team-sheet__field-player--half-back-${slot}`}
+                  className={`team-sheet__field-player team-sheet__field-player--half-back-${slot}${getRotationGroupCardClass(
+                    matchRotationPlan.assignments[player.id]?.group ?? null,
+                    graphicVariant
+                  )}`}
                   key={`half-back-${player.id}`}>
                   <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
                   <div className="team-sheet__player-copy">
-                    <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
-                    <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
+                    <RotationMarker
+                      group={matchRotationPlan.assignments[player.id]?.group ?? null}
+                      isVisible={playerLabelMode === 'nickname'}
+                      variant={graphicVariant}
+                    />
                   </div>
                 </article>
               ))}
 
               {wingPlayers.left ? (
-                <article className="team-sheet__field-player team-sheet__field-player--wing-left">
+                <article
+                  className={`team-sheet__field-player team-sheet__field-player--wing-left${getRotationGroupCardClass(
+                    matchRotationPlan.assignments[wingPlayers.left.id]?.group ?? null,
+                    graphicVariant
+                  )}`}>
                   <span className="team-sheet__field-player-number">{wingPlayers.left.number ?? '--'}</span>
                   <div className="team-sheet__player-copy">
-                    <span className="team-sheet__field-player-name">{getPlayerLabel(wingPlayers.left)}</span>
-                    <RotationDots group={matchRotationPlan.assignments[wingPlayers.left.id]?.group ?? null} />
+                    <span className="team-sheet__field-player-name">
+                      {getPlayerLabel(wingPlayers.left, playerLabelMode)}
+                    </span>
+                    <RotationMarker
+                      group={matchRotationPlan.assignments[wingPlayers.left.id]?.group ?? null}
+                      isVisible={playerLabelMode === 'nickname'}
+                      variant={graphicVariant}
+                    />
                   </div>
                 </article>
               ) : null}
 
               {wingPlayers.right ? (
-                <article className="team-sheet__field-player team-sheet__field-player--wing-right">
+                <article
+                  className={`team-sheet__field-player team-sheet__field-player--wing-right${getRotationGroupCardClass(
+                    matchRotationPlan.assignments[wingPlayers.right.id]?.group ?? null,
+                    graphicVariant
+                  )}`}>
                   <span className="team-sheet__field-player-number">{wingPlayers.right.number ?? '--'}</span>
                   <div className="team-sheet__player-copy">
-                    <span className="team-sheet__field-player-name">{getPlayerLabel(wingPlayers.right)}</span>
-                    <RotationDots group={matchRotationPlan.assignments[wingPlayers.right.id]?.group ?? null} />
+                    <span className="team-sheet__field-player-name">
+                      {getPlayerLabel(wingPlayers.right, playerLabelMode)}
+                    </span>
+                    <RotationMarker
+                      group={matchRotationPlan.assignments[wingPlayers.right.id]?.group ?? null}
+                      isVisible={playerLabelMode === 'nickname'}
+                      variant={graphicVariant}
+                    />
                   </div>
                 </article>
               ) : null}
@@ -349,12 +537,19 @@ export function TeamSelectionGraphicRoute() {
                 <div className="team-sheet__centre-stack">
                   {centreSquarePlayers.map((player) => (
                     <article
-                      className="team-sheet__field-player team-sheet__field-player--compact team-sheet__field-player--stacked"
+                      className={`team-sheet__field-player team-sheet__field-player--compact team-sheet__field-player--stacked${getRotationGroupCardClass(
+                        matchRotationPlan.assignments[player.id]?.group ?? null,
+                        graphicVariant
+                      )}`}
                       key={`centre-square-${player.id}`}>
                       <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
                       <div className="team-sheet__player-copy">
-                        <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
-                        <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                        <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
+                        <RotationMarker
+                          group={matchRotationPlan.assignments[player.id]?.group ?? null}
+                          isVisible={playerLabelMode === 'nickname'}
+                          variant={graphicVariant}
+                        />
                       </div>
                     </article>
                   ))}
@@ -363,41 +558,65 @@ export function TeamSelectionGraphicRoute() {
 
               {halfForwardLinePlayers.map(({ player, slot }) => (
                 <article
-                  className={`team-sheet__field-player team-sheet__field-player--half-forward-${slot}`}
+                  className={`team-sheet__field-player team-sheet__field-player--half-forward-${slot}${getRotationGroupCardClass(
+                    matchRotationPlan.assignments[player.id]?.group ?? null,
+                    graphicVariant
+                  )}`}
                   key={`half-forward-${player.id}`}>
                   <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
                   <div className="team-sheet__player-copy">
-                    <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
-                    <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
+                    <RotationMarker
+                      group={matchRotationPlan.assignments[player.id]?.group ?? null}
+                      isVisible={playerLabelMode === 'nickname'}
+                      variant={graphicVariant}
+                    />
                   </div>
                 </article>
               ))}
 
               {forwardLinePlayers.map(({ player, slot }) => (
                 <article
-                  className={`team-sheet__field-player team-sheet__field-player--forward-${slot}`}
+                  className={`team-sheet__field-player team-sheet__field-player--forward-${slot}${getRotationGroupCardClass(
+                    matchRotationPlan.assignments[player.id]?.group ?? null,
+                    graphicVariant
+                  )}`}
                   key={`forward-${player.id}`}>
                   <span className="team-sheet__field-player-number">{player.number ?? '--'}</span>
                   <div className="team-sheet__player-copy">
-                    <span className="team-sheet__field-player-name">{getPlayerLabel(player)}</span>
-                    <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                    <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
+                    <RotationMarker
+                      group={matchRotationPlan.assignments[player.id]?.group ?? null}
+                      isVisible={playerLabelMode === 'nickname'}
+                      variant={graphicVariant}
+                    />
                   </div>
                 </article>
               ))}
             </section>
+            )}
 
-            {interchangePlayers.length > 0 || emergencies.length > 0 ? (
+            {graphicVariant === 'selection' && (interchangePlayers.length > 0 || emergencies.length > 0) ? (
               <footer className="team-sheet__bench-grid">
                 {interchangePlayers.length > 0 ? (
                   <section className="team-sheet__bench-section">
                     <span className="team-sheet__bench-label">Interchange</span>
                     <div className="team-sheet__bench-list">
                       {interchangePlayers.map((player) => (
-                        <article className="team-sheet__bench-player" key={`interchange-${player.id}`}>
+                        <article
+                          className={`team-sheet__bench-player${getRotationGroupCardClass(
+                            matchRotationPlan.assignments[player.id]?.group ?? null,
+                            graphicVariant
+                          )}`}
+                          key={`interchange-${player.id}`}>
                           <span className="team-sheet__bench-number">{player.number ?? '--'}</span>
                           <div className="team-sheet__player-copy">
-                            <span className="team-sheet__bench-name">{getPlayerLabel(player)}</span>
-                            <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                            <span className="team-sheet__bench-name">{getPlayerLabel(player, playerLabelMode)}</span>
+                            <RotationMarker
+                              group={matchRotationPlan.assignments[player.id]?.group ?? null}
+                              isVisible={playerLabelMode === 'nickname'}
+                              variant={graphicVariant}
+                            />
                           </div>
                         </article>
                       ))}
@@ -410,11 +629,20 @@ export function TeamSelectionGraphicRoute() {
                     <span className="team-sheet__bench-label">Emergency</span>
                     <div className="team-sheet__bench-list">
                       {emergencies.map((player) => (
-                        <article className="team-sheet__bench-player" key={`emergency-${player.id}`}>
+                        <article
+                          className={`team-sheet__bench-player${getRotationGroupCardClass(
+                            matchRotationPlan.assignments[player.id]?.group ?? null,
+                            graphicVariant
+                          )}`}
+                          key={`emergency-${player.id}`}>
                           <span className="team-sheet__bench-number">{player.number ?? '--'}</span>
                           <div className="team-sheet__player-copy">
-                            <span className="team-sheet__bench-name">{getPlayerLabel(player)}</span>
-                            <RotationDots group={matchRotationPlan.assignments[player.id]?.group ?? null} />
+                            <span className="team-sheet__bench-name">{getPlayerLabel(player, playerLabelMode)}</span>
+                            <RotationMarker
+                              group={matchRotationPlan.assignments[player.id]?.group ?? null}
+                              isVisible={playerLabelMode === 'nickname'}
+                              variant={graphicVariant}
+                            />
                           </div>
                         </article>
                       ))}

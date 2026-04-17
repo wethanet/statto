@@ -28,6 +28,7 @@ import type {
   MatchStatEntry,
   Player,
   PlayerDevelopmentEntry,
+  PlayerVoteBallot,
   TrainingSession,
   VoteEntry,
 } from '@/lib/types';
@@ -56,6 +57,9 @@ import {
   deleteCloudPlayer,
   deleteCloudPlayerDevelopmentEntriesForPlayer,
   deleteCloudPlayerDevelopmentEntry,
+  deleteCloudPlayerVoteBallot,
+  deleteCloudPlayerVoteBallotsForFixture,
+  deleteCloudPlayerVoteBallotsForPlayer,
   deleteCloudTrainingSession,
   deleteCloudVoteEntriesForPlayer,
   deleteCloudVoteEntry,
@@ -70,6 +74,7 @@ import {
   upsertCloudMatchRotationAssignment,
   upsertCloudPlayer,
   upsertCloudPlayerDevelopmentEntry,
+  upsertCloudPlayerVoteBallot,
   upsertCloudTrainingSession,
   upsertCloudVoteEntry,
 } from '@web/lib/storage/cloud-core-data-storage';
@@ -101,6 +106,8 @@ type ClubDataContextValue = {
   setFines: Dispatch<SetStateAction<Fine[]>>;
   voteEntries: VoteEntry[];
   setVoteEntries: Dispatch<SetStateAction<VoteEntry[]>>;
+  playerVoteBallots: PlayerVoteBallot[];
+  setPlayerVoteBallots: Dispatch<SetStateAction<PlayerVoteBallot[]>>;
   loadDemoData: () => void;
   isHydrated: boolean;
   storageMode: 'local' | 'cloud';
@@ -127,6 +134,7 @@ const STORAGE_KEYS = {
   fitnessResults: 'fitness-results.json',
   fines: 'fines.json',
   voteEntries: 'vote-entries.json',
+  playerVoteBallots: 'player-vote-ballots.json',
 } as const;
 
 const ClubDataContext = createContext<ClubDataContextValue | null>(null);
@@ -144,6 +152,7 @@ const REALTIME_TABLES = [
   'club_match_rotation_assignments',
   'club_player_development_entries',
   'club_vote_entries',
+  'club_player_vote_ballots',
   'club_fitness_results',
   'club_fines',
 ] as const;
@@ -191,6 +200,7 @@ async function loadLocalSnapshot(storageScope: string) {
     fitnessResults,
     fines,
     voteEntries,
+    playerVoteBallots,
   ] = await Promise.all([
     readScopedStorageWithLegacyFallback<Fixture[]>(storageScope, STORAGE_KEYS.fixtures),
     readScopedStorageWithLegacyFallback<TrainingSession[]>(storageScope, STORAGE_KEYS.trainingSessions),
@@ -213,6 +223,7 @@ async function loadLocalSnapshot(storageScope: string) {
     readScopedStorageWithLegacyFallback<FitnessResult[]>(storageScope, STORAGE_KEYS.fitnessResults),
     readScopedStorageWithLegacyFallback<Fine[]>(storageScope, STORAGE_KEYS.fines),
     readScopedStorageWithLegacyFallback<VoteEntry[]>(storageScope, STORAGE_KEYS.voteEntries),
+    readScopedStorageWithLegacyFallback<PlayerVoteBallot[]>(storageScope, STORAGE_KEYS.playerVoteBallots),
   ]);
 
   return normalizeClubDataSnapshot({
@@ -228,6 +239,7 @@ async function loadLocalSnapshot(storageScope: string) {
     fitnessResults: fitnessResults ?? undefined,
     fines: fines ?? undefined,
     voteEntries: voteEntries ?? undefined,
+    playerVoteBallots: playerVoteBallots ?? undefined,
   });
 }
 
@@ -266,6 +278,10 @@ async function saveLocalSnapshot(snapshot: ClubDataSnapshot, storageScope: strin
     ),
     writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.fines), snapshot.fines),
     writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.voteEntries), snapshot.voteEntries),
+    writeJsonStorage(
+      getScopedStorageKey(storageScope, STORAGE_KEYS.playerVoteBallots),
+      snapshot.playerVoteBallots
+    ),
   ]);
 }
 
@@ -326,6 +342,9 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const [fitnessResultsState, setFitnessResultsState] = useState(emptyClubDataSnapshot.fitnessResults);
   const [finesState, setFinesState] = useState(emptyClubDataSnapshot.fines);
   const [voteEntriesState, setVoteEntriesState] = useState(emptyClubDataSnapshot.voteEntries);
+  const [playerVoteBallotsState, setPlayerVoteBallotsState] = useState(
+    emptyClubDataSnapshot.playerVoteBallots
+  );
   const [isHydrated, setIsHydrated] = useState(false);
   const [syncDebug, setSyncDebug] = useState<ClubDataContextValue['syncDebug']>({
     playersSource: 'empty',
@@ -338,6 +357,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const pendingCloudRefreshRequestedRef = useRef(false);
   const refreshFromCloudTimeoutRef = useRef<number | null>(null);
   const refreshFromCloudRef = useRef<() => Promise<void>>(async () => {});
+  const refreshFromCloudPromiseRef = useRef<Promise<void> | null>(null);
   const hydratedStorageScopeRef = useRef<string | null>(null);
 
   const fixturesRef = useRef(fixturesState);
@@ -352,6 +372,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const fitnessResultsRef = useRef(fitnessResultsState);
   const finesRef = useRef(finesState);
   const voteEntriesRef = useRef(voteEntriesState);
+  const playerVoteBallotsRef = useRef(playerVoteBallotsState);
 
   fixturesRef.current = fixturesState;
   trainingSessionsRef.current = trainingSessionsState;
@@ -365,6 +386,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   fitnessResultsRef.current = fitnessResultsState;
   finesRef.current = finesState;
   voteEntriesRef.current = voteEntriesState;
+  playerVoteBallotsRef.current = playerVoteBallotsState;
 
   const storageScope = useMemo(() => {
     if (isConfigured) {
@@ -391,6 +413,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     fitnessResultsRef.current = snapshot.fitnessResults;
     finesRef.current = snapshot.fines;
     voteEntriesRef.current = snapshot.voteEntries;
+    playerVoteBallotsRef.current = snapshot.playerVoteBallots;
 
     setFixturesState(snapshot.fixtures);
     setTrainingSessionsState(snapshot.trainingSessions);
@@ -404,6 +427,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setFitnessResultsState(snapshot.fitnessResults);
     setFinesState(snapshot.fines);
     setVoteEntriesState(snapshot.voteEntries);
+    setPlayerVoteBallotsState(snapshot.playerVoteBallots);
   }
 
   const getSnapshotFromRefs = useCallback((): ClubDataSnapshot => {
@@ -420,6 +444,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       fitnessResults: fitnessResultsRef.current,
       fines: finesRef.current,
       voteEntries: voteEntriesRef.current,
+      playerVoteBallots: playerVoteBallotsRef.current,
     };
   }, []);
 
@@ -625,6 +650,18 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       deleteCloudVoteEntry(clubId, entry.fixtureId, entry.playerId, entry.voteType),
   });
 
+  const setPlayerVoteBallots = createCollectionSetter(
+    playerVoteBallotsRef,
+    setPlayerVoteBallotsState,
+    {
+      label: 'player vote ballots',
+      keyOf: (ballot) => `${ballot.fixtureId}::${ballot.voterPlayerId}`,
+      upsertRemote: upsertCloudPlayerVoteBallot,
+      deleteRemote: (clubId, ballot) =>
+        deleteCloudPlayerVoteBallot(clubId, ballot.fixtureId, ballot.voterPlayerId),
+    }
+  );
+
   const setFines = createCollectionSetter(finesRef, setFinesState, {
     label: 'fines',
     keyOf: (fine) => fine.id,
@@ -646,6 +683,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setFitnessResults(snapshot.fitnessResults);
     setFines(snapshot.fines);
     setVoteEntries(snapshot.voteEntries);
+    setPlayerVoteBallots(snapshot.playerVoteBallots);
   }
 
   const refreshFromCloud = useCallback(async () => {
@@ -658,25 +696,38 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    try {
-      pendingCloudRefreshRequestedRef.current = false;
-      const remoteCoreData = await loadCloudCoreData(activeClubId);
-
-      if (!remoteCoreData) {
-        return;
-      }
-
-      const currentSnapshot = getSnapshotFromRefs();
-      setSyncDebugFromSources(currentSnapshot, remoteCoreData);
-      applySnapshot(
-        normalizeClubDataSnapshot({
-          ...currentSnapshot,
-          ...remoteCoreData,
-        })
-      );
-    } catch (error: unknown) {
-      console.warn('Failed to refresh cloud club data', error);
+    if (refreshFromCloudPromiseRef.current) {
+      pendingCloudRefreshRequestedRef.current = true;
+      await refreshFromCloudPromiseRef.current;
+      return;
     }
+
+    const refreshPromise = (async () => {
+      try {
+        pendingCloudRefreshRequestedRef.current = false;
+        const remoteCoreData = await loadCloudCoreData(activeClubId);
+
+        if (!remoteCoreData) {
+          return;
+        }
+
+        const currentSnapshot = getSnapshotFromRefs();
+        setSyncDebugFromSources(currentSnapshot, remoteCoreData);
+        applySnapshot(
+          normalizeClubDataSnapshot({
+            ...currentSnapshot,
+            ...remoteCoreData,
+          })
+        );
+      } catch (error: unknown) {
+        console.warn('Failed to refresh cloud club data', error);
+      } finally {
+        refreshFromCloudPromiseRef.current = null;
+      }
+    })();
+
+    refreshFromCloudPromiseRef.current = refreshPromise;
+    await refreshPromise;
   }, [activeClubId, getSnapshotFromRefs, isConfigured, setSyncDebugFromSources]);
 
   refreshFromCloudRef.current = refreshFromCloud;
@@ -828,6 +879,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       fitnessResults: fitnessResultsState,
       fines: finesState,
       voteEntries: voteEntriesState,
+      playerVoteBallots: playerVoteBallotsState,
     };
   }, [
     attendanceRecordsState,
@@ -840,6 +892,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     matchStatsState,
     playerDevelopmentEntriesState,
     playersState,
+    playerVoteBallotsState,
     trainingSessionsState,
     voteEntriesState,
   ]);
@@ -880,6 +933,8 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setFines,
       voteEntries: voteEntriesState,
       setVoteEntries,
+      playerVoteBallots: playerVoteBallotsState,
+      setPlayerVoteBallots,
       loadDemoData,
       isHydrated,
       storageMode: isConfigured && activeClubId ? 'cloud' : 'local',
@@ -898,7 +953,9 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     matchRotationAssignmentsState,
     matchStatsState,
     playerDevelopmentEntriesState,
+    playerVoteBallotsState,
     playersState,
+    setPlayerVoteBallots,
     setPlayerDevelopmentEntries,
     syncDebug,
     trainingSessionsState,

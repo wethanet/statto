@@ -27,6 +27,7 @@ import type {
   MatchRotationAssignment,
   Player,
   PlayerDevelopmentEntry,
+  PlayerVoteBallot,
   TrainingSession,
   VoteEntry,
 } from '@/lib/types';
@@ -45,6 +46,7 @@ export type ClubDataSnapshot = {
   fitnessResults: FitnessResult[];
   fines: Fine[];
   voteEntries: VoteEntry[];
+  playerVoteBallots: PlayerVoteBallot[];
 };
 
 export const emptyClubDataSnapshot: ClubDataSnapshot = {
@@ -60,6 +62,7 @@ export const emptyClubDataSnapshot: ClubDataSnapshot = {
   fitnessResults: [],
   fines: [],
   voteEntries: [],
+  playerVoteBallots: [],
 };
 
 function cloneList<T>(items: T[]) {
@@ -86,6 +89,7 @@ export function createDemoClubDataSnapshot(): ClubDataSnapshot {
     fitnessResults: cloneList(fitnessResults),
     fines: cloneList(fines),
     voteEntries: normalizeVoteEntries(cloneList(voteEntries)),
+    playerVoteBallots: [],
   };
 }
 
@@ -117,5 +121,6 @@ export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | 
     fitnessResults: asList(snapshot?.fitnessResults, emptyClubDataSnapshot.fitnessResults),
     fines: asList(snapshot?.fines, emptyClubDataSnapshot.fines),
     voteEntries: normalizeVoteEntries(asList(snapshot?.voteEntries, emptyClubDataSnapshot.voteEntries)),
+    playerVoteBallots: asList(snapshot?.playerVoteBallots, emptyClubDataSnapshot.playerVoteBallots),
   } satisfies ClubDataSnapshot;
 }

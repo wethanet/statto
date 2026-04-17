@@ -44,7 +44,7 @@ export function AuthScreen() {
         <span className="eyebrow">Supabase access</span>
         <h1>Sign in to Statto</h1>
         <p className="muted">
-          Sign in to access your club workspace and keep team data synced across devices.
+          Sign in to access your club workspace and keep team data synced across devices. If you were invited by email, use that same email address and the club will be added automatically.
         </p>
 
         <form className="stack" onSubmit={handleSubmit}>

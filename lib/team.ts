@@ -117,6 +117,7 @@ export function addPlayer(
   const player: Player = {
     id: `player-${Date.now()}`,
     name: input.name.trim(),
+    nickname: null,
     number: input.number ?? null,
     squad: input.squad ?? null,
     role: 'player',
@@ -138,6 +139,7 @@ export function updatePlayerDetails(
   playerId: string,
   input: {
     name?: string;
+    nickname?: string | null;
     number?: number | null;
     squad?: PlayerSquad | null;
     primaryPosition?: PlayerPositionProfile | null;
@@ -154,6 +156,7 @@ export function updatePlayerDetails(
     return {
       ...player,
       name: input.name?.trim() || player.name,
+      nickname: normalizeOptionalText(input.nickname) ?? null,
       number: input.number ?? null,
       squad: input.squad ?? null,
       primaryPosition: input.primaryPosition ?? null,
@@ -353,8 +356,10 @@ export function normalizePlayers(
       | 'seasonGoals'
       | 'skillSummary'
       | 'developmentLevel'
+      | 'nickname'
     > & {
       squad?: string | null;
+      nickname?: string | null;
       primaryPosition?: string | null;
       secondaryPosition?: string | null;
       runningProfile?: string | null;
@@ -373,11 +378,12 @@ export function normalizePlayers(
   >
 ): Player[] {
   return players.map((player) => {
-    const { id, name, number, role, active } = player;
+    const { id, name, number, role, active, nickname } = player;
 
     return {
       id,
       name,
+      nickname: normalizeOptionalText(nickname),
       number,
       squad: normalizePlayerSquad(player.squad),
       role,

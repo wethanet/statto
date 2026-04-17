@@ -64,34 +64,50 @@ export function ShellLayout() {
             <div className="stack-sm">
               <p className="eyebrow">Warners Bay Bulldogs</p>
               <h1 className="shell-drawer__title">{activeClub?.name ?? 'Local club workspace'}</h1>
-              <p className="muted">
-                {storageMode === 'cloud'
-                  ? 'Supabase sync is active for this club.'
-                  : 'Running in local mode until Supabase club access is configured.'}
-              </p>
             </div>
           </div>
 
-          <nav className="drawer-nav" id="primary-navigation" aria-label="Primary">
-            {navItems.map((item) => {
-              return (
-                <NavLink
-                  key={item.to}
-                  className={({ isActive }) => {
-                    return isActive ? 'drawer-link drawer-link--active' : 'drawer-link';
-                  }}
-                  end={item.end}
-                  to={item.to}
-                  onClick={() => {
-                    setIsDrawerOpen(false);
-                  }}>
-                  {item.label}
-                </NavLink>
-              );
-            })}
-          </nav>
+          <div className="shell-drawer__meta">
+            <span
+              className={
+                storageMode === 'cloud'
+                  ? 'status-pill status-pill--positive'
+                  : 'status-pill status-pill--neutral'
+              }>
+              {storageMode === 'cloud' ? 'Cloud sync active' : 'Local mode'}
+            </span>
+          </div>
 
-          <div className="shell-drawer__actions">
+          <div className="shell-drawer__body">
+            <div className="shell-drawer__section">
+              <span className="shell-drawer__section-label">Workspace</span>
+              <nav className="drawer-nav" id="primary-navigation" aria-label="Primary">
+                {navItems.map((item) => {
+                  return (
+                    <NavLink
+                      key={item.to}
+                      className={({ isActive }) => {
+                        return isActive ? 'drawer-link drawer-link--active' : 'drawer-link';
+                      }}
+                      end={item.end}
+                      to={item.to}
+                      onClick={() => {
+                        setIsDrawerOpen(false);
+                      }}>
+                      <span className="drawer-link__bullet" aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
+
+          <div className="shell-drawer__footer">
+            <div className="shell-drawer__section">
+              <span className="shell-drawer__section-label">Preferences</span>
+            </div>
+            <div className="shell-drawer__actions">
             <button
               className="button button--secondary"
               type="button"
@@ -106,6 +122,7 @@ export function ShellLayout() {
             <button className="button button--ghost" type="button" onClick={handleSignOut}>
               Sign out
             </button>
+            </div>
           </div>
         </div>
       </aside>

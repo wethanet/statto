@@ -45,6 +45,15 @@ function getPlayerAttendanceTone(status: 'present' | 'absent' | 'unknown') {
   return 'status-pill status-pill--neutral';
 }
 
+function renderBoardMetric(value: number, label: string, tone: 'positive' | 'negative' | 'neutral') {
+  return (
+    <span className={`schedule-board__metric schedule-board__metric--${tone}`}>
+      <span className="schedule-board__metric-value">{value}</span>
+      <span className="schedule-board__metric-label">{label}</span>
+    </span>
+  );
+}
+
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
@@ -139,99 +148,120 @@ export function TrainingListRoute() {
         </section>
       ) : null}
 
-      {sessions.map((session) => {
-        const summary = isPlayer ? null : getAttendanceSummary(session.id, visiblePlayers, attendanceRecords);
-        const playerAttendance =
-          selectedPlayer && isPlayer
-            ? getAttendanceStatusForPlayer(session.id, selectedPlayer.id, attendanceRecords)
-            : null;
-        const isPastSession = isPastItem(session.date);
+      {!isPlayer ? (
+        <section className="schedule-board">
+          <div className="schedule-board__header schedule-board__row--training">
+            <span>Session</span>
+            <span>Location</span>
+            <span>Attendance</span>
+            <span>Action</span>
+          </div>
+          <div className="schedule-board__body">
+            {sessions.map((session) => {
+              const summary = getAttendanceSummary(session.id, visiblePlayers, attendanceRecords);
+              const isPastSession = isPastItem(session.date);
 
-        if (isPlayer && playerAttendance) {
-          return (
-            <section
-              key={session.id}
-              ref={session.id === targetSessionId ? targetSessionRef : null}
-              className={isPastSession ? 'card stack player-session-card player-session-card--past' : 'card stack player-session-card'}>
-              <div className="player-session-card__header">
-                <div className="stack-sm">
-                  <h3>{session.title}</h3>
-                  <p className="muted">{formatDate(session.date)}</p>
-                  <p className="muted">{session.location}</p>
-                </div>
+              return (
+                <section
+                  key={session.id}
+                  ref={session.id === targetSessionId ? targetSessionRef : null}
+                  className={
+                    isPastSession
+                      ? 'schedule-board__row schedule-board__row--training schedule-board__row--past'
+                      : 'schedule-board__row schedule-board__row--training'
+                  }>
+                  <div className="schedule-board__cell schedule-board__primary">
+                    <h3 className="schedule-board__title">{session.title}</h3>
+                    <p className="schedule-board__meta">{formatDate(session.date)}</p>
+                  </div>
 
-                <div className="player-session-card__response">
-                  <span className="player-session-card__label">Your attendance</span>
-                  <span className={getPlayerAttendanceTone(playerAttendance)}>
-                    {getPlayerAttendanceLabel(playerAttendance)}
-                  </span>
-                </div>
-              </div>
+                  <div className="schedule-board__cell">
+                    <p className="schedule-board__venue">{session.location}</p>
+                  </div>
 
-              {!isPastSession && selectedPlayer ? (
-                <div className="player-session-card__actions">
-                  {attendanceOptions.map((option) => {
-                    const isSelected = option.value === playerAttendance;
+                  <div className="schedule-board__cell">
+                    <div className="schedule-board__metrics">
+                      {renderBoardMetric(summary.present, 'present', 'positive')}
+                      {renderBoardMetric(summary.absent, 'absent', 'negative')}
+                      {renderBoardMetric(summary.unknown, 'to confirm', 'neutral')}
+                    </div>
+                  </div>
 
-                    return (
-                      <button
-                        key={option.value}
-                        className={isSelected ? `${option.className} pill-button--selected` : option.className}
-                        onClick={() => {
-                          setAttendanceRecords((current) => {
-                            return upsertAttendanceRecord(current, session.id, selectedPlayer.id, option.value);
-                          });
-                        }}
-                        type="button">
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </section>
-          );
-        }
-
-        return (
-          <section
-            key={session.id}
-            ref={session.id === targetSessionId ? targetSessionRef : null}
-            className={isPastSession ? 'card stack schedule-card schedule-card--past' : 'card stack schedule-card'}>
-            <div className="schedule-card__layout">
-              <div className="stack-sm schedule-card__main">
-                <h3>{session.title}</h3>
-                <p className="muted">{formatDate(session.date)}</p>
-                <p className="muted">{session.location}</p>
-              </div>
-
-              <div className="schedule-card__side">
-                {canAccessAdmin ? (
-                  <Link className="schedule-card__action text-link" to={`/training/${session.id}`}>
-                    Open session
-                  </Link>
-                ) : (
-                  <span className="muted">Session overview</span>
-                )}
-
-                <div className="schedule-card__status">
-                  <div className="schedule-card__metrics">
-                    {isPlayer ? (
-                      null
+                  <div className="schedule-board__cell">
+                    {canAccessAdmin ? (
+                      <Link className="schedule-card__action schedule-board__action text-link" to={`/training/${session.id}`}>
+                        Open session
+                      </Link>
                     ) : (
-                      <>
-                        <span className="metric metric--positive">{summary?.present ?? 0} present</span>
-                        <span className="metric metric--negative">{summary?.absent ?? 0} absent</span>
-                        <span className="metric metric--neutral">{summary?.unknown ?? 0} to confirm</span>
-                      </>
+                      <span className="schedule-board__hint">Session overview</span>
                     )}
                   </div>
+                </section>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {isPlayer
+        ? sessions.map((session) => {
+            const playerAttendance =
+              selectedPlayer && isPlayer
+                ? getAttendanceStatusForPlayer(session.id, selectedPlayer.id, attendanceRecords)
+                : null;
+            const isPastSession = isPastItem(session.date);
+
+            if (!playerAttendance) {
+              return null;
+            }
+
+            return (
+              <section
+                key={session.id}
+                ref={session.id === targetSessionId ? targetSessionRef : null}
+                className={
+                  isPastSession ? 'card stack player-session-card player-session-card--past' : 'card stack player-session-card'
+                }>
+                <div className="player-session-card__header">
+                  <div className="stack-sm">
+                    <h3>{session.title}</h3>
+                    <p className="muted">{formatDate(session.date)}</p>
+                    <p className="muted">{session.location}</p>
+                  </div>
+
+                  <div className="player-session-card__response">
+                    <span className="player-session-card__label">Your attendance</span>
+                    <span className={getPlayerAttendanceTone(playerAttendance)}>
+                      {getPlayerAttendanceLabel(playerAttendance)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </section>
-        );
-      })}
+
+                {!isPastSession && selectedPlayer ? (
+                  <div className="player-session-card__actions">
+                    {attendanceOptions.map((option) => {
+                      const isSelected = option.value === playerAttendance;
+
+                      return (
+                        <button
+                          key={option.value}
+                          className={isSelected ? `${option.className} pill-button--selected` : option.className}
+                          onClick={() => {
+                            setAttendanceRecords((current) => {
+                              return upsertAttendanceRecord(current, session.id, selectedPlayer.id, option.value);
+                            });
+                          }}
+                          type="button">
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </section>
+            );
+          })
+        : null}
     </section>
   );
 }
