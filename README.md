@@ -66,7 +66,8 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 4. Run [supabase/schema.sql](/Users/andrewmccallum/Development/statto/supabase/schema.sql) in the Supabase SQL editor.
 5. Enable email/password sign-in in Supabase Auth.
-6. Restart the Vite dev server after changing environment variables.
+6. If you want Google login, enable the Google provider in Supabase Auth, add your app URL and local dev URL to the Google OAuth client, and add the same redirect URLs to Supabase Auth URL configuration.
+7. Restart the Vite dev server after changing environment variables.
 
 Use only the public anon key in the client app. Do not use the Supabase service role key in `web/.env.local` or in Vercel.
 

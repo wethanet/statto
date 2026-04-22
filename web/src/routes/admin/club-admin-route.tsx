@@ -61,6 +61,10 @@ function getRoleLabel(role: ClubMembershipRole) {
   return 'Player';
 }
 
+function getSquadLabel(squad: PlayerSquad) {
+  return squad === 'cup' ? 'Cup' : 'Plate';
+}
+
 function getErrorMessage(error: unknown) {
   if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
     return error.message;
@@ -107,6 +111,9 @@ export function ClubAdminRoute() {
         );
       });
   }, [players]);
+  const playersById = useMemo(() => {
+    return Object.fromEntries(sortedPlayers.map((player) => [player.id, player]));
+  }, [sortedPlayers]);
 
   useEffect(() => {
     if (!activeClubId || !supabase) {
@@ -599,106 +606,130 @@ export function ClubAdminRoute() {
         {isLoading ? (
           <p className="muted">Loading club members...</p>
         ) : members.length > 0 ? (
-          members.map((member) => {
-            const draft = drafts[member.userId];
+          <section className="schedule-board">
+            <div className="schedule-board__header schedule-board__row--club">
+              <span>Member</span>
+              <span>Role</span>
+              <span>Linked player</span>
+              <span>Squad access</span>
+              <span>Action</span>
+            </div>
+            <div className="schedule-board__body">
+              {members.map((member) => {
+                const draft = drafts[member.userId];
 
-            if (!draft) {
-              return null;
-            }
+                if (!draft) {
+                  return null;
+                }
 
-            return (
-              <section className="nested-card stack" key={member.userId}>
-                <div className="split-row">
-                  <div className="stack-sm">
-                    <strong>{member.email ?? 'Email unavailable'}</strong>
-                    <span className="muted">
-                      Joined {formatJoinedAt(member.joinedAt)}
-                      {member.userId === user?.id ? ' • You' : ''}
-                    </span>
-                  </div>
-                  <span className="metric metric--neutral">{getRoleLabel(member.role)}</span>
-                </div>
+                const linkedPlayer = draft.playerId ? playersById[draft.playerId] : null;
 
-                <div className="two-column">
-                  <label className="field">
-                    <span>Role</span>
-                    <select
-                      className="input"
-                      onChange={(event) => {
-                        const nextRole = event.target.value as ClubMembershipRole;
-                        updateDraft(member.userId, {
-                          role: nextRole,
-                          playerId: nextRole === 'player' ? draft.playerId : null,
-                          squads: nextRole === 'admin' ? [] : draft.squads,
-                        });
-                        setMessage(null);
-                      }}
-                      value={draft.role}>
-                      {roleOptions.map((role) => (
-                        <option key={role} value={role}>
-                          {getRoleLabel(role)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                return (
+                  <section className="schedule-board__row schedule-board__row--club" key={member.userId}>
+                    <div className="schedule-board__cell schedule-board__primary">
+                      <h3 className="schedule-board__title">{member.email ?? 'Email unavailable'}</h3>
+                      <p className="schedule-board__meta">
+                        Joined {formatJoinedAt(member.joinedAt)}
+                        {member.userId === user?.id ? ' • You' : ''}
+                      </p>
+                    </div>
 
-                  <label className="field">
-                    <span>Linked player</span>
-                    <select
-                      className="input"
-                      disabled={draft.role !== 'player'}
-                      onChange={(event) => {
-                        updateDraft(member.userId, { playerId: event.target.value || null });
-                        setMessage(null);
-                      }}
-                      value={draft.playerId ?? ''}>
-                      <option value="">No linked player</option>
-                      {sortedPlayers.map((player) => (
-                        <option key={player.id} value={player.id}>
-                          {getPlayerDisplayName(player)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="stack-sm">
-                  <span>Squad access</span>
-                  <div className="inline-actions">
-                    {squadOptions.map((squad) => {
-                      const isSelected = draft.squads.includes(squad);
-
-                      return (
-                        <button
-                          key={squad}
-                          className={isSelected ? 'pill-button pill-button--selected' : 'pill-button'}
-                          disabled={draft.role === 'admin'}
-                          onClick={() => {
-                            toggleSquad(member.userId, squad);
+                    <div className="schedule-board__cell">
+                      <label className="field schedule-board__field">
+                        <span>Role</span>
+                        <select
+                          className="input"
+                          onChange={(event) => {
+                            const nextRole = event.target.value as ClubMembershipRole;
+                            updateDraft(member.userId, {
+                              role: nextRole,
+                              playerId: nextRole === 'player' ? draft.playerId : null,
+                              squads: nextRole === 'admin' ? [] : draft.squads,
+                            });
                             setMessage(null);
                           }}
-                          type="button">
-                          {squad === 'cup' ? 'Cup' : 'Plate'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                          value={draft.role}>
+                          {roleOptions.map((role) => (
+                            <option key={role} value={role}>
+                              {getRoleLabel(role)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
 
-                <div className="inline-actions">
-                  <button
-                    className="button"
-                    disabled={isSavingUserId === member.userId}
-                    onClick={() => {
-                      void handleSaveMember(member);
-                    }}
-                    type="button">
-                    {isSavingUserId === member.userId ? 'Saving...' : 'Save member'}
-                  </button>
-                </div>
-              </section>
-            );
-          })
+                    <div className="schedule-board__cell">
+                      <label className="field schedule-board__field">
+                        <span>Linked player</span>
+                        <select
+                          className="input"
+                          disabled={draft.role !== 'player'}
+                          onChange={(event) => {
+                            updateDraft(member.userId, { playerId: event.target.value || null });
+                            setMessage(null);
+                          }}
+                          value={draft.playerId ?? ''}>
+                          <option value="">No linked player</option>
+                          {sortedPlayers.map((player) => (
+                            <option key={player.id} value={player.id}>
+                              {getPlayerDisplayName(player)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <p className="schedule-board__hint">
+                        {linkedPlayer ? getPlayerDisplayName(linkedPlayer) : 'Not linked'}
+                      </p>
+                    </div>
+
+                    <div className="schedule-board__cell">
+                      <div className="stack-sm">
+                        <span className="schedule-board__field-label">Squad access</span>
+                        <div className="inline-actions">
+                          {squadOptions.map((squad) => {
+                            const isSelected = draft.squads.includes(squad);
+
+                            return (
+                              <button
+                                key={squad}
+                                className={isSelected ? 'pill-button pill-button--selected' : 'pill-button'}
+                                disabled={draft.role === 'admin'}
+                                onClick={() => {
+                                  toggleSquad(member.userId, squad);
+                                  setMessage(null);
+                                }}
+                                type="button">
+                                {getSquadLabel(squad)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="schedule-board__hint">
+                          {draft.role === 'admin'
+                            ? 'All access'
+                            : draft.squads.length > 0
+                              ? draft.squads.map(getSquadLabel).join(', ')
+                              : 'No squads selected'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="schedule-board__cell schedule-board__action">
+                      <button
+                        className="button"
+                        disabled={isSavingUserId === member.userId}
+                        onClick={() => {
+                          void handleSaveMember(member);
+                        }}
+                        type="button">
+                        {isSavingUserId === member.userId ? 'Saving...' : 'Save member'}
+                      </button>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </section>
         ) : (
           <p className="muted">No members have joined this club yet.</p>
         )}

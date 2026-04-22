@@ -15,6 +15,7 @@ type AuthContextValue = {
   isLoading: boolean;
   session: Session | null;
   user: User | null;
+  signInWithGoogle: () => Promise<string | null>;
   signInWithPassword: (email: string, password: string) => Promise<string | null>;
   signUpWithPassword: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<string | null>;
@@ -83,6 +84,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return error?.message ?? null;
   }
 
+  async function signInWithGoogle() {
+    if (!supabase) {
+      return 'Supabase is not configured yet.';
+    }
+
+    const redirectTo = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+      },
+    });
+
+    return error?.message ?? null;
+  }
+
   async function signUpWithPassword(email: string, password: string) {
     if (!supabase) {
       return 'Supabase is not configured yet.';
@@ -119,6 +136,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isLoading,
       session,
       user: session?.user ?? null,
+      signInWithGoogle,
       signInWithPassword,
       signUpWithPassword,
       signOut,
