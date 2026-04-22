@@ -29,7 +29,7 @@ const availabilityOptions = [
   },
 ] as const;
 
-function getPlayerAvailabilityLabel(status: 'available' | 'unavailable' | 'uncertain') {
+function getPlayerAvailabilityLabel(status: 'available' | 'unavailable' | null) {
   if (status === 'unavailable') {
     return 'Unavailable';
   }
@@ -37,7 +37,7 @@ function getPlayerAvailabilityLabel(status: 'available' | 'unavailable' | 'uncer
   return 'Available';
 }
 
-function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | 'uncertain') {
+function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | null) {
   if (status === 'available') {
     return 'status-pill status-pill--positive';
   }
@@ -46,7 +46,7 @@ function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | 'uncert
     return 'status-pill status-pill--negative';
   }
 
-  return 'status-pill status-pill--positive';
+  return 'status-pill status-pill--neutral';
 }
 
 export function PlayerAvailabilityRoute() {
@@ -83,11 +83,11 @@ export function PlayerAvailabilityRoute() {
 
           {sortedFixtures.length > 0 ? (
             sortedFixtures.map((fixture) => {
-              const status = getAvailabilityStatusForPlayer(
-                fixture.id,
-                selectedPlayer.id,
-                availabilityRecords
-              );
+              const status = getAvailabilityStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords);
+              const savedResponse = availabilityRecords.find((record) => {
+                return record.fixtureId === fixture.id && record.playerId === selectedPlayer.id;
+              });
+              const playerStatus = savedResponse ? (status === 'unavailable' ? 'unavailable' : 'available') : null;
 
               return (
                 <section key={fixture.id} className="card stack schedule-card">
@@ -102,14 +102,13 @@ export function PlayerAvailabilityRoute() {
                     </div>
 
                     <div className="schedule-card__side">
-                      <span className={getPlayerAvailabilityTone(status)}>{getPlayerAvailabilityLabel(status)}</span>
+                      <span className={getPlayerAvailabilityTone(playerStatus)}>
+                        {playerStatus ? getPlayerAvailabilityLabel(playerStatus) : 'Choose availability'}
+                      </span>
 
                       <div className="inline-actions">
                         {availabilityOptions.map((option) => {
-                          const isSelected =
-                            option.value === 'unavailable'
-                              ? status === 'unavailable'
-                              : status !== 'unavailable';
+                          const isSelected = playerStatus === (option.value === 'unavailable' ? 'unavailable' : 'available');
 
                           return (
                             <button
