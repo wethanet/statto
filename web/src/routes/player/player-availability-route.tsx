@@ -1,4 +1,5 @@
 import { getAvailabilityStatusForPlayer, getSortedFixtures, upsertAvailabilityRecord } from '@/lib/availability';
+import { useMemo } from 'react';
 
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
@@ -37,7 +38,15 @@ export function PlayerAvailabilityRoute() {
   const { availabilityRecords, fixtures, isHydrated, setAvailabilityRecords } = useClubData();
   const { canViewSquadItem } = useClubPermissions();
   const { selectedPlayer } = usePlayerProfile();
-  const sortedFixtures = getSortedFixtures(fixtures.filter((fixture) => canViewSquadItem(fixture.squad)));
+  const sortedFixtures = useMemo(() => {
+    const now = Date.now();
+
+    return getSortedFixtures(
+      fixtures.filter((fixture) => {
+        return canViewSquadItem(fixture.squad) && new Date(fixture.date).getTime() >= now;
+      })
+    );
+  }, [canViewSquadItem, fixtures]);
 
   return (
     <PlayerPageShell
@@ -61,12 +70,9 @@ export function PlayerAvailabilityRoute() {
                 selectedPlayer.id,
                 availabilityRecords
               );
-              const isPastFixture = new Date(fixture.date).getTime() < Date.now();
 
               return (
-                <section
-                  key={fixture.id}
-                  className={isPastFixture ? 'card stack schedule-card schedule-card--past' : 'card stack schedule-card'}>
+                <section key={fixture.id} className="card stack schedule-card">
                   <div className="schedule-card__layout">
                     <div className="stack-sm schedule-card__main">
                       <h3>
