@@ -30,10 +30,6 @@ const availabilityOptions = [
 ] as const;
 
 function getPlayerAvailabilityLabel(status: 'available' | 'unavailable' | 'uncertain') {
-  if (status === 'available') {
-    return 'Selected';
-  }
-
   if (status === 'unavailable') {
     return 'Unavailable';
   }
@@ -50,7 +46,7 @@ function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | 'uncert
     return 'status-pill status-pill--negative';
   }
 
-  return 'status-pill status-pill--neutral';
+  return 'status-pill status-pill--positive';
 }
 
 export function PlayerAvailabilityRoute() {
