@@ -19,7 +19,7 @@ function formatFixtureDate(value: string) {
 const availabilityOptions = [
   {
     label: 'Available',
-    value: 'available',
+    value: 'uncertain',
     className: 'pill-button pill-button--compact pill-button--positive',
   },
   {
@@ -27,30 +27,52 @@ const availabilityOptions = [
     value: 'unavailable',
     className: 'pill-button pill-button--compact pill-button--negative',
   },
-  {
-    label: 'Unsure',
-    value: 'uncertain',
-    className: 'pill-button pill-button--compact pill-button--neutral',
-  },
 ] as const;
+
+function getPlayerAvailabilityLabel(status: 'available' | 'unavailable' | 'uncertain') {
+  if (status === 'available') {
+    return 'Selected';
+  }
+
+  if (status === 'unavailable') {
+    return 'Unavailable';
+  }
+
+  return 'Available';
+}
+
+function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | 'uncertain') {
+  if (status === 'available') {
+    return 'status-pill status-pill--positive';
+  }
+
+  if (status === 'unavailable') {
+    return 'status-pill status-pill--negative';
+  }
+
+  return 'status-pill status-pill--neutral';
+}
 
 export function PlayerAvailabilityRoute() {
   const { availabilityRecords, fixtures, isHydrated, setAvailabilityRecords } = useClubData();
-  const { canViewSquadItem } = useClubPermissions();
+  const { canViewSquadItem, isPlayer } = useClubPermissions();
   const { selectedPlayer } = usePlayerProfile();
   const sortedFixtures = useMemo(() => {
     const now = Date.now();
 
     return getSortedFixtures(
       fixtures.filter((fixture) => {
-        return canViewSquadItem(fixture.squad) && new Date(fixture.date).getTime() >= now;
+        return (
+          new Date(fixture.date).getTime() >= now &&
+          (isPlayer ? true : canViewSquadItem(fixture.squad))
+        );
       })
     );
-  }, [canViewSquadItem, fixtures]);
+  }, [canViewSquadItem, fixtures, isPlayer]);
 
   return (
     <PlayerPageShell
-      description="Update your response for each fixture so coaches have current availability before selection night."
+      description="Mark whether you are available or unavailable for upcoming fixtures so coaches can finalise selection."
       title="Your availability">
       {selectedPlayer ? (
         <>
@@ -58,7 +80,7 @@ export function PlayerAvailabilityRoute() {
             <h3>Availability notes</h3>
             <p className="muted">
               {isHydrated
-                ? 'Changes save straight into the club workspace.'
+                ? 'Choosing Available keeps you in the pool for selection. Coaches still choose the final side.'
                 : 'Loading your saved availability...'}
             </p>
           </section>
@@ -84,24 +106,14 @@ export function PlayerAvailabilityRoute() {
                     </div>
 
                     <div className="schedule-card__side">
-                      <span
-                        className={
-                          status === 'available'
-                            ? 'status-pill status-pill--positive'
-                            : status === 'unavailable'
-                              ? 'status-pill status-pill--negative'
-                              : 'status-pill status-pill--neutral'
-                        }>
-                        {status === 'available'
-                          ? 'Available'
-                          : status === 'unavailable'
-                            ? 'Unavailable'
-                            : 'Unsure'}
-                      </span>
+                      <span className={getPlayerAvailabilityTone(status)}>{getPlayerAvailabilityLabel(status)}</span>
 
                       <div className="inline-actions">
                         {availabilityOptions.map((option) => {
-                          const isSelected = option.value === status;
+                          const isSelected =
+                            option.value === 'unavailable'
+                              ? status === 'unavailable'
+                              : status !== 'unavailable';
 
                           return (
                             <button
