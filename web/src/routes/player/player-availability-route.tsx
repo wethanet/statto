@@ -21,6 +21,10 @@ function formatFixtureDate(value: string) {
   }).format(new Date(value));
 }
 
+function isFutureFixture(value: string, now: number) {
+  return new Date(value).getTime() > now;
+}
+
 const availabilityOptions = [
   {
     label: 'Available',
@@ -63,10 +67,7 @@ export function PlayerAvailabilityRoute() {
 
     return getSortedFixtures(
       fixtures.filter((fixture) => {
-        return (
-          new Date(fixture.date).getTime() >= now &&
-          (isPlayer ? true : canViewSquadItem(fixture.squad))
-        );
+        return isFutureFixture(fixture.date, now) && (isPlayer ? true : canViewSquadItem(fixture.squad));
       })
     );
   }, [canViewSquadItem, fixtures, isPlayer]);
@@ -147,8 +148,8 @@ export function PlayerAvailabilityRoute() {
             })
           ) : (
             <section className="card stack">
-              <h3>No fixtures yet</h3>
-              <p className="muted">The club has not added any fixtures yet.</p>
+              <h3>No upcoming fixtures</h3>
+              <p className="muted">Upcoming fixtures will appear here when they are added.</p>
             </section>
           )}
         </>
