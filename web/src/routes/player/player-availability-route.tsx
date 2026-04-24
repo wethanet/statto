@@ -1,4 +1,9 @@
-import { getAvailabilityStatusForPlayer, getSortedFixtures, upsertAvailabilityRecord } from '@/lib/availability';
+import {
+  getAvailabilityStatusForPlayer,
+  getSortedFixtures,
+  getPlayerAvailabilityLockReason,
+  upsertAvailabilityRecord,
+} from '@/lib/availability';
 import { useMemo } from 'react';
 
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
@@ -88,6 +93,7 @@ export function PlayerAvailabilityRoute() {
                 return record.fixtureId === fixture.id && record.playerId === selectedPlayer.id;
               });
               const playerStatus = savedResponse ? (status === 'unavailable' ? 'unavailable' : 'available') : null;
+              const lockReason = getPlayerAvailabilityLockReason(fixture.date);
 
               return (
                 <section key={fixture.id} className="card stack schedule-card">
@@ -114,6 +120,7 @@ export function PlayerAvailabilityRoute() {
                             <button
                               key={option.value}
                               className={isSelected ? `${option.className} pill-button--selected` : option.className}
+                              disabled={lockReason !== null}
                               onClick={() => {
                                 setAvailabilityRecords((current) => {
                                   return upsertAvailabilityRecord(
@@ -130,6 +137,9 @@ export function PlayerAvailabilityRoute() {
                           );
                         })}
                       </div>
+                      {lockReason ? (
+                        <p className="muted">{lockReason}</p>
+                      ) : null}
                     </div>
                   </div>
                 </section>

@@ -5,7 +5,11 @@ type AvailabilitySummary = {
   available: number;
   unavailable: number;
   uncertain: number;
+  respondedNotSelected: number;
+  notResponded: number;
 };
+
+const PLAYER_AVAILABILITY_LOCK_WINDOW_MS = 6 * 24 * 60 * 60 * 1000;
 
 function byDateAscending<T extends { date: string }>(items: T[]) {
   return [...items].sort((left, right) => {
@@ -109,6 +113,28 @@ export function getAvailabilityStatusForPlayer(
   })?.status ?? 'uncertain';
 }
 
+export function isPlayerAvailabilityLocked(fixtureDate: string, now = Date.now()) {
+  return getPlayerAvailabilityLockReason(fixtureDate, now) !== null;
+}
+
+export function getPlayerAvailabilityLockReason(fixtureDate: string, now = Date.now()) {
+  const fixtureTime = new Date(fixtureDate).getTime();
+
+  if (!Number.isFinite(fixtureTime)) {
+    return null;
+  }
+
+  if (fixtureTime <= now) {
+    return 'Availability is locked because this match has passed.';
+  }
+
+  if (fixtureTime - now <= PLAYER_AVAILABILITY_LOCK_WINDOW_MS) {
+    return 'Availability is locked within 6 days of the match.';
+  }
+
+  return null;
+}
+
 export function getAvailabilitySummary(
   fixtureId: string,
   players: Player[],
@@ -116,11 +142,24 @@ export function getAvailabilitySummary(
 ): AvailabilitySummary {
   return players.reduce<AvailabilitySummary>(
     (summary, player) => {
-      const status = getAvailabilityStatusForPlayer(fixtureId, player.id, records);
+      const record = records.find((availabilityRecord) => {
+        return availabilityRecord.fixtureId === fixtureId && availabilityRecord.playerId === player.id;
+      });
+      const status = record?.status ?? 'uncertain';
+
       summary[status] += 1;
+
+      if (status === 'uncertain') {
+        if (record) {
+          summary.respondedNotSelected += 1;
+        } else {
+          summary.notResponded += 1;
+        }
+      }
+
       return summary;
     },
-    { available: 0, unavailable: 0, uncertain: 0 }
+    { available: 0, unavailable: 0, uncertain: 0, respondedNotSelected: 0, notResponded: 0 }
   );
 }
 

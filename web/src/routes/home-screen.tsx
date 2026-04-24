@@ -160,10 +160,20 @@ export function HomeScreen() {
   }
 
   matchCards.forEach((card) => {
-    if (card.summary.uncertain > 0) {
+    if (card.summary.notResponded > 0) {
       attentionItems.push({
-        title: `${card.squad === 'cup' ? 'Cup' : 'Plate'} selection still needs finishing`,
-        detail: `${card.summary.uncertain} players are still not selected for ${card.fixture.opponent}.`,
+        title: `${card.squad === 'cup' ? 'Cup' : 'Plate'} availability still needs replies`,
+        detail: `${card.summary.notResponded} players have not responded for ${card.fixture.opponent}.`,
+        to: `/matches/${card.fixture.id}`,
+        action: 'Open match',
+      });
+      return;
+    }
+
+    if (card.summary.respondedNotSelected > 0) {
+      attentionItems.push({
+        title: `${card.squad === 'cup' ? 'Cup' : 'Plate'} selection has available players`,
+        detail: `${card.summary.respondedNotSelected} players are available and awaiting selection for ${card.fixture.opponent}.`,
         to: `/matches/${card.fixture.id}`,
         action: 'Open match',
       });
@@ -401,7 +411,10 @@ export function HomeScreen() {
                       <div className="metric-row">
                         <span className="metric metric--positive">{card.summary.available} selected</span>
                         <span className="metric metric--negative">{card.summary.unavailable} unavailable</span>
-                        <span className="metric metric--neutral">{card.summary.uncertain} not selected</span>
+                        <span className="metric metric--neutral">
+                          {card.summary.respondedNotSelected} available
+                        </span>
+                        <span className="metric metric--neutral">{card.summary.notResponded} no response</span>
                       </div>
                       <Link className="text-link" to={canAccessAdmin ? `/matches/${card.fixture.id}` : '/matches'}>
                         {canAccessAdmin ? 'Manage availability' : 'View fixture'}

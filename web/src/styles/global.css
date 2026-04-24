@@ -1022,10 +1022,6 @@ button {
   align-items: center;
   min-height: 100vh;
   padding: 40px 16px;
-  background:
-    radial-gradient(circle at top left, rgba(36, 76, 255, 0.14), transparent 32%),
-    radial-gradient(circle at bottom right, rgba(15, 118, 110, 0.1), transparent 30%),
-    linear-gradient(180deg, #eef4ff 0%, #e7f0ff 100%);
 }
 
 .auth-panel {
@@ -1868,7 +1864,7 @@ button {
 
 .availability-summary__tiles {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -3295,6 +3291,11 @@ button {
 
 .pill-button {
   text-transform: capitalize;
+}
+
+.pill-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .pill-button--compact {

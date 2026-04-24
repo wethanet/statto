@@ -26,7 +26,7 @@ function getAvailabilityLabel(status: AvailabilityStatus) {
   }
 
   if (status === 'uncertain') {
-    return 'not selected';
+    return 'available';
   }
 
   return 'unavailable';

@@ -70,12 +70,6 @@ export function AuthScreen() {
               Sign in to the Bulldogs workspace to manage training, matches, player availability, and club admin from any device.
             </p>
 
-            <div className="auth-hero__card stack-sm">
-              <strong>{mode === 'sign-in' ? 'Welcome back' : 'Create your Bulldogs account'}</strong>
-              <p className="muted">
-                If you were invited by email, use that same email address and your club access will be linked automatically after sign-in.
-              </p>
-            </div>
           </section>
 
           <section className="auth-form-card stack">

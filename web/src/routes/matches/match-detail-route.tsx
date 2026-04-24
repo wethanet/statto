@@ -23,12 +23,13 @@ import { AvailabilityPlayerRow } from '@web/components/availability-player-row';
 import { useClubData } from '@web/lib/club-data-context';
 
 type PlayerSort = 'name' | 'number';
-type AvailabilityGroup = 'available' | 'uncertain' | 'unavailable';
+type AvailabilityGroup = 'available' | 'unavailable' | 'responded-not-selected' | 'not-responded';
 
 const AVAILABILITY_GROUPS: { key: AvailabilityGroup; title: string }[] = [
   { key: 'available', title: 'Selected' },
-  { key: 'uncertain', title: 'Not selected' },
   { key: 'unavailable', title: 'Unavailable' },
+  { key: 'responded-not-selected', title: 'Available' },
+  { key: 'not-responded', title: 'No response' },
 ];
 
 function formatDate(value: string) {
@@ -97,11 +98,32 @@ export function MatchDetailRoute() {
   }, [fixture, playersForFixture, rotationPlan.assignments]);
 
   const groupedPlayers = useMemo(() => {
+    if (!fixture) {
+      return AVAILABILITY_GROUPS.map((group) => ({
+        ...group,
+        players: [],
+      }));
+    }
+
     return AVAILABILITY_GROUPS.map((group) => ({
       ...group,
-      players: sortedPlayers.filter((player) => player.availabilityStatus === group.key),
+      players: sortedPlayers.filter((player) => {
+        if (group.key === 'available' || group.key === 'unavailable') {
+          return player.availabilityStatus === group.key;
+        }
+
+        if (player.availabilityStatus !== 'uncertain') {
+          return false;
+        }
+
+        const hasSavedResponse = availabilityRecords.some((record) => {
+          return record.fixtureId === fixture.id && record.playerId === player.id;
+        });
+
+        return group.key === 'responded-not-selected' ? hasSavedResponse : !hasSavedResponse;
+      }),
     }));
-  }, [sortedPlayers]);
+  }, [availabilityRecords, fixture, sortedPlayers]);
 
   if (!fixture) {
     return (
@@ -121,7 +143,7 @@ export function MatchDetailRoute() {
   const summary = getAvailabilitySummary(fixture.id, players, availabilityRecords);
   const defaultSquad = getDefaultFixtureSquad(fixture.grade);
   const totalPlayers = players.length;
-  const respondedCount = summary.available + summary.unavailable;
+  const respondedCount = summary.available + summary.unavailable + summary.respondedNotSelected;
   const responseRate = totalPlayers > 0 ? Math.round((respondedCount / totalPlayers) * 100) : 0;
   const responseLabel =
     respondedCount > 0
@@ -166,9 +188,14 @@ export function MatchDetailRoute() {
             <span className="availability-tile__caption">Out this week</span>
           </article>
           <article className="availability-tile availability-tile--neutral">
-            <span className="availability-tile__label">Not selected</span>
-            <strong className="availability-tile__value">{summary.uncertain}</strong>
-            <span className="availability-tile__caption">Not in the side yet</span>
+            <span className="availability-tile__label">Available</span>
+            <strong className="availability-tile__value">{summary.respondedNotSelected}</strong>
+            <span className="availability-tile__caption">Responded, awaiting selection</span>
+          </article>
+          <article className="availability-tile availability-tile--neutral">
+            <span className="availability-tile__label">No response</span>
+            <strong className="availability-tile__value">{summary.notResponded}</strong>
+            <span className="availability-tile__caption">Still needs a reply</span>
           </article>
         </div>
 

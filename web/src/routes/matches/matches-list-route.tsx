@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
-import { getAvailabilityStatusForPlayer, getAvailabilitySummary, getSortedFixtures, upsertAvailabilityRecord } from '@/lib/availability';
+import {
+  getAvailabilityStatusForPlayer,
+  getAvailabilitySummary,
+  getSortedFixtures,
+  getPlayerAvailabilityLockReason,
+  upsertAvailabilityRecord,
+} from '@/lib/availability';
 import { getFixtureScoreSummary } from '@/lib/match-stats';
 import { getLineupPlayerIdsForFixture, getPlayerVoteBallot } from '@/lib/votes';
 
@@ -192,7 +198,8 @@ export function MatchesListRoute() {
                     <div className="schedule-board__metrics">
                       {renderBoardMetric(summary.available, 'selected', 'positive')}
                       {renderBoardMetric(summary.unavailable, 'unavailable', 'negative')}
-                      {renderBoardMetric(summary.uncertain, 'not selected', 'neutral')}
+                      {renderBoardMetric(summary.respondedNotSelected, 'available', 'neutral')}
+                      {renderBoardMetric(summary.notResponded, 'no response', 'neutral')}
                     </div>
                   </div>
 
@@ -236,6 +243,7 @@ export function MatchesListRoute() {
             const rightScore = fixture.isHome ? scoreSummary.theirs : scoreSummary.ours;
             const hasRecordedScore =
               leftScore.goals + leftScore.points + rightScore.goals + rightScore.points > 0;
+            const availabilityLockReason = getPlayerAvailabilityLockReason(fixture.date);
             const lineupPlayerIds = selectedPlayer
               ? getLineupPlayerIdsForFixture(fixture.id, matchLineupAssignments)
               : [];
@@ -279,7 +287,7 @@ export function MatchesListRoute() {
                   </div>
                 </div>
 
-                {!isPastFixture && selectedPlayer ? (
+                {!isPastFixture && selectedPlayer && !availabilityLockReason ? (
                   <div className="player-fixture-card__actions">
                     {availabilityOptions.map((option) => {
                       const isSelected = option.value === playerAvailability;
@@ -299,6 +307,10 @@ export function MatchesListRoute() {
                       );
                     })}
                   </div>
+                ) : null}
+
+                {!isPastFixture && selectedPlayer && availabilityLockReason ? (
+                  <p className="muted">{availabilityLockReason}</p>
                 ) : null}
 
                 {hasRecordedScore || hasMatchStats || canVotePlayersPlayer ? (
