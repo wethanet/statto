@@ -1939,25 +1939,6 @@ button {
   align-items: start;
 }
 
-.availability-summary__default-team {
-  padding: 16px 18px;
-  border-radius: 18px;
-  border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.56);
-}
-
-.availability-summary__message {
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: rgba(0, 102, 255, 0.07);
-  border: 1px solid rgba(0, 102, 255, 0.14);
-  color: var(--text);
-}
-
-.availability-summary__message p {
-  margin: 0;
-}
-
 .availability-summary__links {
   display: flex;
   flex-wrap: wrap;

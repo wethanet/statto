@@ -2,9 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import {
-  applyDefaultAvailabilityForFixture,
   getAvailabilitySummary,
-  getDefaultFixtureSquad,
   getFixtureById,
   getPlayersForFixture,
   isPlayerSelectedInOtherSameDayFixture,
@@ -55,7 +53,6 @@ export function MatchDetailRoute() {
     setPlayers,
   } = useClubData();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
-  const [defaultTeamMessage, setDefaultTeamMessage] = useState<string | null>(null);
   const fixture = getFixtureById(fixtureId, fixtures);
 
   const playersForFixture = useMemo(() => {
@@ -141,7 +138,6 @@ export function MatchDetailRoute() {
   }
 
   const summary = getAvailabilitySummary(fixture.id, players, availabilityRecords);
-  const defaultSquad = getDefaultFixtureSquad(fixture.grade);
   const totalPlayers = players.length;
   const respondedCount = summary.available + summary.unavailable + summary.respondedNotSelected;
   const responseRate = totalPlayers > 0 ? Math.round((respondedCount / totalPlayers) * 100) : 0;
@@ -227,41 +223,7 @@ export function MatchDetailRoute() {
               </button>
             </div>
           </div>
-
-          <div className="availability-summary__default-team stack-sm">
-            <span className="eyebrow">Quick action</span>
-            <button
-              className="button button--secondary"
-              disabled={!defaultSquad}
-              onClick={() => {
-                const nextSelection = applyDefaultAvailabilityForFixture(availabilityRecords, fixture, players);
-
-                if (!nextSelection.squad) {
-                  setDefaultTeamMessage('Add Cup or Plate to the fixture grade to use the default team fill.');
-                  return;
-                }
-
-                setAvailabilityRecords(nextSelection.records);
-                setDefaultTeamMessage(
-                  `Selected the ${nextSelection.squad} team by default. ${nextSelection.selectedCount} players marked selected.`
-                );
-              }}
-              type="button">
-              Select default team
-            </button>
-            <p className="muted">
-              {defaultSquad
-                ? `Uses ${defaultSquad} designations from the player list to mark the likely side quickly.`
-                : 'Add Cup or Plate to the fixture grade to enable default team selection.'}
-            </p>
-          </div>
         </div>
-
-        {defaultTeamMessage ? (
-          <div className="availability-summary__message">
-            <p>{defaultTeamMessage}</p>
-          </div>
-        ) : null}
 
         <div className="availability-summary__links">
           <Link className="schedule-card__action text-link" to={`/matches/${fixture.id}/stats`}>
