@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
+import { getPlayerDisplayName, getPlayerSortValue } from '@/lib/team';
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { PageSkeleton } from '@web/components/loading/page-skeleton';
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
+import { usePlayerProfile } from '@web/lib/player-profile-context';
 import { useSettings } from '@web/lib/settings-context';
 
 const NAV_ITEMS = [
@@ -18,12 +20,27 @@ const NAV_ITEMS = [
 
 export function ShellLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { activeClub } = useClubAccess();
   const { signOut } = useAuth();
-  const { isHydrated, storageMode } = useClubData();
-  const { canAccessAdmin, canAccessPlayerApp } = useClubPermissions();
+  const { isHydrated, players, storageMode } = useClubData();
+  const { canAccessAdmin, canAccessPlayerApp, canManagePlayer } = useClubPermissions();
+  const { selectedPlayer, selectedPlayerId, setSelectedPlayerId } = usePlayerProfile();
   const { setThemePreference, themePreference } = useSettings();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const isPlayerView = location.pathname.startsWith('/player');
+  const isAdminView = location.pathname.startsWith('/admin');
+  const canSwitchView = canAccessAdmin && canAccessPlayerApp;
+  const availablePlayers = useMemo(() => {
+    return [...players]
+      .filter((player) => player.active && canManagePlayer(player))
+      .sort((left, right) => {
+        return (
+          getPlayerSortValue(left.number) - getPlayerSortValue(right.number) ||
+          left.name.localeCompare(right.name)
+        );
+      });
+  }, [canManagePlayer, players]);
   const navItems = NAV_ITEMS.filter((item) => {
     if (item.requires === 'admin') {
       return canAccessAdmin;
@@ -108,20 +125,80 @@ export function ShellLayout() {
               <span className="shell-drawer__section-label">Preferences</span>
             </div>
             <div className="shell-drawer__actions">
-            <button
-              className="button button--secondary"
-              type="button"
-              onClick={() => {
-                setThemePreference((current) => {
-                  return current === 'dark' ? 'light' : 'dark';
-                });
-              }}>
-              Theme: {themePreference}
-            </button>
+              {canSwitchView ? (
+                <div className="shell-view-switcher">
+                  <div className="shell-view-switcher__header">
+                    <span className="shell-view-switcher__label">View mode</span>
+                    {selectedPlayer ? (
+                      <span className="shell-view-switcher__player">{getPlayerDisplayName(selectedPlayer)}</span>
+                    ) : null}
+                  </div>
 
-            <button className="button button--ghost" type="button" onClick={handleSignOut}>
-              Sign out
-            </button>
+                  <div className="shell-view-switcher__tabs" aria-label="View mode">
+                    <button
+                      className={
+                        isAdminView || !isPlayerView
+                          ? 'shell-view-switcher__tab shell-view-switcher__tab--active'
+                          : 'shell-view-switcher__tab'
+                      }
+                      onClick={() => {
+                        navigate('/admin');
+                        setIsDrawerOpen(false);
+                      }}
+                      type="button">
+                      Admin
+                    </button>
+                    <button
+                      className={
+                        isPlayerView
+                          ? 'shell-view-switcher__tab shell-view-switcher__tab--active'
+                          : 'shell-view-switcher__tab'
+                      }
+                      onClick={() => {
+                        navigate('/player');
+                        setIsDrawerOpen(false);
+                      }}
+                      type="button">
+                      Player
+                    </button>
+                  </div>
+
+                  <label className="shell-view-switcher__field">
+                    <span>Viewing as</span>
+                    <select
+                      className="input"
+                      onChange={(event) => {
+                        const nextPlayerId = event.target.value || null;
+                        setSelectedPlayerId(nextPlayerId).catch((error: unknown) => {
+                          console.warn('Failed to save selected player profile', error);
+                        });
+                      }}
+                      value={selectedPlayerId ?? ''}>
+                      <option value="">Choose player</option>
+                      {availablePlayers.map((player) => (
+                        <option key={player.id} value={player.id}>
+                          {getPlayerDisplayName(player)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => {
+                  setThemePreference((current) => {
+                    return current === 'dark' ? 'light' : 'dark';
+                  });
+                }}>
+                Theme: {themePreference}
+              </button>
+
+              <button className="button button--ghost" type="button" onClick={handleSignOut}>
+                Sign out
+              </button>
             </div>
           </div>
         </div>
