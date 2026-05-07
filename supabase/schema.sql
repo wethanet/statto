@@ -12,6 +12,18 @@ create table if not exists public.clubs (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.club_policy_settings (
+  club_id text primary key references public.clubs (id) on delete cascade,
+  finals_minimum_games integer not null default 3 check (finals_minimum_games >= 0),
+  higher_division_max_games integer not null default 8 check (higher_division_max_games >= 0),
+  availability_lock_days integer not null default 6 check (availability_lock_days >= 0),
+  player_vote_open_delay_days integer not null default 0 check (player_vote_open_delay_days >= 0),
+  player_vote_requires_lineup boolean not null default true,
+  higher_grade_label text not null default 'Cup',
+  lower_grade_label text not null default 'Plate',
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
 create table if not exists public.club_memberships (
   club_id text not null references public.clubs (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -341,6 +353,7 @@ end $$;
 
 alter table public.club_data_snapshots enable row level security;
 alter table public.clubs enable row level security;
+alter table public.club_policy_settings enable row level security;
 alter table public.club_memberships enable row level security;
 alter table public.club_member_invites enable row level security;
 alter table public.club_players enable row level security;
@@ -385,7 +398,8 @@ begin
     'club_vote_entries',
     'club_player_vote_ballots',
     'club_fitness_results',
-    'club_fines'
+    'club_fines',
+    'club_policy_settings'
   ] loop
     begin
       execute format(
@@ -404,6 +418,10 @@ drop policy if exists "Users can insert their own club data" on public.club_data
 drop policy if exists "Users can update their own club data" on public.club_data_snapshots;
 drop policy if exists "Authenticated users can create clubs" on public.clubs;
 drop policy if exists "Club members can read clubs" on public.clubs;
+drop policy if exists "Club members can read policy settings" on public.club_policy_settings;
+drop policy if exists "Admins can insert policy settings" on public.club_policy_settings;
+drop policy if exists "Admins can update policy settings" on public.club_policy_settings;
+drop policy if exists "Admins can delete policy settings" on public.club_policy_settings;
 drop policy if exists "Users can read their own memberships" on public.club_memberships;
 drop policy if exists "Users can create their own memberships" on public.club_memberships;
 drop policy if exists "Admins can update memberships" on public.club_memberships;
@@ -521,6 +539,70 @@ using (
     from public.club_memberships
     where club_memberships.club_id = clubs.id
       and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Club members can read policy settings"
+on public.club_policy_settings
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_policy_settings.club_id
+      and club_memberships.user_id = auth.uid()
+  )
+);
+
+create policy "Admins can insert policy settings"
+on public.club_policy_settings
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_policy_settings.club_id
+      and club_memberships.user_id = auth.uid()
+      and club_memberships.role = 'admin'
+  )
+);
+
+create policy "Admins can update policy settings"
+on public.club_policy_settings
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_policy_settings.club_id
+      and club_memberships.user_id = auth.uid()
+      and club_memberships.role = 'admin'
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_policy_settings.club_id
+      and club_memberships.user_id = auth.uid()
+      and club_memberships.role = 'admin'
+  )
+);
+
+create policy "Admins can delete policy settings"
+on public.club_policy_settings
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.club_memberships
+    where club_memberships.club_id = club_policy_settings.club_id
+      and club_memberships.user_id = auth.uid()
+      and club_memberships.role = 'admin'
   )
 );
 
@@ -1455,6 +1537,87 @@ add column if not exists squads jsonb not null default '[]'::jsonb;
 alter table public.club_memberships
 alter column role set default 'player';
 
+alter table public.club_policy_settings
+add column if not exists finals_minimum_games integer not null default 3;
+
+alter table public.club_policy_settings
+add column if not exists higher_division_max_games integer not null default 8;
+
+alter table public.club_policy_settings
+add column if not exists availability_lock_days integer not null default 6;
+
+alter table public.club_policy_settings
+add column if not exists player_vote_open_delay_days integer not null default 0;
+
+alter table public.club_policy_settings
+add column if not exists player_vote_requires_lineup boolean not null default true;
+
+alter table public.club_policy_settings
+add column if not exists higher_grade_label text not null default 'Cup';
+
+alter table public.club_policy_settings
+add column if not exists lower_grade_label text not null default 'Plate';
+
+alter table public.club_policy_settings
+add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+insert into public.club_policy_settings (club_id)
+select clubs.id
+from public.clubs
+on conflict (club_id) do nothing;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_finals_minimum_games_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_finals_minimum_games_check
+    check (finals_minimum_games >= 0);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_higher_division_max_games_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_higher_division_max_games_check
+    check (higher_division_max_games >= 0);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_availability_lock_days_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_availability_lock_days_check
+    check (availability_lock_days >= 0);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_player_vote_open_delay_days_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_player_vote_open_delay_days_check
+    check (player_vote_open_delay_days >= 0);
+  end if;
+end $$;
+
 alter table public.club_training_sessions
 add column if not exists squad text;
 
@@ -1807,22 +1970,66 @@ as $$
     else exists (
       select 1
       from public.club_fixtures
+      cross join lateral (
+        select
+          coalesce((
+            select club_policy_settings.player_vote_requires_lineup
+            from public.club_policy_settings
+            where club_policy_settings.club_id = target_club_id
+          ), true) as requires_lineup,
+          coalesce((
+            select club_policy_settings.player_vote_open_delay_days
+            from public.club_policy_settings
+            where club_policy_settings.club_id = target_club_id
+          ), 0) as open_delay_days
+      ) as current_policy
       where club_fixtures.club_id = target_club_id
         and club_fixtures.id = target_fixture_id
-        and (club_fixtures.date)::timestamptz <= timezone('utc', now())
-        and exists (
-          select 1
-          from public.club_match_lineup_assignments voter_assignment
-          where voter_assignment.club_id = target_club_id
-            and voter_assignment.fixture_id = target_fixture_id
-            and voter_assignment.player_id = target_voter_player_id
+        and (club_fixtures.date)::timestamptz
+          + (current_policy.open_delay_days || ' days')::interval <= timezone('utc', now())
+        and (
+          not current_policy.requires_lineup
+          or exists (
+            select 1
+            from public.club_match_lineup_assignments voter_assignment
+            where voter_assignment.club_id = target_club_id
+              and voter_assignment.fixture_id = target_fixture_id
+              and voter_assignment.player_id = target_voter_player_id
+          )
         )
-        and exists (
-          select 1
-          from public.club_match_lineup_assignments nominee_assignment
-          where nominee_assignment.club_id = target_club_id
-            and nominee_assignment.fixture_id = target_fixture_id
-            and nominee_assignment.player_id = target_nominee_player_id
+        and (
+          not current_policy.requires_lineup
+          or exists (
+            select 1
+            from public.club_match_lineup_assignments nominee_assignment
+            where nominee_assignment.club_id = target_club_id
+              and nominee_assignment.fixture_id = target_fixture_id
+              and nominee_assignment.player_id = target_nominee_player_id
+          )
+        )
+        and (
+          current_policy.requires_lineup
+          or exists (
+            select 1
+            from public.club_players
+            where club_players.club_id = target_club_id
+              and club_players.id = target_nominee_player_id
+              and club_players.active = true
+              and (
+                club_fixtures.squad is null
+                or club_players.squad = club_fixtures.squad
+              )
+          )
+        )
+        and (
+          current_policy.requires_lineup
+          or exists (
+            select 1
+            from public.club_players
+            where club_players.club_id = target_club_id
+              and club_players.id = target_voter_player_id
+              and club_players.active = true
+          )
         )
     )
   end;

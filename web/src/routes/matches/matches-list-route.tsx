@@ -8,11 +8,13 @@ import {
   getPlayerAvailabilityLockReason,
   upsertAvailabilityRecord,
 } from '@/lib/availability';
+import { getPlayerVoteCandidates, isPlayerVoteOpen } from '@/lib/club-policy';
 import { getFixtureScoreSummary } from '@/lib/match-stats';
 import { getLineupPlayerIdsForFixture, getPlayerVoteBallot } from '@/lib/votes';
 
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
 
 const availabilityOptions = [
@@ -91,6 +93,7 @@ export function MatchesListRoute() {
     setAvailabilityRecords,
   } = useClubData();
   const { canAccessAdmin, canViewPlayer, canViewSquadItem, isPlayer } = useClubPermissions();
+  const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
   const visiblePlayers = useMemo(() => {
     return players.filter((player) => canViewPlayer(player));
@@ -243,16 +246,29 @@ export function MatchesListRoute() {
             const rightScore = fixture.isHome ? scoreSummary.theirs : scoreSummary.ours;
             const hasRecordedScore =
               leftScore.goals + leftScore.points + rightScore.goals + rightScore.points > 0;
-            const availabilityLockReason = getPlayerAvailabilityLockReason(fixture.date);
+            const availabilityLockReason = getPlayerAvailabilityLockReason(
+              fixture.date,
+              Date.now(),
+              policySettings.availabilityLockDays
+            );
             const lineupPlayerIds = selectedPlayer
               ? getLineupPlayerIdsForFixture(fixture.id, matchLineupAssignments)
               : [];
+            const playerVoteCandidates = selectedPlayer
+              ? getPlayerVoteCandidates(
+                  fixture,
+                  players,
+                  lineupPlayerIds,
+                  selectedPlayer.id,
+                  policySettings.playerVoteRequiresLineup
+                )
+              : [];
             const canVotePlayersPlayer =
               Boolean(selectedPlayer) &&
-              isPastFixture &&
+              isPlayerVoteOpen(fixture.date, policySettings.playerVoteOpenDelayDays) &&
               selectedPlayer != null &&
-              lineupPlayerIds.includes(selectedPlayer.id) &&
-              lineupPlayerIds.some((playerId) => playerId !== selectedPlayer.id);
+              (!policySettings.playerVoteRequiresLineup || lineupPlayerIds.includes(selectedPlayer.id)) &&
+              playerVoteCandidates.length > 0;
             const playerVoteBallot =
               selectedPlayer && canVotePlayersPlayer
                 ? getPlayerVoteBallot(fixture.id, selectedPlayer.id, playerVoteBallots)

@@ -25,6 +25,16 @@ export type Club = {
   squads: PlayerSquad[];
 };
 
+export type ClubPolicySettings = {
+  finalsMinimumGames: number;
+  higherDivisionMaxGames: number;
+  availabilityLockDays: number;
+  playerVoteOpenDelayDays: number;
+  playerVoteRequiresLineup: boolean;
+  higherGradeLabel: string;
+  lowerGradeLabel: string;
+};
+
 export type Player = {
   id: string;
   name: string;

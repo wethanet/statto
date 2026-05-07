@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getSortedFixtures } from '@/lib/availability';
+import { getPlayerVoteCandidates, isPlayerVoteOpen } from '@/lib/club-policy';
 import { getPlayerDisplayName, getPlayerSortValue } from '@/lib/team';
 import { getLineupPlayerIdsForFixture, getPlayerVoteBallot, upsertPlayerVoteBallot } from '@/lib/votes';
 
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
 
 function formatFixtureDate(value: string) {
@@ -18,10 +20,6 @@ function formatFixtureDate(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(value));
-}
-
-function isPastFixture(value: string) {
-  return new Date(value).getTime() < Date.now();
 }
 
 export function PlayerVotesRoute() {
@@ -35,6 +33,7 @@ export function PlayerVotesRoute() {
     setPlayerVoteBallots,
   } = useClubData();
   const { canViewSquadItem } = useClubPermissions();
+  const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
 
   const eligibleFixtures = useMemo(() => {
@@ -44,18 +43,23 @@ export function PlayerVotesRoute() {
 
     return [...getSortedFixtures(fixtures.filter((fixture) => canViewSquadItem(fixture.squad)))]
       .filter((fixture) => {
-        if (!isPastFixture(fixture.date)) {
+        if (!isPlayerVoteOpen(fixture.date, policySettings.playerVoteOpenDelayDays)) {
           return false;
         }
 
         const lineupPlayerIds = getLineupPlayerIdsForFixture(fixture.id, matchLineupAssignments);
-        return lineupPlayerIds.includes(selectedPlayer.id);
+        return !policySettings.playerVoteRequiresLineup || lineupPlayerIds.includes(selectedPlayer.id);
       })
       .reverse()
       .map((fixture) => {
         const lineupPlayerIds = getLineupPlayerIdsForFixture(fixture.id, matchLineupAssignments);
-        const candidates = players
-          .filter((player) => lineupPlayerIds.includes(player.id) && player.id !== selectedPlayer.id)
+        const candidates = getPlayerVoteCandidates(
+          fixture,
+          players,
+          lineupPlayerIds,
+          selectedPlayer.id,
+          policySettings.playerVoteRequiresLineup
+        )
           .sort((left, right) => {
             return (
               getPlayerSortValue(left.number) - getPlayerSortValue(right.number) ||
@@ -73,7 +77,17 @@ export function PlayerVotesRoute() {
         };
       })
       .filter((entry) => entry.candidates.length > 0);
-  }, [canViewSquadItem, fixtures, matchLineupAssignments, matchStats, playerVoteBallots, players, selectedPlayer]);
+  }, [
+    canViewSquadItem,
+    fixtures,
+    matchLineupAssignments,
+    matchStats,
+    playerVoteBallots,
+    players,
+    policySettings.playerVoteOpenDelayDays,
+    policySettings.playerVoteRequiresLineup,
+    selectedPlayer,
+  ]);
 
   return (
     <PlayerPageShell

@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
 
 function formatFixtureDate(value: string) {
@@ -61,6 +62,7 @@ function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | null) {
 export function PlayerAvailabilityRoute() {
   const { availabilityRecords, fixtures, isHydrated, setAvailabilityRecords } = useClubData();
   const { canViewSquadItem, isPlayer } = useClubPermissions();
+  const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
   const sortedFixtures = useMemo(() => {
     const now = Date.now();
@@ -94,7 +96,11 @@ export function PlayerAvailabilityRoute() {
                 return record.fixtureId === fixture.id && record.playerId === selectedPlayer.id;
               });
               const playerStatus = savedResponse ? (status === 'unavailable' ? 'unavailable' : 'available') : null;
-              const lockReason = getPlayerAvailabilityLockReason(fixture.date);
+              const lockReason = getPlayerAvailabilityLockReason(
+                fixture.date,
+                Date.now(),
+                policySettings.availabilityLockDays
+              );
 
               return (
                 <section key={fixture.id} className="card stack schedule-card">

@@ -1,4 +1,5 @@
 import type { AvailabilityRecord, AvailabilityStatus, Fixture, Player, PlayerSquad } from '@/lib/types';
+import { DEFAULT_CLUB_POLICY_SETTINGS, getAvailabilityLockWindowMs } from '@/lib/club-policy';
 import { normalizePlayerSquad } from '@/lib/team';
 
 type AvailabilitySummary = {
@@ -8,8 +9,6 @@ type AvailabilitySummary = {
   respondedNotSelected: number;
   notResponded: number;
 };
-
-const PLAYER_AVAILABILITY_LOCK_WINDOW_MS = 6 * 24 * 60 * 60 * 1000;
 
 function byDateAscending<T extends { date: string }>(items: T[]) {
   return [...items].sort((left, right) => {
@@ -113,11 +112,19 @@ export function getAvailabilityStatusForPlayer(
   })?.status ?? 'uncertain';
 }
 
-export function isPlayerAvailabilityLocked(fixtureDate: string, now = Date.now()) {
-  return getPlayerAvailabilityLockReason(fixtureDate, now) !== null;
+export function isPlayerAvailabilityLocked(
+  fixtureDate: string,
+  now = Date.now(),
+  lockDays = DEFAULT_CLUB_POLICY_SETTINGS.availabilityLockDays
+) {
+  return getPlayerAvailabilityLockReason(fixtureDate, now, lockDays) !== null;
 }
 
-export function getPlayerAvailabilityLockReason(fixtureDate: string, now = Date.now()) {
+export function getPlayerAvailabilityLockReason(
+  fixtureDate: string,
+  now = Date.now(),
+  lockDays = DEFAULT_CLUB_POLICY_SETTINGS.availabilityLockDays
+) {
   const fixtureTime = new Date(fixtureDate).getTime();
 
   if (!Number.isFinite(fixtureTime)) {
@@ -128,8 +135,8 @@ export function getPlayerAvailabilityLockReason(fixtureDate: string, now = Date.
     return 'Availability is locked because this match has passed.';
   }
 
-  if (fixtureTime - now <= PLAYER_AVAILABILITY_LOCK_WINDOW_MS) {
-    return 'Availability is locked within 6 days of the match.';
+  if (fixtureTime - now <= getAvailabilityLockWindowMs(lockDays)) {
+    return `Availability is locked within ${lockDays} ${lockDays === 1 ? 'day' : 'days'} of the match.`;
   }
 
   return null;

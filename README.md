@@ -119,6 +119,7 @@ statto/
 - The Expo app has been removed. `web/` is now the only supported runtime.
 - Root npm scripts proxy into `web/`, but dependency installation should be run against `web/`.
 - Shared business logic remains in root `lib/` so the web app can stay thin and focused on browser concerns.
+- Product feature and fix follow-up work is tracked in [FEATURE_BACKLOG.md](/Users/andrewmccallum/Development/statto/FEATURE_BACKLOG.md).
 
 ## License
 
