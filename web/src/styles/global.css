@@ -13,6 +13,24 @@
   --success: #3fd43f;
   --negative: #b11010;
   --neutral: #5c677a;
+  --control-surface: rgba(255, 255, 255, 0.54);
+  --interactive-surface: rgba(255, 255, 255, 0.68);
+  --soft-surface: rgba(255, 255, 255, 0.62);
+  --home-hero-surface: radial-gradient(circle at top right, rgba(0, 102, 255, 0.2), transparent 36%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 252, 0.98));
+  --home-focus-surface: linear-gradient(180deg, rgba(246, 248, 251, 0.96), rgba(255, 255, 255, 0.98));
+  --live-stats-shell-surface: #eaf3ff;
+  --live-stat-card-surface: rgba(255, 255, 255, 0.98);
+  --live-stat-card-text: #1b2a3b;
+  --live-stat-card-muted: #566273;
+  --live-stat-card-accent: #0d6861;
+  --nav-pill-surface: rgba(255, 255, 255, 0.72);
+  --schedule-board-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 249, 255, 0.92));
+  --schedule-header-surface: rgba(8, 30, 72, 0.05);
+  --schedule-row-surface: rgba(255, 255, 255, 0.76);
+  --schedule-row-past-surface: rgba(252, 253, 255, 0.42);
+  --schedule-action-surface: rgba(255, 255, 255, 0.82);
+  --schedule-card-past-surface: rgba(255, 255, 255, 0.58);
   --shadow: 0 24px 60px rgba(9, 30, 74, 0.1);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -32,6 +50,24 @@
   --positive: #5aa1ff;
   --negative: #ff847f;
   --neutral: #d3dbee;
+  --control-surface: rgba(255, 255, 255, 0.06);
+  --interactive-surface: rgba(255, 255, 255, 0.08);
+  --soft-surface: rgba(255, 255, 255, 0.06);
+  --home-hero-surface: radial-gradient(circle at top right, rgba(79, 121, 255, 0.2), transparent 36%),
+    linear-gradient(145deg, rgba(13, 26, 52, 0.96), rgba(8, 18, 38, 0.94));
+  --home-focus-surface: linear-gradient(180deg, rgba(13, 26, 52, 0.9), rgba(10, 20, 42, 0.96));
+  --live-stats-shell-surface: rgba(10, 20, 42, 0.9);
+  --live-stat-card-surface: rgba(13, 26, 52, 0.94);
+  --live-stat-card-text: var(--text);
+  --live-stat-card-muted: var(--text-muted);
+  --live-stat-card-accent: #79d9d2;
+  --nav-pill-surface: rgba(255, 255, 255, 0.07);
+  --schedule-board-surface: linear-gradient(180deg, rgba(13, 26, 52, 0.96), rgba(8, 18, 38, 0.94));
+  --schedule-header-surface: rgba(79, 121, 255, 0.08);
+  --schedule-row-surface: rgba(13, 26, 52, 0.82);
+  --schedule-row-past-surface: rgba(13, 26, 52, 0.48);
+  --schedule-action-surface: rgba(79, 121, 255, 0.12);
+  --schedule-card-past-surface: rgba(13, 26, 52, 0.58);
   --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
 }
 
@@ -198,7 +234,7 @@ button {
 }
 
 .drawer-link:hover {
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--interactive-surface);
   color: var(--text);
 }
 
@@ -227,7 +263,7 @@ button {
   padding: 12px;
   border-radius: 18px;
   border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.54);
+  background: var(--control-surface);
 }
 
 .shell-view-switcher__header {
@@ -504,10 +540,8 @@ button {
   gap: 18px;
   padding: 28px;
   border-radius: 32px;
-  background:
-    radial-gradient(circle at top right, rgba(0, 102, 255, 0.2), transparent 36%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 252, 0.98));
-  border: 1px solid rgba(9, 30, 74, 0.08);
+  background: var(--home-hero-surface);
+  border: 1px solid var(--surface-border);
   box-shadow: var(--shadow);
 }
 
@@ -593,7 +627,7 @@ button {
   gap: 10px;
   padding: 18px;
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(246, 248, 251, 0.96), rgba(255, 255, 255, 0.98));
+  background: var(--home-focus-surface);
   border: 1px solid var(--surface-border);
 }
 
@@ -619,7 +653,7 @@ button {
 
 .home-action-row:hover {
   border-color: rgba(0, 102, 255, 0.18);
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--interactive-surface);
 }
 
 .home-action-row--button {
@@ -642,8 +676,7 @@ button {
   overflow: hidden;
   border-radius: 28px;
   border: 1px solid var(--surface-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 249, 255, 0.92));
+  background: var(--schedule-board-surface);
   box-shadow: var(--shadow);
 }
 
@@ -660,7 +693,7 @@ button {
 }
 
 .schedule-board__header {
-  background: rgba(8, 30, 72, 0.05);
+  background: var(--schedule-header-surface);
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 700;
@@ -671,7 +704,7 @@ button {
 .schedule-board__row {
   min-width: 0;
   border-top: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.76);
+  background: var(--schedule-row-surface);
 }
 
 .schedule-board__row--matches {
@@ -687,7 +720,7 @@ button {
 }
 
 .schedule-board__row--past {
-  background: rgba(252, 253, 255, 0.42);
+  background: var(--schedule-row-past-surface);
 }
 
 .schedule-board__cell {
@@ -791,11 +824,11 @@ button {
   padding: 7px 14px;
   font-size: 0.92rem;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--schedule-action-surface);
 }
 
 .schedule-card--past {
-  background: rgba(255, 255, 255, 0.58);
+  background: var(--schedule-card-past-surface);
   border-color: rgba(9, 30, 74, 0.08);
   box-shadow: none;
 }
@@ -1021,7 +1054,7 @@ button {
   gap: 12px;
   padding: 18px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.68);
+  background: var(--soft-surface);
 }
 
 .club-access-list__row-main {
@@ -1069,7 +1102,7 @@ button {
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--soft-surface);
 }
 
 .stats-card,
@@ -1557,7 +1590,7 @@ button {
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--nav-pill-surface);
   color: var(--text-muted);
   font-weight: 600;
   transition:
@@ -1568,6 +1601,7 @@ button {
 
 .admin-page__nav-link:hover {
   border-color: rgba(0, 102, 255, 0.22);
+  background: var(--interactive-surface);
   color: var(--text);
 }
 
@@ -1979,7 +2013,7 @@ button {
   gap: 10px;
   padding: 14px 16px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.56);
+  background: var(--soft-surface);
   border: 1px solid var(--surface-border);
 }
 
@@ -2013,7 +2047,7 @@ button {
   padding: 16px 18px;
   border-radius: 18px;
   border: 1px solid var(--surface-border);
-  background: rgba(255, 255, 255, 0.56);
+  background: var(--soft-surface);
 }
 
 .training-summary__status-value {
@@ -2683,8 +2717,8 @@ button {
   gap: 16px;
   padding: 14px;
   border-radius: 30px;
-  background: #eaf3ff;
-  border: 1px solid rgba(113, 128, 150, 0.16);
+  background: var(--live-stats-shell-surface);
+  border: 1px solid var(--surface-border);
   box-shadow: 0 28px 80px rgba(10, 31, 68, 0.1);
 }
 
@@ -2695,7 +2729,7 @@ button {
   align-items: center;
   padding: 12px 14px;
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--live-stat-card-surface);
 }
 
 .score-strip__team {
@@ -2858,12 +2892,12 @@ button {
   gap: 14px;
   padding: 18px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.98);
-  border: 1px solid rgba(113, 128, 150, 0.14);
+  background: var(--live-stat-card-surface);
+  border: 1px solid var(--surface-border);
 }
 
 .live-stat-card__title {
-  color: #0d6861;
+  color: var(--live-stat-card-accent);
   font-size: 0.98rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -2906,7 +2940,7 @@ button {
 .stats-entry-row__metric {
   min-width: 112px;
   text-align: center;
-  color: #566273;
+  color: var(--live-stat-card-muted);
   font-weight: 600;
 }
 
@@ -2915,7 +2949,7 @@ button {
   text-align: center;
   font-size: 1.6rem;
   font-weight: 700;
-  color: #1b2a3b;
+  color: var(--live-stat-card-text);
 }
 
 .stats-entry-row__button {
@@ -2929,8 +2963,8 @@ button {
 }
 
 .stats-entry-row__button--ghost {
-  background: #fff;
-  color: #69778a;
+  background: var(--soft-surface);
+  color: var(--text-muted);
 }
 
 .stats-entry-row__button--primary {
@@ -2973,7 +3007,7 @@ button {
   font-size: 0.86rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #0d6861;
+  color: var(--live-stat-card-accent);
 }
 
 .stats-report-sides {
@@ -2991,7 +3025,7 @@ button {
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #0d6861;
+  color: var(--live-stat-card-accent);
   font-weight: 700;
 }
 
@@ -3044,14 +3078,14 @@ button {
 
 .stats-report__metric {
   font-weight: 600;
-  color: #1b2a3b;
+  color: var(--live-stat-card-text);
   line-height: 1.1;
   word-break: break-word;
 }
 
 .stats-report__value {
   text-align: center;
-  color: #566273;
+  color: var(--live-stat-card-muted);
   font-variant-numeric: tabular-nums;
   font-size: 0.94rem;
 }
@@ -3067,7 +3101,7 @@ button {
   gap: 6px;
   padding: 14px;
   border-radius: 16px;
-  background: #f6f8fb;
+  background: var(--soft-surface);
 }
 
 .score-snapshot__label {
