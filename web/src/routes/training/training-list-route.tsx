@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
-import { getAttendanceStatusForPlayer, getAttendanceSummary, getSortedTrainingSessions, upsertAttendanceRecord } from '@/lib/attendance';
+import {
+  getAttendanceStatusForPlayer,
+  getAttendanceSummary,
+  getSortedTrainingSessions,
+  getTrainingRunPlanDuration,
+  getTrainingSessionMediaCoverage,
+  upsertAttendanceRecord,
+} from '@/lib/attendance';
+import { resolveTrainingSessionStructure } from '@/lib/training-session-suggestions';
+
+import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
+import { usePlayerProfile } from '@web/lib/player-profile-context';
 
 const attendanceOptions = [
   {
@@ -53,10 +65,6 @@ function renderBoardMetric(value: number, label: string, tone: 'positive' | 'neg
     </span>
   );
 }
-
-import { useClubData } from '@web/lib/club-data-context';
-import { useClubPermissions } from '@web/lib/club-permissions';
-import { usePlayerProfile } from '@web/lib/player-profile-context';
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
@@ -141,7 +149,7 @@ export function TrainingListRoute() {
               : 'Training sessions will appear here once your coach adds them.'}
           </p>
           {canAccessAdmin ? (
-            <Link className="text-link" to="/admin/training">
+            <Link className="text-link" to="/admin/training/new">
               Open training setup
             </Link>
           ) : null}
@@ -160,6 +168,14 @@ export function TrainingListRoute() {
             {sessions.map((session) => {
               const summary = getAttendanceSummary(session.id, visiblePlayers, attendanceRecords);
               const isPastSession = isPastItem(session.date);
+              const resolvedStructure = resolveTrainingSessionStructure(session, sessions);
+              const displaySession = {
+                ...session,
+                focus: resolvedStructure.focus,
+                runPlan: resolvedStructure.runPlan,
+              };
+              const plannedMinutes = getTrainingRunPlanDuration(displaySession);
+              const mediaCoverage = getTrainingSessionMediaCoverage(displaySession);
 
               return (
                 <section
@@ -173,10 +189,20 @@ export function TrainingListRoute() {
                   <div className="schedule-board__cell schedule-board__primary">
                     <h3 className="schedule-board__title">{session.title}</h3>
                     <p className="schedule-board__meta">{formatDate(session.date)}</p>
+                    {displaySession.focus ? (
+                      <p className="schedule-board__meta">{displaySession.focus}</p>
+                    ) : null}
                   </div>
 
                   <div className="schedule-board__cell">
                     <p className="schedule-board__venue">{session.location}</p>
+                    <p className="schedule-board__meta">
+                      {displaySession.runPlan.length} {displaySession.runPlan.length === 1 ? 'drill' : 'drills'}
+                      {plannedMinutes > 0 ? ` • ${plannedMinutes} min` : ''}
+                      {displaySession.runPlan.length > 0
+                        ? ` • ${mediaCoverage.drillsWithMedia}/${mediaCoverage.totalDrills} with visuals`
+                        : ''}
+                    </p>
                   </div>
 
                   <div className="schedule-board__cell">
@@ -210,6 +236,14 @@ export function TrainingListRoute() {
                 ? getAttendanceStatusForPlayer(session.id, selectedPlayer.id, attendanceRecords)
                 : null;
             const isPastSession = isPastItem(session.date);
+            const resolvedStructure = resolveTrainingSessionStructure(session, sessions);
+            const displaySession = {
+              ...session,
+              focus: resolvedStructure.focus,
+              runPlan: resolvedStructure.runPlan,
+            };
+            const plannedMinutes = getTrainingRunPlanDuration(displaySession);
+            const mediaCoverage = getTrainingSessionMediaCoverage(displaySession);
 
             if (!playerAttendance) {
               return null;
@@ -227,6 +261,14 @@ export function TrainingListRoute() {
                     <h3>{session.title}</h3>
                     <p className="muted">{formatDate(session.date)}</p>
                     <p className="muted">{session.location}</p>
+                    {displaySession.focus ? <p className="muted">{displaySession.focus}</p> : null}
+                    {displaySession.runPlan.length > 0 ? (
+                      <p className="muted">
+                        {displaySession.runPlan.length} {displaySession.runPlan.length === 1 ? 'drill' : 'drills'}
+                        {plannedMinutes > 0 ? ` • ${plannedMinutes} min` : ''}
+                        {` • ${mediaCoverage.drillsWithMedia}/${mediaCoverage.totalDrills} with visuals`}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="player-session-card__response">

@@ -235,6 +235,27 @@ export function getTrainingRunPlanDuration(session: TrainingSession) {
   }, 0);
 }
 
+export function hasTrainingDrillMedia(drill: TrainingSessionDrill) {
+  return drill.media.some((media) => {
+    return media.url.trim().length > 0;
+  });
+}
+
+export function getTrainingSessionMediaCoverage(session: Pick<TrainingSession, 'runPlan'>) {
+  const totalDrills = session.runPlan.length;
+  const drillsWithMedia = session.runPlan.filter(hasTrainingDrillMedia).length;
+  const mediaCount = session.runPlan.reduce((total, drill) => {
+    return total + drill.media.filter((media) => media.url.trim().length > 0).length;
+  }, 0);
+
+  return {
+    totalDrills,
+    drillsWithMedia,
+    missingMedia: totalDrills - drillsWithMedia,
+    mediaCount,
+  };
+}
+
 export function upsertAttendanceRecord(
   records: AttendanceRecord[],
   sessionId: string,

@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import {
   getAttendanceSummary,
   getPlayersForSession,
+  getTrainingSessionMediaCoverage,
   getTrainingRunPlanDuration,
   getTrainingSessionById,
   upsertAttendanceRecord,
@@ -84,6 +85,7 @@ export function TrainingDetailRoute() {
   const respondedCount = summary.present + summary.absent;
   const responseRate = totalPlayers > 0 ? Math.round((respondedCount / totalPlayers) * 100) : 0;
   const plannedMinutes = getTrainingRunPlanDuration(displaySession);
+  const mediaCoverage = getTrainingSessionMediaCoverage(displaySession);
   const responseLabel =
     respondedCount > 0
       ? `${respondedCount} of ${totalPlayers} players have checked in`
@@ -100,7 +102,15 @@ export function TrainingDetailRoute() {
           {displaySession.runPlan.length}{' '}
           {displaySession.runPlan.length === 1 ? 'drill planned' : 'drills planned'}
           {plannedMinutes > 0 ? ` • ${plannedMinutes} min run plan` : ''}
+          {displaySession.runPlan.length > 0
+            ? ` • ${mediaCoverage.drillsWithMedia}/${mediaCoverage.totalDrills} with visuals`
+            : ''}
         </p>
+        {mediaCoverage.missingMedia > 0 ? (
+          <p className="muted">
+            {mediaCoverage.missingMedia} {mediaCoverage.missingMedia === 1 ? 'drill still needs' : 'drills still need'} a visual reference for the leadership group.
+          </p>
+        ) : null}
       </section>
 
       <TrainingSessionStructureCard isSuggested={resolvedStructure.isSuggested} session={displaySession} />

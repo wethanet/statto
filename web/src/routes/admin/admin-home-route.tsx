@@ -36,7 +36,7 @@ export function AdminHomeRoute() {
         {
           title: 'Training setup',
           body: nextTraining ? `Next session is ${nextTraining.title}.` : 'No training sessions have been added yet.',
-          to: '/admin/training',
+          to: nextTraining ? '/admin/training' : '/admin/training/new',
           action: 'Add training session',
         },
         {

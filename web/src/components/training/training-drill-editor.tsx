@@ -1,3 +1,4 @@
+import { hasTrainingDrillMedia } from '@/lib/attendance';
 import type { TrainingSessionDrill, TrainingSessionDrillMedia } from '@/lib/types';
 
 type TrainingDrillEditorProps = {
@@ -22,12 +23,18 @@ export function TrainingDrillEditor({
   onRemoveMedia,
   onUpdateMedia,
 }: TrainingDrillEditorProps) {
+  const hasMedia = hasTrainingDrillMedia(drill);
+  const mediaCount = drill.media.filter((media) => media.url.trim().length > 0).length;
+
   return (
     <article className="training-drill-editor stack">
       <div className="split-row">
         <div className="stack-sm">
           <span className="eyebrow">Drill {index + 1}</span>
           <h4>{drill.title || 'Untitled drill'}</h4>
+          <span className={hasMedia ? 'status-pill status-pill--positive' : 'status-pill status-pill--negative'}>
+            {hasMedia ? `${mediaCount} visual ${mediaCount === 1 ? 'reference' : 'references'}` : 'Visual required'}
+          </span>
         </div>
         <button className="button button--ghost-danger" onClick={onRemove} type="button">
           Remove drill
@@ -103,7 +110,9 @@ export function TrainingDrillEditor({
         <div className="split-row">
           <div className="stack-sm">
             <span className="field-label">Drill media</span>
-            <p className="muted">Add images or direct video links to make the drill easier to explain.</p>
+            <p className="muted">
+              Add at least one image or video reference so the leadership group can help set up and run the drill.
+            </p>
           </div>
 
           <div className="inline-actions">
@@ -195,7 +204,10 @@ export function TrainingDrillEditor({
             })}
           </div>
         ) : (
-          <p className="muted">No support media added yet.</p>
+          <div className="training-media-empty stack-sm">
+            <strong>Visual reference required</strong>
+            <p className="muted">Add a diagram, photo, or video before saving this drill to a session.</p>
+          </div>
         )}
       </div>
     </article>

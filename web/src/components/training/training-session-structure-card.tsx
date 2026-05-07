@@ -1,4 +1,8 @@
-import { getTrainingRunPlanDuration } from '@/lib/attendance';
+import {
+  getTrainingRunPlanDuration,
+  getTrainingSessionMediaCoverage,
+  hasTrainingDrillMedia,
+} from '@/lib/attendance';
 import type { TrainingSession, TrainingSessionDrillMedia } from '@/lib/types';
 
 type TrainingSessionStructureCardProps = {
@@ -18,6 +22,7 @@ function renderMedia(drillTitle: string, media: TrainingSessionDrillMedia) {
   if (media.type === 'image') {
     return (
       <figure key={media.id} className="training-media-card">
+        <span className="eyebrow">Image reference</span>
         <img alt={media.caption ?? `${drillTitle} diagram`} className="training-media-card__image" src={media.url} />
         {media.caption ? <figcaption className="muted">{media.caption}</figcaption> : null}
       </figure>
@@ -27,6 +32,7 @@ function renderMedia(drillTitle: string, media: TrainingSessionDrillMedia) {
   if (isDirectVideoSource(media.url)) {
     return (
       <figure key={media.id} className="training-media-card">
+        <span className="eyebrow">Video reference</span>
         <video className="training-media-card__video" controls preload="metadata">
           <source src={media.url} />
         </video>
@@ -37,6 +43,7 @@ function renderMedia(drillTitle: string, media: TrainingSessionDrillMedia) {
 
   return (
     <div key={media.id} className="training-media-card training-media-card--link stack-sm">
+      <span className="eyebrow">Video reference</span>
       <a className="text-link" href={media.url} rel="noreferrer" target="_blank">
         Open video reference
       </a>
@@ -46,10 +53,11 @@ function renderMedia(drillTitle: string, media: TrainingSessionDrillMedia) {
 }
 
 export function TrainingSessionStructureCard({
-  isSuggested = false,
+  isSuggested: _isSuggested = false,
   session,
 }: TrainingSessionStructureCardProps) {
   const totalMinutes = getTrainingRunPlanDuration(session);
+  const mediaCoverage = getTrainingSessionMediaCoverage(session);
 
   return (
     <section className="card stack">
@@ -57,9 +65,7 @@ export function TrainingSessionStructureCard({
         <div className="stack-sm">
           <h3>Session structure</h3>
           <p className="muted">
-            {isSuggested
-              ? 'Suggested from the AFL Youth Coaching Curriculum and Prep-to-Play guidance so the session has a usable structure straight away.'
-              : 'Share the intent for the night and the exact drill flow so coaches and players stay aligned.'}
+            Share the intent, visual references, and exact drill flow so coaches and the leadership group can run the session consistently.
           </p>
         </div>
 
@@ -67,6 +73,11 @@ export function TrainingSessionStructureCard({
           <strong>{session.runPlan.length}</strong>
           <span>{session.runPlan.length === 1 ? 'planned drill' : 'planned drills'}</span>
           {totalMinutes > 0 ? <span>{totalMinutes} min planned</span> : null}
+          {session.runPlan.length > 0 ? (
+            <span>
+              {mediaCoverage.drillsWithMedia}/{mediaCoverage.totalDrills} with visuals
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -78,6 +89,8 @@ export function TrainingSessionStructureCard({
       {session.runPlan.length > 0 ? (
         <div className="training-run-plan-list">
           {session.runPlan.map((drill, index) => {
+            const drillHasMedia = hasTrainingDrillMedia(drill);
+
             return (
               <article key={drill.id} className="training-run-plan-card stack">
                 <div className="split-row">
@@ -100,13 +113,20 @@ export function TrainingSessionStructureCard({
                   </div>
                 ) : null}
 
-                {drill.media.length > 0 ? (
+                {drillHasMedia ? (
                   <div className="training-media-grid">
                     {drill.media.map((media) => {
                       return renderMedia(drill.title, media);
                     })}
                   </div>
-                ) : null}
+                ) : (
+                  <div className="training-media-missing stack-sm">
+                    <strong>No visual reference attached</strong>
+                    <p className="muted">
+                      Add an image or video so the leadership group can help demonstrate and manage this drill.
+                    </p>
+                  </div>
+                )}
               </article>
             );
           })}

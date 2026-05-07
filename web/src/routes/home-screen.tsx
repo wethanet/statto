@@ -193,7 +193,7 @@ export function HomeScreen() {
     attentionItems.push({
       title: 'No training sessions scheduled',
       detail: 'Add the next session so coaches can mark attendance from the training tab.',
-      to: '/admin/training',
+      to: '/admin/training/new',
       action: 'Add training',
     });
   }
@@ -307,7 +307,7 @@ export function HomeScreen() {
                   </div>
                   <span className="text-link">Open setup</span>
                 </Link>
-                <Link className="home-action-row" to="/admin/training">
+                <Link className="home-action-row" to="/admin/training/new">
                   <div className="stack-sm">
                     <strong>Create the first training session</strong>
                     <span className="muted">Give coaches somewhere to mark weekly attendance.</span>
@@ -394,7 +394,7 @@ export function HomeScreen() {
                         : 'Training sessions will appear here when they are scheduled.'}
                     </p>
                     {canAccessAdmin ? (
-                      <Link className="text-link" to="/admin/training">
+                      <Link className="text-link" to="/admin/training/new">
                         Create training
                       </Link>
                     ) : null}

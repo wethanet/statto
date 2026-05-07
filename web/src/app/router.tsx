@@ -25,7 +25,7 @@ import { MatchesListRoute } from '@web/routes/matches/matches-list-route';
 import { MatchStatsRoute } from '@web/routes/matches/match-stats-route';
 import { TeamSelectionGraphicRoute } from '@web/routes/matches/team-selection-graphic-route';
 import { MatchVotesRoute } from '@web/routes/matches/match-votes-route';
-import { TrainingAdminRoute } from '@web/routes/admin/training-admin-route';
+import { TrainingAdminRoute, TrainingSessionFormRoute } from '@web/routes/admin/training-admin-route';
 import { TrainingDetailRoute } from '@web/routes/training/training-detail-route';
 import { TrainingListRoute } from '@web/routes/training/training-list-route';
 import { ShellLayout } from '@web/app/shell-layout';
@@ -208,6 +208,22 @@ export function AppRouter() {
             element={
               <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
                 <TrainingAdminRoute />
+              </AccessGate>
+            }
+          />
+          <Route
+            path="/admin/training/new"
+            element={
+              <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
+                <TrainingSessionFormRoute />
+              </AccessGate>
+            }
+          />
+          <Route
+            path="/admin/training/:sessionId/edit"
+            element={
+              <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
+                <TrainingSessionFormRoute />
               </AccessGate>
             }
           />

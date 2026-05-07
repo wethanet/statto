@@ -177,7 +177,7 @@ Current next step:
 ### ST-003 Training Session Setup and Management
 
 Priority: `P1`
-Status: `Defined`
+Status: `In progress`
 
 Problem:
 Training needs to cover regular club operations: scheduling sessions, assigning field/location, planning drills, and tracking attendance. The app already has pieces of this, but the setup and release behavior need to be reliable.
@@ -233,7 +233,14 @@ Risks and decisions:
 - Attendance response rules should be consistent with visibility and lock policies.
 
 Current next step:
-- Compare the current training admin and player training screens against this scope, then define the first release slice around policy-driven session defaults and player attendance response.
+- Review the updated training UI in-browser, then continue with policy-driven recurring defaults and session generation.
+
+Implementation notes:
+- Tidied the training setup, list, and detail screens around session focus, run-plan duration, and drill visual coverage.
+- Added save validation so every planned drill needs at least one image or video URL.
+- Added leadership-ready visual coverage indicators for training sessions and drills.
+- Removed auto-suggested drills and cleared existing session run plans so drills can be replanned comprehensively.
+- Split the admin training list from the add/edit session form so the list screen stays focused.
 
 ### ST-004 Games Played by Grade
 

@@ -1,5 +1,5 @@
-import { type FormEvent, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import {
   addTrainingSession,
@@ -7,6 +7,8 @@ import {
   deleteTrainingSession,
   getSortedTrainingSessions,
   getTrainingRunPlanDuration,
+  getTrainingSessionMediaCoverage,
+  hasTrainingDrillMedia,
   updateTrainingSession,
 } from '@/lib/attendance';
 import { getPlayerSquadLabel, normalizePlayerSquad } from '@/lib/team';
@@ -84,6 +86,118 @@ type SessionFormResult =
 
 export function TrainingAdminRoute() {
   const { setAttendanceRecords, setTrainingSessions, trainingSessions } = useClubData();
+  const sessions = useMemo(() => {
+    return getSortedTrainingSessions(trainingSessions);
+  }, [trainingSessions]);
+
+  function handleDeleteSession(sessionId: string) {
+    setTrainingSessions((current) => {
+      return deleteTrainingSession(current, sessionId);
+    });
+    setAttendanceRecords((current) => {
+      return deleteAttendanceRecordsForSession(current, sessionId);
+    });
+  }
+
+  return (
+    <AdminPageShell
+      actions={
+        <div className="inline-actions">
+          <Link className="button" to="/admin/training/new">
+            Add session
+          </Link>
+          <Link className="text-link" to="/training">
+            Open training attendance
+          </Link>
+        </div>
+      }
+      description="Review scheduled sessions, open attendance, or edit the session plan on a dedicated screen."
+      title="Training sessions">
+      <section className="card stack">
+        <div className="split-row">
+          <div className="stack-sm">
+            <h3>Session list</h3>
+            <p className="muted">Keep this list focused on what is scheduled and what still needs planning.</p>
+          </div>
+          <Link className="button button--secondary" to="/admin/training/new">
+            Add training session
+          </Link>
+        </div>
+
+        {sessions.length > 0 ? (
+          sessions.map((session) => {
+            const resolvedStructure = resolveTrainingSessionStructure(session, sessions);
+            const displaySession = {
+              ...session,
+              focus: resolvedStructure.focus,
+              runPlan: resolvedStructure.runPlan,
+            };
+            const plannedMinutes = getTrainingRunPlanDuration(displaySession);
+            const mediaCoverage = getTrainingSessionMediaCoverage(displaySession);
+
+            return (
+              <div key={session.id} className="row-card">
+                <div className="stack-sm">
+                  <strong>{session.title}</strong>
+                  <span className="muted">{formatDate(session.date)}</span>
+                  <span className="muted">{session.location}</span>
+                  <span className="muted">{displaySession.focus}</span>
+                  <span className="muted">
+                    {displaySession.runPlan.length}{' '}
+                    {displaySession.runPlan.length === 1 ? 'drill' : 'drills'}
+                    {plannedMinutes > 0 ? ` • ${plannedMinutes} min planned` : ''}
+                    {displaySession.runPlan.length > 0
+                      ? ` • ${mediaCoverage.drillsWithMedia}/${mediaCoverage.totalDrills} with visuals`
+                      : ''}
+                  </span>
+                  {mediaCoverage.missingMedia > 0 ? (
+                    <span className="status-pill status-pill--negative">
+                      {mediaCoverage.missingMedia} {mediaCoverage.missingMedia === 1 ? 'drill needs' : 'drills need'} media
+                    </span>
+                  ) : displaySession.runPlan.length > 0 ? (
+                    <span className="status-pill status-pill--positive">Leadership ready</span>
+                  ) : null}
+                </div>
+
+                <div className="inline-actions">
+                  <Link className="button button--secondary" to={`/admin/training/${session.id}/edit`}>
+                    Edit session
+                  </Link>
+                  <button
+                    className="button button--danger"
+                    onClick={() => {
+                      handleDeleteSession(session.id);
+                    }}
+                    type="button">
+                    Delete session
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <section className="stack-sm">
+            <p className="muted">No training sessions yet.</p>
+            <Link className="text-link" to="/admin/training/new">
+              Create the first session
+            </Link>
+          </section>
+        )}
+      </section>
+    </AdminPageShell>
+  );
+}
+
+export function TrainingSessionFormRoute() {
+  const navigate = useNavigate();
+  const { sessionId } = useParams();
+  const { setTrainingSessions, trainingSessions } = useClubData();
+  const editingSession = sessionId
+    ? trainingSessions.find((session) => {
+        return session.id === sessionId;
+      }) ?? null
+    : null;
+  const isEditing = Boolean(sessionId);
   const [title, setTitle] = useState('');
   const [sessionDate, setSessionDate] = useState('');
   const [sessionTime, setSessionTime] = useState('');
@@ -91,23 +205,25 @@ export function TrainingAdminRoute() {
   const [squad, setSquad] = useState('');
   const [focus, setFocus] = useState('');
   const [runPlan, setRunPlan] = useState<TrainingSessionDrill[]>([]);
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
 
-  const sessions = useMemo(() => {
-    return getSortedTrainingSessions(trainingSessions);
-  }, [trainingSessions]);
+  useEffect(() => {
+    if (!editingSession) {
+      return;
+    }
 
-  function resetSessionForm() {
-    setTitle('');
-    setSessionDate('');
-    setSessionTime('');
-    setLocation('');
-    setSquad('');
-    setFocus('');
-    setRunPlan([]);
-    setEditingSessionId(null);
-  }
+    const resolvedStructure = resolveTrainingSessionStructure(editingSession, trainingSessions);
+    const [datePart = '', timePartWithSeconds = '00:00:00'] = editingSession.date.split('T');
+    const timePart = timePartWithSeconds.slice(0, 5);
+
+    setTitle(editingSession.title);
+    setSessionDate(datePart);
+    setSessionTime(timePart);
+    setLocation(editingSession.location);
+    setSquad(editingSession.squad ?? '');
+    setFocus(resolvedStructure.focus === 'No session focus has been added yet.' ? '' : resolvedStructure.focus);
+    setRunPlan(cloneRunPlan(resolvedStructure.runPlan));
+  }, [editingSession, trainingSessions]);
 
   function getSessionInputFromForm(): SessionFormResult {
     const normalizedTitle = title.trim();
@@ -131,6 +247,16 @@ export function TrainingAdminRoute() {
 
     if (!normalizedLocation) {
       return { error: 'Enter a location.' };
+    }
+
+    const drillMissingMediaIndex = runPlan.findIndex((drill) => {
+      return !hasTrainingDrillMedia(drill);
+    });
+
+    if (drillMissingMediaIndex >= 0) {
+      return {
+        error: `Add at least one image or video URL to Drill ${drillMissingMediaIndex + 1} before saving.`,
+      };
     }
 
     const sessionTimestamp = `${normalizedDate}T${normalizedTime}:00`;
@@ -161,49 +287,13 @@ export function TrainingAdminRoute() {
     }
 
     setTrainingSessions((current) => {
-      if (editingSessionId) {
-        return updateTrainingSession(current, editingSessionId, result.input);
+      if (editingSession) {
+        return updateTrainingSession(current, editingSession.id, result.input);
       }
 
       return addTrainingSession(current, result.input);
     });
-
-    const wasEditing = Boolean(editingSessionId);
-    resetSessionForm();
-    setFormMessage(wasEditing ? 'Training session updated.' : 'Training session added.');
-  }
-
-  function handleEditSession(session: TrainingSession) {
-    const resolvedStructure = resolveTrainingSessionStructure(session, trainingSessions);
-    const [datePart = '', timePartWithSeconds = '00:00:00'] = session.date.split('T');
-    const timePart = timePartWithSeconds.slice(0, 5);
-
-    setEditingSessionId(session.id);
-    setTitle(session.title);
-    setSessionDate(datePart);
-    setSessionTime(timePart);
-    setLocation(session.location);
-    setSquad(session.squad ?? '');
-    setFocus(resolvedStructure.focus);
-    setRunPlan(cloneRunPlan(resolvedStructure.runPlan));
-    setFormMessage(
-      resolvedStructure.isSuggested
-        ? `Loaded the suggested session plan for ${session.title}.`
-        : `Editing ${session.title}.`
-    );
-  }
-
-  function handleDeleteSession(sessionId: string) {
-    setTrainingSessions((current) => {
-      return deleteTrainingSession(current, sessionId);
-    });
-    setAttendanceRecords((current) => {
-      return deleteAttendanceRecordsForSession(current, sessionId);
-    });
-    if (editingSessionId === sessionId) {
-      resetSessionForm();
-    }
-    setFormMessage('Training session deleted.');
+    navigate('/admin/training');
   }
 
   function updateRunPlanDrill(drillId: string, nextDrill: TrainingSessionDrill) {
@@ -240,22 +330,59 @@ export function TrainingAdminRoute() {
     });
   }
 
+  if (isEditing && !editingSession) {
+    return (
+      <AdminPageShell
+        actions={
+          <Link className="text-link" to="/admin/training">
+            Back to training sessions
+          </Link>
+        }
+        description="The selected training session could not be found."
+        title="Training session not found">
+        <section className="card stack">
+          <h3>Session not found</h3>
+          <p className="muted">Choose another session from the training list.</p>
+        </section>
+      </AdminPageShell>
+    );
+  }
+
   return (
     <AdminPageShell
       actions={
-        <Link className="text-link" to="/training">
-          Open training attendance
+        <Link className="text-link" to="/admin/training">
+          Back to training sessions
         </Link>
       }
-      description="Create sessions, add the focus for the night, and build a drill-by-drill run plan with images or videos."
-      title="Training setup">
+      description="Set the session details and plan drills on a dedicated screen."
+      title={isEditing ? 'Edit training session' : 'Add training session'}>
       <form className="card stack" onSubmit={handleSaveSession}>
-        <h3>{editingSessionId ? 'Edit training session' : 'Add training session'}</h3>
-        <p className="muted">
-          {editingSessionId
-            ? 'Update the training details and session structure, then save the changes.'
-            : 'Set the title, date, time, location, and the drill flow for the session.'}
-        </p>
+        <div className="training-form-hero">
+          <div className="stack-sm">
+            <h3>{isEditing ? 'Session details' : 'New session details'}</h3>
+            <p className="muted">
+              Set the session basics, then add drills with visual references when the plan is ready.
+            </p>
+          </div>
+
+          <div className="training-form-hero__metrics">
+            <span>
+              <strong>{runPlan.length}</strong>
+              {runPlan.length === 1 ? ' drill' : ' drills'}
+            </span>
+            <span>
+              <strong>
+                {
+                  runPlan.filter((drill) => {
+                    return hasTrainingDrillMedia(drill);
+                  }).length
+                }
+              </strong>
+              with visuals
+            </span>
+          </div>
+        </div>
 
         <label className="field">
           <span>Session title</span>
@@ -343,7 +470,7 @@ export function TrainingAdminRoute() {
           <div className="split-row training-planner__header">
             <div className="stack-sm">
               <h4>Run plan</h4>
-              <p className="muted">Capture the drill order, timing, and support media for coaches and players.</p>
+              <p className="muted">Add drills once the session is planned comprehensively.</p>
             </div>
 
             <button
@@ -399,81 +526,20 @@ export function TrainingAdminRoute() {
               })}
             </div>
           ) : (
-            <p className="muted">No drills added yet. Add a drill to build the run plan for the session.</p>
+            <p className="muted">No drills added yet.</p>
           )}
         </section>
 
         <div className="inline-actions">
           <button className="button" type="submit">
-            {editingSessionId ? 'Save changes' : 'Save session'}
+            {isEditing ? 'Save changes' : 'Save session'}
           </button>
-          {editingSessionId ? (
-            <button
-              className="button button--secondary"
-              onClick={() => {
-                resetSessionForm();
-                setFormMessage('Edit cancelled.');
-              }}
-              type="button">
-              Cancel edit
-            </button>
-          ) : null}
+          <Link className="button button--secondary" to="/admin/training">
+            Cancel
+          </Link>
           {formMessage ? <p className="muted">{formMessage}</p> : null}
         </div>
       </form>
-
-      <section className="card stack">
-        <h3>Upcoming sessions</h3>
-        {sessions.length > 0 ? (
-          sessions.map((session) => {
-            const resolvedStructure = resolveTrainingSessionStructure(session, sessions);
-            const displaySession = {
-              ...session,
-              focus: resolvedStructure.focus,
-              runPlan: resolvedStructure.runPlan,
-            };
-            const plannedMinutes = getTrainingRunPlanDuration(displaySession);
-
-            return (
-              <div key={session.id} className="row-card">
-                <div className="stack-sm">
-                  <strong>{session.title}</strong>
-                  <span className="muted">{formatDate(session.date)}</span>
-                  <span className="muted">{session.location}</span>
-                  <span className="muted">{displaySession.focus}</span>
-                  <span className="muted">
-                    {displaySession.runPlan.length}{' '}
-                    {displaySession.runPlan.length === 1 ? 'drill' : 'drills'}
-                    {plannedMinutes > 0 ? ` • ${plannedMinutes} min planned` : ''}
-                    {resolvedStructure.isSuggested ? ' • suggested from coaching guidance' : ''}
-                  </span>
-                </div>
-
-                <div className="inline-actions">
-                  <button
-                    className="button button--secondary"
-                    onClick={() => {
-                      handleEditSession(session);
-                    }}
-                    type="button">
-                    Edit session
-                  </button>
-                  <button
-                    className="button button--danger"
-                    onClick={() => {
-                      handleDeleteSession(session.id);
-                    }}
-                    type="button">
-                    Delete session
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <p className="muted">No training sessions yet.</p>
-        )}
-      </section>
     </AdminPageShell>
   );
 }
