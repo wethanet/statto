@@ -7,6 +7,7 @@ import {
   getPlayerSquadLabel,
 } from '@/lib/team';
 import { type FormEvent, useState } from 'react';
+import type { PlayerGamesPlayedSummary } from '@/lib/games-played';
 import type { Player, PlayerPositionProfile, PlayerRotationGroup, PlayerRunningProfile } from '@/lib/types';
 
 const playerPositionOptions: Array<PlayerPositionProfile | ''> = ['', 'B', 'HB', 'W', 'C', 'HF', 'F', 'Fol'];
@@ -31,22 +32,20 @@ type TeamPlayerSaveInput = {
 
 type TeamPlayerRowProps = {
   player: Player;
+  gamesPlayed: PlayerGamesPlayedSummary;
   onToggleActive: () => void;
   onCycleRole: () => void;
   onDelete: () => void;
   onSaveDetails: (input: TeamPlayerSaveInput) => Promise<string | null>;
-  rotationSummary: string;
-  rotationSource: 'generated' | 'manual';
 };
 
 export function TeamPlayerRow({
   player,
+  gamesPlayed,
   onToggleActive,
   onCycleRole,
   onDelete,
   onSaveDetails,
-  rotationSummary,
-  rotationSource,
 }: TeamPlayerRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(player.name);
@@ -60,6 +59,10 @@ export function TeamPlayerRow({
   const [manualGroups, setManualGroups] = useState<PlayerRotationGroup[]>(player.rotationGroupOverrides ?? []);
   const [message, setMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const gamesPlayedLabel =
+    gamesPlayed.total > 0
+      ? gamesPlayed.gradeTotals.map((entry) => `${entry.grade} ${entry.games}`).join(' • ')
+      : 'No past games';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,29 +91,66 @@ export function TeamPlayerRow({
   }
 
   return (
-    <section className="card stack">
-      <div className="split-row">
-        <div className="stack-sm">
+    <section className={isEditing ? 'team-player-row team-player-row--editing' : 'team-player-row'}>
+      <div className="team-player-row__summary">
+        <div className="team-player-row__cell team-player-row__identity" data-label="Player">
           <h3>{getPlayerDisplayName(player)}</h3>
-          {player.nickname ? <p className="muted">Nickname: {player.nickname}</p> : null}
-          <p className="muted">{getPlayerRoleLabel(player.role)} • {getPlayerSquadLabel(player.squad)}</p>
-          <p className="muted">
-            {getPlayerPositionLabel(player.primaryPosition)} primary
-            {player.secondaryPosition ? ` • ${getPlayerPositionLabel(player.secondaryPosition)} secondary` : ''}
-            {player.runningProfile ? ` • ${getPlayerRunningProfileLabel(player.runningProfile)}` : ''}
-          </p>
-          <p className="muted">
-            Rotation groups: {rotationSummary}
-            {rotationSource === 'manual' ? ' • Manual' : ' • Generated'}
-          </p>
+          {player.nickname ? <p className="team-player-row__subline">Nickname: {player.nickname}</p> : null}
         </div>
-        <span className={player.active ? 'metric metric--positive' : 'metric metric--negative'}>
-          {player.active ? 'Active' : 'Inactive'}
-        </span>
+
+        <div className="team-player-row__cell" data-label="Role">
+          <strong>{getPlayerRoleLabel(player.role)}</strong>
+          <span>{getPlayerSquadLabel(player.squad)}</span>
+        </div>
+
+        <div className="team-player-row__cell" data-label="Games">
+          <span>{gamesPlayedLabel}</span>
+        </div>
+
+        <div className="team-player-row__cell team-player-row__cell--status" data-label="Status">
+          <span className={player.active ? 'team-player-row__status metric metric--positive' : 'team-player-row__status metric metric--negative'}>
+            {player.active ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+
+        <div className="team-player-row__actions" data-label="Actions">
+          <div className="team-player-row__buttons">
+            <button
+              className={player.active ? 'button button--secondary team-player-row__button' : 'button team-player-row__button'}
+              onClick={onToggleActive}
+              type="button">
+              {player.active ? 'Set inactive' : 'Set active'}
+            </button>
+            <button className="button button--secondary team-player-row__button" onClick={onCycleRole} type="button">
+              Role
+            </button>
+            <button
+              className="button button--secondary team-player-row__button"
+              disabled={isSaving}
+              onClick={() => {
+                setName(player.name);
+                setNumber(player.number?.toString() ?? '');
+                setSquad(player.squad ?? '');
+                setPrimaryPosition(player.primaryPosition ?? '');
+                setSecondaryPosition(player.secondaryPosition ?? '');
+                setRunningProfile(player.runningProfile ?? '');
+                setUseGeneratedGroups(player.rotationGroupOverrides == null);
+                setManualGroups(player.rotationGroupOverrides ?? []);
+                setMessage(null);
+                setIsEditing((current) => !current);
+              }}
+              type="button">
+              {isEditing ? 'Close' : 'Edit'}
+            </button>
+            <button className="button button--danger team-player-row__button" onClick={onDelete} type="button">
+              Delete
+            </button>
+          </div>
+        </div>
       </div>
 
       {isEditing ? (
-        <form className="stack-sm" onSubmit={handleSubmit}>
+        <form className="team-player-row__edit stack-sm" onSubmit={handleSubmit}>
           <div className="two-column">
             <label className="field">
               <span>Player name</span>
@@ -280,38 +320,6 @@ export function TeamPlayerRow({
         </form>
       ) : null}
 
-      <div className="inline-actions">
-        <button
-          className={player.active ? 'button button--secondary' : 'button'}
-          onClick={onToggleActive}
-          type="button">
-          {player.active ? 'Set inactive' : 'Set active'}
-        </button>
-        <button className="button button--secondary" onClick={onCycleRole} type="button">
-          Cycle role
-        </button>
-        <button
-          className="button button--secondary"
-          disabled={isSaving}
-          onClick={() => {
-            setName(player.name);
-            setNumber(player.number?.toString() ?? '');
-            setSquad(player.squad ?? '');
-            setPrimaryPosition(player.primaryPosition ?? '');
-            setSecondaryPosition(player.secondaryPosition ?? '');
-            setRunningProfile(player.runningProfile ?? '');
-            setUseGeneratedGroups(player.rotationGroupOverrides == null);
-            setManualGroups(player.rotationGroupOverrides ?? []);
-            setMessage(null);
-            setIsEditing((current) => !current);
-          }}
-          type="button">
-          {isEditing ? 'Close edit' : 'Edit details'}
-        </button>
-        <button className="button button--danger" onClick={onDelete} type="button">
-          Delete player
-        </button>
-      </div>
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import {
@@ -8,6 +8,11 @@ import {
   isPlayerSelectedInOtherSameDayFixture,
   upsertAvailabilityRecord,
 } from '@/lib/availability';
+import {
+  buildGamesPlayedByGrade,
+  getLowerGradeSelectionBlockReason,
+  getPlayerGamesPlayedSummary,
+} from '@/lib/games-played';
 import {
   deleteMatchLineupAssignment,
   getPlayersForFixtureLineup,
@@ -19,6 +24,7 @@ import { updatePlayerRotationGroupOverrides } from '@/lib/team';
 
 import { AvailabilityPlayerRow } from '@web/components/availability-player-row';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 
 type PlayerSort = 'name' | 'number';
 type AvailabilityGroup = 'available' | 'unavailable' | 'responded-not-selected' | 'not-responded';
@@ -42,6 +48,7 @@ function formatDate(value: string) {
 
 export function MatchDetailRoute() {
   const { fixtureId = '' } = useParams();
+  const { policySettings } = useClubPolicy();
   const {
     availabilityRecords,
     fixtures,
@@ -54,6 +61,9 @@ export function MatchDetailRoute() {
   } = useClubData();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const fixture = getFixtureById(fixtureId, fixtures);
+  const gamesPlayedByPlayer = useMemo(() => {
+    return buildGamesPlayedByGrade(fixtures, matchLineupAssignments, policySettings);
+  }, [fixtures, matchLineupAssignments, policySettings]);
 
   const playersForFixture = useMemo(() => {
     if (!fixture) {
@@ -121,6 +131,51 @@ export function MatchDetailRoute() {
       }),
     }));
   }, [availabilityRecords, fixture, sortedPlayers]);
+
+  useEffect(() => {
+    if (!fixture) {
+      return;
+    }
+
+    const blockedSelectedPlayerIds = playersForFixture
+      .filter((player) => {
+        if (player.availabilityStatus !== 'available') {
+          return false;
+        }
+
+        return Boolean(
+          getLowerGradeSelectionBlockReason(
+            fixture,
+            getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id),
+            policySettings
+          )
+        );
+      })
+      .map((player) => player.id);
+
+    if (blockedSelectedPlayerIds.length <= 0) {
+      return;
+    }
+
+    setAvailabilityRecords((current) => {
+      return blockedSelectedPlayerIds.reduce((records, playerId) => {
+        return upsertAvailabilityRecord(records, fixture.id, playerId, 'uncertain');
+      }, current);
+    });
+
+    setMatchLineupAssignments((current) => {
+      return blockedSelectedPlayerIds.reduce((assignments, playerId) => {
+        return deleteMatchLineupAssignment(assignments, fixture.id, playerId);
+      }, current);
+    });
+  }, [
+    fixture,
+    gamesPlayedByPlayer,
+    playersForFixture,
+    policySettings,
+    setAvailabilityRecords,
+    setMatchLineupAssignments,
+  ]);
 
   if (!fixture) {
     return (
@@ -249,10 +304,21 @@ export function MatchDetailRoute() {
           <section className="selection-table">
             {group.players.length > 0 ? (
               group.players.map((player) => {
+                const playerGamesPlayed = getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id);
+                const selectionBlockReason = getLowerGradeSelectionBlockReason(
+                  fixture,
+                  playerGamesPlayed,
+                  policySettings
+                );
+
                 return (
                   <AvailabilityPlayerRow
                     key={player.id}
                     onChange={(status) => {
+                      if (status === 'available' && selectionBlockReason) {
+                        return;
+                      }
+
                       setAvailabilityRecords((current) => {
                         return upsertAvailabilityRecord(current, fixture.id, player.id, status);
                       });
@@ -263,6 +329,10 @@ export function MatchDetailRoute() {
                       }
                     }}
                     onSelectPosition={(position) => {
+                      if (selectionBlockReason) {
+                        return;
+                      }
+
                       setMatchLineupAssignments((current) => {
                         if (player.matchPosition === position) {
                           return deleteMatchLineupAssignment(current, fixture.id, player.id);
@@ -305,6 +375,7 @@ export function MatchDetailRoute() {
                     player={player}
                     rotationGroup={matchRotationPlan.assignments[player.id]?.group ?? null}
                     rotationGroupSource={matchRotationPlan.assignments[player.id]?.source ?? null}
+                    selectionBlockReason={selectionBlockReason}
                     selectedPosition={player.matchPosition}
                     status={player.availabilityStatus}
                   />

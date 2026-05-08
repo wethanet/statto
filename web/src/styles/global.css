@@ -1410,6 +1410,116 @@ button {
   border-bottom: 0;
 }
 
+.team-player-table {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.team-player-table__header,
+.team-player-row__summary {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.25fr)
+    minmax(130px, 0.7fr)
+    minmax(150px, 0.8fr)
+    minmax(82px, 0.45fr)
+    minmax(276px, auto);
+  gap: 12px;
+  align-items: center;
+  min-width: 880px;
+}
+
+.team-player-table__header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.team-player-row {
+  min-width: 880px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.team-player-row:last-child {
+  border-bottom: 0;
+}
+
+.team-player-row__summary {
+  padding: 12px 16px;
+}
+
+.team-player-row__cell {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.team-player-row__cell strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.team-player-row__cell small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.team-player-row__identity h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.team-player-row__subline {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.team-player-row__cell--status {
+  justify-items: start;
+}
+
+.team-player-row__status {
+  font-size: 0.86rem;
+  line-height: 1;
+}
+
+.team-player-row__actions {
+  min-width: 0;
+}
+
+.team-player-row__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.team-player-row__button {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  line-height: 1.15;
+}
+
+.team-player-row__edit {
+  min-width: 880px;
+  padding: 16px;
+  border-top: 1px solid var(--surface-border);
+  background: rgba(0, 51, 255, 0.03);
+}
+
 .training-session-list {
   display: grid;
 }
@@ -2281,6 +2391,32 @@ button {
   font-weight: 700;
 }
 
+.selection-row__warnings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.selection-row__warning {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 193, 0, 0.36);
+  background: rgba(255, 193, 0, 0.1);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.selection-row__warning--blocked {
+  border-color: rgba(223, 2, 1, 0.34);
+  background: rgba(223, 2, 1, 0.12);
+  color: var(--negative);
+}
+
 .selection-row__actions {
   display: flex;
   align-items: center;
@@ -2321,6 +2457,56 @@ button {
 
 .selection-row--empty {
   justify-content: flex-start;
+}
+
+.report-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+}
+
+.report-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+}
+
+.report-table th,
+.report-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--surface-border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.report-table th:first-child,
+.report-table td:first-child {
+  text-align: left;
+}
+
+.report-table thead th,
+.report-table tfoot th,
+.report-table tfoot td {
+  background: var(--surface-strong);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.report-table tbody th {
+  font-weight: 800;
+}
+
+.report-table tbody th small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.report-table tbody tr:last-child th,
+.report-table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .availability-summary__header {
@@ -4004,6 +4190,68 @@ p {
   .training-session-row {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .team-player-table {
+    overflow: visible;
+  }
+
+  .team-player-table__header {
+    display: none;
+  }
+
+  .team-player-row,
+  .team-player-row__summary,
+  .team-player-row__edit {
+    min-width: 0;
+  }
+
+  .team-player-row__summary {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .team-player-row__cell {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .team-player-row__cell::before,
+  .team-player-row__actions::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .team-player-row__cell > *,
+  .team-player-row__actions > * {
+    grid-column: 2;
+  }
+
+  .team-player-row__identity {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .team-player-row__identity::before {
+    content: '';
+    display: none;
+  }
+
+  .team-player-row__actions {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .team-player-row__buttons {
+    justify-content: flex-start;
   }
 
   .training-session-row__actions {

@@ -50,7 +50,7 @@ Use this at the start of each work session to:
 ### ST-001 User/Admin Flow
 
 Priority: `P1`
-Status: `Defined`
+Status: `Partially implemented`
 
 Problem:
 Club setup and account access are foundational. Admins need confidence that users can sign in, recover accounts, accept invites, receive the correct role, and land in the right admin or player experience without manual cleanup.
@@ -114,7 +114,7 @@ Current next step:
 ### ST-002 Player Goal Setting
 
 Priority: `P1`
-Status: `Defined`
+Status: `Partially implemented`
 
 Problem:
 Coaches need player development goals to be specific, persistent, easy to revisit week to week, and selectively shareable with players. The existing player development flow needs hardening before it can be treated as release-ready.
@@ -278,13 +278,12 @@ Scope:
 - Aggregate games played by player, grade, and season.
 - Count only past fixtures where the player was selected in the lineup.
 - Display grade totals in team management.
-- Display eligibility warnings in match selection when policy thresholds are reached or exceeded.
+- Display eligibility warnings or blocks in match selection when policy thresholds are reached or exceeded.
 - Handle same-day fixtures and players selected across multiple grades.
 - Explain count source in the UI or supporting text.
 
 Out of scope for first release:
 - Historical imports from external league systems.
-- Hard-blocking selection based on eligibility rules.
 - Player-level stat history beyond game count.
 - Manual played flag separate from selected lineup.
 
@@ -294,12 +293,12 @@ Acceptance criteria:
 - Players count only when selected in the lineup for a past fixture.
 - Same-day duplicate selection rules are explicit and tested.
 - Team management shows player game totals by grade.
-- Match selection shows warnings for finals qualification and higher-division cap policy rules.
+- Match selection blocks lower-grade selection when a player has exceeded the higher-grade cap.
 - A manually checked fixture sample matches the app totals.
 
 Validation plan:
 - Unit tests for aggregation helper.
-- Unit tests for policy warning helper.
+- Unit tests for policy block helper.
 - Manual sample check against known fixtures.
 - UI review in team management and match selection on mobile and desktop.
 
@@ -311,10 +310,18 @@ Dependencies:
 Risks and decisions:
 - If historical lineup data is incomplete, counts may under-report.
 - Grade naming needs normalization before this becomes trusted.
-- Selection warnings should not block admins from selecting players.
+- Players who exceed the higher-grade cap are blocked from lower-grade selection; other policy feedback remains advisory unless explicitly promoted to a block.
 
 Current next step:
-- Implement a games-played aggregation helper from past fixtures and lineup assignments, then surface a read-only count in team management before adding selection warnings.
+- Review the games-played report, team-list counts, and lower-grade hard block against known fixture data; if the sample matches, mark this ready to close.
+
+Implementation notes:
+- Added a shared games-played aggregation helper that counts selected lineup assignments from past fixtures only.
+- Grade labels are normalised for grouping, with squad-based fallback labels from policy settings when a fixture has no grade label.
+- Duplicate lineup records for the same player and fixture count once; same-day selections in different fixtures count as separate games.
+- Team management now shows read-only games played by grade for each player.
+- Match selection now hard-blocks lower-grade selection once a player has exceeded the higher-grade cap.
+- Added an admin games-played report under Matches showing each player down the rows and each team/grade across the columns.
 
 ### ST-005 League and Club Policy Settings
 
@@ -337,7 +344,7 @@ Scope:
 - Vote eligibility and vote timing policy.
 - Grade labels and grade hierarchy used by eligibility rules.
 - Admin-only editing for policy values.
-- Warning-only policy enforcement in selection flows.
+- Warning or block policy enforcement in selection flows, depending on the specific rule.
 - Safe defaults for existing clubs.
 
 Suggested later operations:
@@ -349,7 +356,6 @@ Out of scope for first release:
 - Per-player custom policies.
 - Complex league integration.
 - Full audit/history for policy changes.
-- Hard-blocking player selection based on policy rules.
 - Coach or player editing of policies.
 
 Acceptance criteria:
@@ -358,14 +364,14 @@ Acceptance criteria:
 - Existing clubs get safe defaults with no migration breakage.
 - Policy changes persist to Supabase.
 - Player and coach screens respect the configured availability and visibility policies.
-- Match selection shows warnings, not hard blocks, for finals qualification and grade eligibility rules.
+- Match selection blocks lower-grade selection once the higher-grade cap is exceeded.
 
 Validation plan:
 - Schema/data migration verification on linked Supabase.
 - Manual policy update and refresh test.
 - Role-gating test: only admins can edit policies.
 - Regression test for availability lock and player visibility behavior.
-- Manual match-selection warning test for finals qualification and higher-division cap rules.
+- Manual match-selection block test for higher-division cap rules.
 
 Dependencies:
 - May require new Supabase table or additional club settings columns.
@@ -379,13 +385,13 @@ Risks and decisions:
 - Policy changes touch shared behavior and need careful regression checks.
 
 Current next step:
-- Implement `ST-004` games-played counts, then wire finals and higher-grade eligibility warnings into match selection using the saved policy thresholds.
+- Manually validate `ST-004` totals and the lower-grade selection block against known fixture data.
 
 Implementation notes:
 - Added `club_policy_settings` as the minimal policy data model with safe defaults for existing clubs.
 - Added admin settings controls for grade labels, finals minimum games, higher-grade cap, availability lock days, player vote delay, and lineup-required player voting.
 - Availability locking and player vote timing/eligibility now read from saved policy settings.
-- Match-selection warnings remain dependent on `ST-004` games-played by grade.
+- Lower-grade selection blocks now use `ST-004` games-played by grade and saved policy thresholds.
 
 ### ST-006 Player Fines Management
 
@@ -450,7 +456,7 @@ Current next step:
 ### ST-007 Match Stats Reporting
 
 Priority: `P1`
-Status: `Defined`
+Status: `In progress`
 
 Problem:
 Live stat capture is useful during matches, but coaches also need a post-match dashboard that tells the game story, highlights momentum, and exposes the key differences that shaped the result.
@@ -556,7 +562,7 @@ Acceptance criteria:
 - Larger issues are logged as new backlog items with IDs, priorities, and current next steps.
 
 Current next step:
-- Start the dev server and run a screen-by-screen browser QA pass after the next major feature slice lands.
+- Start with the recently changed admin team, match selection, settings, and games-played report screens, then continue through the remaining admin and player routes.
 
 ## New Intake
 

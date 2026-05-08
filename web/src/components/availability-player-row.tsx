@@ -9,6 +9,8 @@ type AvailabilityPlayerRowProps = {
   player: Player;
   status: AvailabilityStatus;
   hasSameDaySelectionConflict?: boolean;
+  eligibilityWarnings?: string[];
+  selectionBlockReason?: string | null;
   onChange: (status: AvailabilityStatus) => void;
   selectedPosition: MatchLinePosition | null;
   onSelectPosition: (position: MatchLinePosition) => void;
@@ -48,6 +50,8 @@ export function AvailabilityPlayerRow({
   player,
   status,
   hasSameDaySelectionConflict = false,
+  eligibilityWarnings = [],
+  selectionBlockReason = null,
   onChange,
   onSelectPosition,
   selectedPosition,
@@ -159,6 +163,20 @@ export function AvailabilityPlayerRow({
             </span>
           ) : null}
         </div>
+        {selectionBlockReason || eligibilityWarnings.length > 0 ? (
+          <div className="selection-row__warnings" aria-label="Eligibility warnings">
+            {selectionBlockReason ? (
+              <span className="selection-row__warning selection-row__warning--blocked">
+                {selectionBlockReason}
+              </span>
+            ) : null}
+            {eligibilityWarnings.map((warning) => (
+              <span className="selection-row__warning" key={warning}>
+                {warning}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {status === 'available' ? (
@@ -171,6 +189,7 @@ export function AvailabilityPlayerRow({
                 <button
                   key={position}
                   className={isSelected ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+                  disabled={Boolean(selectionBlockReason)}
                   onClick={() => onSelectPosition(position)}
                   type="button">
                   {position}
@@ -191,7 +210,10 @@ export function AvailabilityPlayerRow({
             onChange={(event) => onChange(event.target.value as AvailabilityStatus)}
             value={status}>
             {AVAILABILITY_OPTIONS.map((option) => (
-              <option key={option} value={option}>
+              <option
+                disabled={option === 'available' && status !== 'available' && Boolean(selectionBlockReason)}
+                key={option}
+                value={option}>
                 {getAvailabilityLabel(option)}
               </option>
             ))}

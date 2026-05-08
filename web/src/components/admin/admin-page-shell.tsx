@@ -57,7 +57,8 @@ const adminNavGroups: AdminNavGroup[] = [
     label: 'Matches',
     description: 'Fixtures, selection, votes',
     items: [
-      { label: 'Fixtures', to: '/admin/matches' },
+      { label: 'Fixtures', to: '/admin/matches', end: true },
+      { label: 'Games played', to: '/admin/matches/games-played' },
       { label: 'Votes', to: '/admin/votes' },
     ],
   },

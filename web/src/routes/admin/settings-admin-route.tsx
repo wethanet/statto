@@ -108,7 +108,7 @@ export function SettingsAdminRoute() {
             <p className="muted">
               {isPolicyLoading
                 ? 'Loading policy settings...'
-                : 'Selection rules are warning-only and can be reviewed before teams are finalised.'}
+                : 'Selection rules can warn or block depending on the policy being applied.'}
             </p>
           </div>
 
@@ -194,7 +194,7 @@ export function SettingsAdminRoute() {
         </label>
 
         <p className="muted">
-          A higher-grade cap of {policyDraft.higherDivisionMaxGames} means players should be warned before
+          A higher-grade cap of {policyDraft.higherDivisionMaxGames} means players are blocked from
           lower-grade selection once they exceed that number.
         </p>
         {policyError ? <p className="muted">{policyError}</p> : null}

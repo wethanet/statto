@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { buildRotationPlan } from '@/lib/rotation-groups';
+import { buildGamesPlayedByGrade, getPlayerGamesPlayedSummary } from '@/lib/games-played';
 import {
-  getPlayerRotationGroupLabel,
   getPlayerSquadLabel,
   normalizePlayerPositionProfile,
   normalizePlayerRunningProfile,
@@ -29,14 +28,18 @@ import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { TeamPlayerRow } from '@web/components/team/team-player-row';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { upsertCloudPlayer } from '@web/lib/storage/cloud-core-data-storage';
 
 export function TeamAdminRoute() {
   const { activeClubId } = useClubAccess();
+  const { policySettings } = useClubPolicy();
   const { canManagePlayer } = useClubPermissions();
   const {
+    fixtures,
     isHydrated,
+    matchLineupAssignments,
     players,
     setAttendanceRecords,
     setAvailabilityRecords,
@@ -52,7 +55,9 @@ export function TeamAdminRoute() {
   const manageablePlayers = players.filter((player) => canManagePlayer(player));
   const summary = getTeamSummary(manageablePlayers);
   const roster = getSortedTeam(manageablePlayers);
-  const rotationPlan = buildRotationPlan(players);
+  const gamesPlayedByPlayer = useMemo(() => {
+    return buildGamesPlayedByGrade(fixtures, matchLineupAssignments, policySettings);
+  }, [fixtures, matchLineupAssignments, policySettings]);
   const filteredRoster = roster.filter((player) => {
     if (squadFilter === 'all') {
       return true;
@@ -211,7 +216,9 @@ export function TeamAdminRoute() {
           <span className="metric metric--neutral">{summary.unassigned} unassigned</span>
         </div>
         <p className="muted">
-          {isHydrated ? 'Roster changes are saved in the browser app.' : 'Loading saved roster...'}
+          {isHydrated
+            ? 'Roster changes are saved in the browser app. Games played count past fixture lineups only.'
+            : 'Loading saved roster...'}
         </p>
         <div className="inline-actions">
           <label className="field field--inline">
@@ -232,34 +239,41 @@ export function TeamAdminRoute() {
         </div>
       </section>
 
-      {filteredRoster.map((player) => {
-        const rotationAssignment = rotationPlan.assignments[player.id];
-        const rotationSummary =
-          rotationAssignment && rotationAssignment.groups.length > 0
-            ? rotationAssignment.groups.map((group) => getPlayerRotationGroupLabel(group)).join(', ')
-            : 'No group assigned';
+      <section className="card team-player-table">
+        <div className="team-player-table__header" aria-hidden="true">
+          <span>Player</span>
+          <span>Role</span>
+          <span>Games</span>
+          <span>Status</span>
+          <span>Actions</span>
+        </div>
 
-        return (
-          <TeamPlayerRow
-            key={player.id}
-            onCycleRole={() => {
-              setPlayers((current) => cyclePlayerRole(current, player.id));
-            }}
-            onDelete={() => {
-              handleDeletePlayer(player.id, player.name);
-            }}
-            onSaveDetails={(input) => {
-              return handleSavePlayerDetails(player.id, player.name, input);
-            }}
-            onToggleActive={() => {
-              setPlayers((current) => togglePlayerActive(current, player.id));
-            }}
-            player={player}
-            rotationSource={rotationAssignment?.source ?? 'generated'}
-            rotationSummary={rotationSummary}
-          />
-        );
-      })}
+        {filteredRoster.length > 0 ? (
+          filteredRoster.map((player) => {
+            return (
+              <TeamPlayerRow
+                key={player.id}
+                onCycleRole={() => {
+                  setPlayers((current) => cyclePlayerRole(current, player.id));
+                }}
+                onDelete={() => {
+                  handleDeletePlayer(player.id, player.name);
+                }}
+                onSaveDetails={(input) => {
+                  return handleSavePlayerDetails(player.id, player.name, input);
+                }}
+                onToggleActive={() => {
+                  setPlayers((current) => togglePlayerActive(current, player.id));
+                }}
+                player={player}
+                gamesPlayed={getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id)}
+              />
+            );
+          })
+        ) : (
+          <p className="muted">No players match this filter.</p>
+        )}
+      </section>
     </AdminPageShell>
   );
 }

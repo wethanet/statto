@@ -6,6 +6,7 @@ import { AdminHomeRoute } from '@web/routes/admin/admin-home-route';
 import { ClubAdminRoute } from '@web/routes/admin/club-admin-route';
 import { FinesAdminRoute } from '@web/routes/admin/fines-admin-route';
 import { FitnessAdminRoute } from '@web/routes/admin/fitness-admin-route';
+import { GamesPlayedReportRoute } from '@web/routes/admin/games-played-report-route';
 import { PlayerDevelopmentAdminRoute } from '@web/routes/admin/player-development-admin-route';
 import { AuthScreen } from '@web/routes/auth-screen';
 import { ClubAccessScreen } from '@web/routes/club-access-screen';
@@ -259,6 +260,14 @@ export function AppRouter() {
             element={
               <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
                 <MatchesAdminRoute />
+              </AccessGate>
+            }
+          />
+          <Route
+            path="/admin/matches/games-played"
+            element={
+              <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
+                <GamesPlayedReportRoute />
               </AccessGate>
             }
           />
