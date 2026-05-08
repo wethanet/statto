@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import {
@@ -34,6 +34,8 @@ const availabilityOptions = [
     className: 'pill-button pill-button--compact pill-button--neutral',
   },
 ] as const;
+
+type EventListFilter = 'upcoming' | 'all';
 
 function getPlayerAvailabilityLabel(status: 'available' | 'unavailable' | 'uncertain') {
   if (status === 'available') {
@@ -95,25 +97,36 @@ export function MatchesListRoute() {
   const { canAccessAdmin, canViewPlayer, canViewSquadItem, isPlayer } = useClubPermissions();
   const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
+  const [eventListFilter, setEventListFilter] = useState<EventListFilter>('upcoming');
   const visiblePlayers = useMemo(() => {
     return players.filter((player) => canViewPlayer(player));
   }, [canViewPlayer, players]);
-  const upcomingFixtures = useMemo(() => {
-    return getSortedFixtures(fixtures.filter((fixture) => canViewSquadItem(fixture.squad)));
-  }, [canViewSquadItem, fixtures]);
+  const visibleFixtures = useMemo(() => {
+    const squadFixtures = fixtures.filter((fixture) => canViewSquadItem(fixture.squad));
+
+    if (eventListFilter === 'upcoming') {
+      return getSortedFixtures(
+        squadFixtures.filter((fixture) => {
+          return !isPastItem(fixture.date);
+        })
+      );
+    }
+
+    return getSortedFixtures(squadFixtures);
+  }, [canViewSquadItem, eventListFilter, fixtures]);
   const targetFixtureId = useMemo(() => {
-    if (upcomingFixtures.length === 0) {
+    if (visibleFixtures.length === 0) {
       return null;
     }
 
-    const lastPastFixture = [...upcomingFixtures]
+    const lastPastFixture = [...visibleFixtures]
       .reverse()
       .find((fixture) => {
         return isPastItem(fixture.date);
       });
 
-    return lastPastFixture?.id ?? upcomingFixtures[0]?.id ?? null;
-  }, [upcomingFixtures]);
+    return lastPastFixture?.id ?? visibleFixtures[0]?.id ?? null;
+  }, [visibleFixtures]);
   const targetFixtureRef = useRef<HTMLElement | null>(null);
   const hasScrolledRef = useRef(false);
 
@@ -141,12 +154,29 @@ export function MatchesListRoute() {
         </p>
       </section>
 
-      {upcomingFixtures.length === 0 ? (
+      <section className="inline-actions">
+        <button
+          className={eventListFilter === 'upcoming' ? 'pill-button pill-button--selected' : 'pill-button'}
+          onClick={() => setEventListFilter('upcoming')}
+          type="button">
+          Upcoming
+        </button>
+        <button
+          className={eventListFilter === 'all' ? 'pill-button pill-button--selected' : 'pill-button'}
+          onClick={() => setEventListFilter('all')}
+          type="button">
+          All
+        </button>
+      </section>
+
+      {visibleFixtures.length === 0 ? (
         <section className="card stack">
-          <h3>No fixtures yet</h3>
+          <h3>{eventListFilter === 'upcoming' ? 'No upcoming fixtures' : 'No fixtures yet'}</h3>
           <p className="muted">
             {canAccessAdmin
-              ? 'Add your first match from the admin area to start tracking availability.'
+              ? eventListFilter === 'upcoming'
+                ? 'Switch to all fixtures to review past rounds, or add the next match from the admin area.'
+                : 'Add your first match from the admin area to start tracking availability.'
               : 'Fixtures will appear here once your coach adds them.'}
           </p>
           {canAccessAdmin ? (
@@ -167,7 +197,7 @@ export function MatchesListRoute() {
             <span>Action</span>
           </div>
           <div className="schedule-board__body">
-            {upcomingFixtures.map((fixture) => {
+            {visibleFixtures.map((fixture) => {
               const summary = getAvailabilitySummary(fixture.id, visiblePlayers, availabilityRecords);
               const label = fixture.isHome ? 'Home' : 'Away';
               const isPastFixture = isPastItem(fixture.date);
@@ -231,7 +261,7 @@ export function MatchesListRoute() {
       ) : null}
 
       {isPlayer
-        ? upcomingFixtures.map((fixture) => {
+        ? visibleFixtures.map((fixture) => {
             const playerAvailability =
               selectedPlayer && isPlayer
                 ? getAvailabilityStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)

@@ -1,44 +1,43 @@
-import { hasTrainingDrillMedia } from '@/lib/attendance';
-import type { TrainingSessionDrill, TrainingSessionDrillMedia } from '@/lib/types';
+import { isTrainingWarmUpBlock } from '@/lib/attendance';
+import type { TrainingSessionDrill } from '@/lib/types';
 
 type TrainingDrillEditorProps = {
   drill: TrainingSessionDrill;
   index: number;
-  onAddMedia: (type: TrainingSessionDrillMedia['type']) => void;
   onChange: (drill: TrainingSessionDrill) => void;
   onRemove: () => void;
-  onRemoveMedia: (mediaId: string) => void;
-  onUpdateMedia: (
-    mediaId: string,
-    patch: Partial<Pick<TrainingSessionDrillMedia, 'caption' | 'type' | 'url'>>
-  ) => void;
 };
+
+function isExtendedGameDrill(name: string) {
+  const normalizedName = name.toLowerCase();
+
+  return normalizedName.includes('small sided game') || normalizedName.includes('match sim');
+}
 
 export function TrainingDrillEditor({
   drill,
   index,
-  onAddMedia,
   onChange,
   onRemove,
-  onRemoveMedia,
-  onUpdateMedia,
 }: TrainingDrillEditorProps) {
-  const hasMedia = hasTrainingDrillMedia(drill);
-  const mediaCount = drill.media.filter((media) => media.url.trim().length > 0).length;
+  const isWarmUpBlock = isTrainingWarmUpBlock(drill);
+  const maxLength = isExtendedGameDrill(drill.name) || isWarmUpBlock ? undefined : 12;
 
   return (
     <article className="training-drill-editor stack">
       <div className="split-row">
         <div className="stack-sm">
           <span className="eyebrow">Drill {index + 1}</span>
-          <h4>{drill.title || 'Untitled drill'}</h4>
-          <span className={hasMedia ? 'status-pill status-pill--positive' : 'status-pill status-pill--negative'}>
-            {hasMedia ? `${mediaCount} visual ${mediaCount === 1 ? 'reference' : 'references'}` : 'Visual required'}
+          <h4>{drill.name || 'Untitled drill'}</h4>
+          <span className="status-pill status-pill--positive">
+            {isWarmUpBlock ? '20 min warm-up block' : drill.link ? 'Library link attached' : 'Link needed'}
           </span>
         </div>
-        <button className="button button--ghost-danger" onClick={onRemove} type="button">
-          Remove drill
-        </button>
+        {isWarmUpBlock ? null : (
+          <button className="button button--ghost-danger" onClick={onRemove} type="button">
+            Remove drill
+          </button>
+        )}
       </div>
 
       <div className="two-column">
@@ -49,167 +48,82 @@ export function TrainingDrillEditor({
             onChange={(event) => {
               onChange({
                 ...drill,
-                title: event.target.value,
+                name: event.target.value,
+                lengthMinutes:
+                  isExtendedGameDrill(event.target.value) || isWarmUpBlock
+                    ? drill.lengthMinutes
+                    : Math.min(12, drill.lengthMinutes),
               });
             }}
             placeholder="Ground ball pressure"
-            value={drill.title}
+            value={drill.name}
           />
         </label>
 
         <label className="field">
-          <span>Duration (minutes)</span>
+          <span>Length (minutes)</span>
           <input
             className="input"
-            min="0"
+            max={maxLength}
+            min="1"
             onChange={(event) => {
-              const nextValue = event.target.value.trim();
+              const parsedValue = Number(event.target.value);
+              const nextLength = Number.isFinite(parsedValue) ? Math.max(1, Math.round(parsedValue)) : 1;
+
               onChange({
                 ...drill,
-                durationMinutes: nextValue ? Number(nextValue) : null,
+                lengthMinutes: maxLength ? Math.min(maxLength, nextLength) : nextLength,
               });
             }}
             placeholder="12"
             type="number"
-            value={drill.durationMinutes ?? ''}
+            value={drill.lengthMinutes}
           />
         </label>
       </div>
 
       <label className="field">
-        <span>What the drill is</span>
-        <textarea
-          className="input textarea"
+        <span>Drill link</span>
+        <input
+          className="input"
+          disabled={isWarmUpBlock}
           onChange={(event) => {
             onChange({
               ...drill,
-              description: event.target.value,
+              link: event.target.value,
             });
           }}
-          placeholder="Set-up, flow, and what the group needs to do."
-          value={drill.description ?? ''}
+          placeholder="https://example.com/drill"
+          value={drill.link ?? ''}
         />
       </label>
 
       <label className="field">
-        <span>Coaching points</span>
+        <span>Skills improved</span>
         <textarea
           className="input textarea"
+          disabled={isWarmUpBlock}
           onChange={(event) => {
             onChange({
               ...drill,
-              coachingPoints: event.target.value,
+              skills: event.target.value
+                .split('\n')
+                .map((item) => item.trim())
+                .filter(Boolean),
             });
           }}
-          placeholder="Key behaviours, cues, and what success looks like."
-          value={drill.coachingPoints ?? ''}
+          placeholder={'Clean hands\nKicking accuracy\nDecision making'}
+          value={drill.skills.join('\n')}
         />
       </label>
 
-      <div className="stack-sm">
-        <div className="split-row">
-          <div className="stack-sm">
-            <span className="field-label">Drill media</span>
-            <p className="muted">
-              Add at least one image or video reference so the leadership group can help set up and run the drill.
-            </p>
-          </div>
-
-          <div className="inline-actions">
-            <button
-              className="button button--secondary"
-              onClick={() => {
-                onAddMedia('image');
-              }}
-              type="button">
-              Add image
-            </button>
-            <button
-              className="button button--secondary"
-              onClick={() => {
-                onAddMedia('video');
-              }}
-              type="button">
-              Add video
-            </button>
-          </div>
-        </div>
-
-        {drill.media.length > 0 ? (
-          <div className="training-media-editor-list">
-            {drill.media.map((media) => {
-              return (
-                <div key={media.id} className="training-media-editor-card stack-sm">
-                  <div className="two-column">
-                    <label className="field">
-                      <span>Type</span>
-                      <select
-                        className="input"
-                        onChange={(event) => {
-                          onUpdateMedia(media.id, {
-                            type: event.target.value as TrainingSessionDrillMedia['type'],
-                          });
-                        }}
-                        value={media.type}>
-                        <option value="image">Image</option>
-                        <option value="video">Video</option>
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span>Caption</span>
-                      <input
-                        className="input"
-                        onChange={(event) => {
-                          onUpdateMedia(media.id, {
-                            caption: event.target.value,
-                          });
-                        }}
-                        placeholder="What should players notice?"
-                        value={media.caption ?? ''}
-                      />
-                    </label>
-                  </div>
-
-                  <label className="field">
-                    <span>{media.type === 'image' ? 'Image URL' : 'Video URL'}</span>
-                    <input
-                      className="input"
-                      onChange={(event) => {
-                        onUpdateMedia(media.id, {
-                          url: event.target.value,
-                        });
-                      }}
-                      placeholder={
-                        media.type === 'image'
-                          ? 'https://example.com/drill.png'
-                          : 'https://example.com/drill.mp4'
-                      }
-                      value={media.url}
-                    />
-                  </label>
-
-                  <div className="inline-actions">
-                    <button
-                      className="button button--ghost-danger"
-                      onClick={() => {
-                        onRemoveMedia(media.id);
-                      }}
-                      type="button">
-                      Remove media
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="training-media-empty stack-sm">
-            <strong>Visual reference required</strong>
-            <p className="muted">Add a diagram, photo, or video before saving this drill to a session.</p>
-          </div>
-        )}
-      </div>
+      {isWarmUpBlock ? (
+        <p className="muted">This block is automatically included at the start of every training session.</p>
+      ) : maxLength ? (
+        <p className="muted">Standard drills are capped at 12 minutes. Use “small sided game” or “match sim” in the drill name for longer blocks.</p>
+      ) : (
+        <p className="muted">Small sided games and match sim blocks can run longer than 12 minutes.</p>
+      )}
     </article>
   );
 }

@@ -300,7 +300,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
           date: session.date as string,
           location: session.location as string,
           squad: normalizePlayerSquad((session.squad as string | null | undefined) ?? null),
+          goal: (session.goal as string | null | undefined) ?? null,
           focus: (session.focus as string | null | undefined) ?? null,
+          sessionPlan: session.session_plan ?? null,
           runPlan: Array.isArray(session.run_plan) ? session.run_plan : [],
         };
       })
@@ -530,11 +532,60 @@ export async function upsertCloudTrainingSession(clubId: string, session: Traini
       date: session.date,
       location: session.location,
       squad: session.squad,
+      goal: session.goal,
       focus: session.focus,
+      session_plan: session.sessionPlan,
       run_plan: session.runPlan,
     },
     { onConflict: 'club_id,id' }
   );
+
+  if (isMissingColumnError(error, 'club_training_sessions.session_plan')) {
+    const fallbackResult = await client.from('club_training_sessions').upsert(
+      {
+        club_id: clubId,
+        id: session.id,
+        title: session.title,
+        date: session.date,
+        location: session.location,
+        squad: session.squad,
+        goal: session.goal,
+        focus: session.focus,
+        run_plan: session.runPlan,
+      },
+      { onConflict: 'club_id,id' }
+    );
+
+    if (!fallbackResult.error) {
+      console.warn(
+        'Saved training session without an uploaded session plan because the remote Supabase schema is behind. Run the latest supabase/schema.sql to enable session plan uploads.'
+      );
+      return;
+    }
+  }
+
+  if (isMissingColumnError(error, 'club_training_sessions.goal')) {
+    const fallbackResult = await client.from('club_training_sessions').upsert(
+      {
+        club_id: clubId,
+        id: session.id,
+        title: session.title,
+        date: session.date,
+        location: session.location,
+        squad: session.squad,
+        focus: session.focus,
+        run_plan: session.runPlan,
+      },
+      { onConflict: 'club_id,id' }
+    );
+
+    if (!fallbackResult.error) {
+      console.warn(
+        'Saved training session without a short goal because the remote Supabase schema is behind. Run the latest supabase/schema.sql to enable training goals.'
+      );
+      return;
+    }
+  }
 
   if (isMissingColumnError(error, 'club_training_sessions.focus')) {
     const legacyResult = await client.from('club_training_sessions').upsert(

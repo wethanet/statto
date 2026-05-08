@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import {
   getAttendanceStatusForPlayer,
   getAttendanceSummary,
   getSortedTrainingSessions,
-  getTrainingRunPlanDuration,
-  getTrainingSessionMediaCoverage,
   upsertAttendanceRecord,
 } from '@/lib/attendance';
-import { resolveTrainingSessionStructure } from '@/lib/training-session-suggestions';
 
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
@@ -32,6 +29,8 @@ const attendanceOptions = [
     className: 'pill-button pill-button--compact pill-button--neutral',
   },
 ] as const;
+
+type EventListFilter = 'upcoming' | 'all';
 
 function getPlayerAttendanceLabel(status: 'present' | 'absent' | 'unknown') {
   if (status === 'present') {
@@ -80,17 +79,27 @@ function isPastItem(value: string) {
   return new Date(value).getTime() < Date.now();
 }
 
+function formatFileSize(size: number) {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
 export function TrainingListRoute() {
   const { attendanceRecords, players, trainingSessions, setAttendanceRecords } = useClubData();
-  const { canAccessAdmin, canViewPlayer, canViewSquadItem, isPlayer } = useClubPermissions();
+  const { canAccessAdmin, canAccessTrainingSessionPlans, canViewPlayer, canViewSquadItem, isPlayer } =
+    useClubPermissions();
   const { selectedPlayer } = usePlayerProfile();
+  const [eventListFilter, setEventListFilter] = useState<EventListFilter>('upcoming');
   const visiblePlayers = useMemo(() => {
     return players.filter((player) => canViewPlayer(player));
   }, [canViewPlayer, players]);
   const sessions = useMemo(() => {
     const visibleSessions = trainingSessions.filter((session) => canViewSquadItem(session.squad));
 
-    if (isPlayer) {
+    if (eventListFilter === 'upcoming') {
       return getSortedTrainingSessions(
         visibleSessions.filter((session) => {
           return !isPastItem(session.date);
@@ -99,7 +108,7 @@ export function TrainingListRoute() {
     }
 
     return getSortedTrainingSessions(visibleSessions);
-  }, [canViewSquadItem, isPlayer, trainingSessions]);
+  }, [canViewSquadItem, eventListFilter, trainingSessions]);
   const targetSessionId = useMemo(() => {
     if (sessions.length === 0) {
       return null;
@@ -140,12 +149,29 @@ export function TrainingListRoute() {
         </p>
       </section>
 
+      <section className="inline-actions">
+        <button
+          className={eventListFilter === 'upcoming' ? 'pill-button pill-button--selected' : 'pill-button'}
+          onClick={() => setEventListFilter('upcoming')}
+          type="button">
+          Upcoming
+        </button>
+        <button
+          className={eventListFilter === 'all' ? 'pill-button pill-button--selected' : 'pill-button'}
+          onClick={() => setEventListFilter('all')}
+          type="button">
+          All
+        </button>
+      </section>
+
       {sessions.length === 0 ? (
         <section className="card stack">
-          <h3>No sessions yet</h3>
+          <h3>{eventListFilter === 'upcoming' ? 'No upcoming sessions' : 'No sessions yet'}</h3>
           <p className="muted">
             {canAccessAdmin
-              ? 'Add your first training session from the admin area to start tracking attendance.'
+              ? eventListFilter === 'upcoming'
+                ? 'Switch to all sessions to review past training, or add the next session from the admin area.'
+                : 'Add your first training session from the admin area to start tracking attendance.'
               : 'Training sessions will appear here once your coach adds them.'}
           </p>
           {canAccessAdmin ? (
@@ -168,14 +194,6 @@ export function TrainingListRoute() {
             {sessions.map((session) => {
               const summary = getAttendanceSummary(session.id, visiblePlayers, attendanceRecords);
               const isPastSession = isPastItem(session.date);
-              const resolvedStructure = resolveTrainingSessionStructure(session, sessions);
-              const displaySession = {
-                ...session,
-                focus: resolvedStructure.focus,
-                runPlan: resolvedStructure.runPlan,
-              };
-              const plannedMinutes = getTrainingRunPlanDuration(displaySession);
-              const mediaCoverage = getTrainingSessionMediaCoverage(displaySession);
 
               return (
                 <section
@@ -189,19 +207,17 @@ export function TrainingListRoute() {
                   <div className="schedule-board__cell schedule-board__primary">
                     <h3 className="schedule-board__title">{session.title}</h3>
                     <p className="schedule-board__meta">{formatDate(session.date)}</p>
-                    {displaySession.focus ? (
-                      <p className="schedule-board__meta">{displaySession.focus}</p>
+                    {session.goal ? (
+                      <p className="schedule-board__meta">{session.goal}</p>
                     ) : null}
                   </div>
 
                   <div className="schedule-board__cell">
                     <p className="schedule-board__venue">{session.location}</p>
                     <p className="schedule-board__meta">
-                      {displaySession.runPlan.length} {displaySession.runPlan.length === 1 ? 'drill' : 'drills'}
-                      {plannedMinutes > 0 ? ` • ${plannedMinutes} min` : ''}
-                      {displaySession.runPlan.length > 0
-                        ? ` • ${mediaCoverage.drillsWithMedia}/${mediaCoverage.totalDrills} with visuals`
-                        : ''}
+                      {session.sessionPlan
+                        ? `Plan attached • ${formatFileSize(session.sessionPlan.size)}`
+                        : 'No plan uploaded'}
                     </p>
                   </div>
 
@@ -236,14 +252,6 @@ export function TrainingListRoute() {
                 ? getAttendanceStatusForPlayer(session.id, selectedPlayer.id, attendanceRecords)
                 : null;
             const isPastSession = isPastItem(session.date);
-            const resolvedStructure = resolveTrainingSessionStructure(session, sessions);
-            const displaySession = {
-              ...session,
-              focus: resolvedStructure.focus,
-              runPlan: resolvedStructure.runPlan,
-            };
-            const plannedMinutes = getTrainingRunPlanDuration(displaySession);
-            const mediaCoverage = getTrainingSessionMediaCoverage(displaySession);
 
             if (!playerAttendance) {
               return null;
@@ -261,12 +269,10 @@ export function TrainingListRoute() {
                     <h3>{session.title}</h3>
                     <p className="muted">{formatDate(session.date)}</p>
                     <p className="muted">{session.location}</p>
-                    {displaySession.focus ? <p className="muted">{displaySession.focus}</p> : null}
-                    {displaySession.runPlan.length > 0 ? (
+                    {session.goal ? <p className="muted">{session.goal}</p> : null}
+                    {canAccessTrainingSessionPlans && session.sessionPlan ? (
                       <p className="muted">
-                        {displaySession.runPlan.length} {displaySession.runPlan.length === 1 ? 'drill' : 'drills'}
-                        {plannedMinutes > 0 ? ` • ${plannedMinutes} min` : ''}
-                        {` • ${mediaCoverage.drillsWithMedia}/${mediaCoverage.totalDrills} with visuals`}
+                        Session plan attached • {formatFileSize(session.sessionPlan.size)}
                       </p>
                     ) : null}
                   </div>
@@ -279,9 +285,14 @@ export function TrainingListRoute() {
                   </div>
                 </div>
 
-                {!isPastSession && selectedPlayer ? (
+                {(canAccessTrainingSessionPlans && session.sessionPlan) || (!isPastSession && selectedPlayer) ? (
                   <div className="player-session-card__actions">
-                    {attendanceOptions.map((option) => {
+                    {canAccessTrainingSessionPlans && session.sessionPlan ? (
+                      <Link className="pill-button pill-button--compact" to={`/training/${session.id}`}>
+                        Open plan
+                      </Link>
+                    ) : null}
+                    {!isPastSession && selectedPlayer ? attendanceOptions.map((option) => {
                       const isSelected = option.value === playerAttendance;
 
                       return (
@@ -297,7 +308,7 @@ export function TrainingListRoute() {
                           {option.label}
                         </button>
                       );
-                    })}
+                    }) : null}
                   </div>
                 ) : null}
               </section>

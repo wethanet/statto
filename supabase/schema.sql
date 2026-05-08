@@ -21,6 +21,13 @@ create table if not exists public.club_policy_settings (
   player_vote_requires_lineup boolean not null default true,
   higher_grade_label text not null default 'Cup',
   lower_grade_label text not null default 'Plate',
+  training_default_title text not null default 'Main training',
+  training_default_time text not null default '18:00',
+  training_default_days jsonb not null default '[2, 4]'::jsonb,
+  training_default_locations jsonb not null default '["Field 1", "Field 2"]'::jsonb,
+  training_location_rotation_span integer not null default 2 check (training_location_rotation_span > 0),
+  training_generation_weeks integer not null default 8 check (training_generation_weeks > 0),
+  training_drill_library_links jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default timezone('utc', now())
 );
 
@@ -67,7 +74,9 @@ create table if not exists public.club_training_sessions (
   title text not null,
   date text not null,
   location text not null,
+  goal text,
   focus text,
+  session_plan jsonb,
   run_plan jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default timezone('utc', now()),
   primary key (club_id, id)
@@ -189,10 +198,16 @@ create table if not exists public.club_fines (
 );
 
 alter table if exists public.club_training_sessions
+  add column if not exists goal text;
+
+alter table if exists public.club_training_sessions
   add column if not exists focus text;
 
 alter table if exists public.club_training_sessions
   add column if not exists run_plan jsonb not null default '[]'::jsonb;
+
+alter table if exists public.club_training_sessions
+  add column if not exists session_plan jsonb;
 
 alter table public.club_players
 add column if not exists squad text;
@@ -1559,6 +1574,27 @@ alter table public.club_policy_settings
 add column if not exists lower_grade_label text not null default 'Plate';
 
 alter table public.club_policy_settings
+add column if not exists training_default_title text not null default 'Main training';
+
+alter table public.club_policy_settings
+add column if not exists training_default_time text not null default '18:00';
+
+alter table public.club_policy_settings
+add column if not exists training_default_days jsonb not null default '[2, 4]'::jsonb;
+
+alter table public.club_policy_settings
+add column if not exists training_default_locations jsonb not null default '["Field 1", "Field 2"]'::jsonb;
+
+alter table public.club_policy_settings
+add column if not exists training_location_rotation_span integer not null default 2;
+
+alter table public.club_policy_settings
+add column if not exists training_generation_weeks integer not null default 8;
+
+alter table public.club_policy_settings
+add column if not exists training_drill_library_links jsonb not null default '[]'::jsonb;
+
+alter table public.club_policy_settings
 add column if not exists updated_at timestamptz not null default timezone('utc', now());
 
 insert into public.club_policy_settings (club_id)
@@ -1618,8 +1654,76 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_training_location_rotation_span_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_training_location_rotation_span_check
+    check (training_location_rotation_span > 0);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_training_generation_weeks_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_training_generation_weeks_check
+    check (training_generation_weeks > 0);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_training_default_days_array_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_training_default_days_array_check
+    check (jsonb_typeof(training_default_days) = 'array');
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_training_default_locations_array_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_training_default_locations_array_check
+    check (jsonb_typeof(training_default_locations) = 'array');
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_policy_settings_training_drill_library_links_array_check'
+  ) then
+    alter table public.club_policy_settings
+    add constraint club_policy_settings_training_drill_library_links_array_check
+    check (jsonb_typeof(training_drill_library_links) = 'array');
+  end if;
+end $$;
+
 alter table public.club_training_sessions
 add column if not exists squad text;
+
+alter table public.club_training_sessions
+add column if not exists goal text;
 
 alter table public.club_fixtures
 add column if not exists squad text;

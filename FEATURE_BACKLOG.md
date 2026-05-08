@@ -191,8 +191,9 @@ Primary users:
 - Player
 
 Scope:
-- Create/edit sessions with title, date, time, squad, location, focus, and run plan.
-- Drill management with duration, description, coaching points, and optional media.
+- Create/edit sessions with title, date, time, squad, location, goal, focus, and run plan.
+- Drill management with name, length, reference link, and the skills the drill is designed to improve.
+- A dedicated training library screen where admins can discover drill sources from URLs, review duplicate drills, and add selected drills into the library.
 - Attendance marking by admin/coach.
 - Simple player-facing attendance response for future sessions the player can see.
 - Policy-driven recurring defaults for regular training days, times, and field rotation.
@@ -213,6 +214,7 @@ Acceptance criteria:
 - Players can submit a simple attendance response for future visible sessions.
 - Location updates are visible on home, player, training list, and training detail screens.
 - Repeated-session field rotation rules can be managed through policy defaults without direct SQL.
+- Admins can paste a public drill-library URL, review AI-discovered drills, see duplicates before adding, and add selected non-duplicate drills to the library.
 - Past sessions are reviewable and do not encourage accidental edits.
 
 Validation plan:
@@ -226,21 +228,36 @@ Dependencies:
 - `club_training_sessions`.
 - `club_attendance_records`.
 - Policy settings from `ST-005` for repeated schedule and field defaults.
+- Supabase Edge Function and `OPENAI_API_KEY` for drill discovery from URLs.
 
 Risks and decisions:
 - Recurring defaults should live in policy settings, with training setup consuming those defaults.
-- Media URLs need basic validation if they are user-entered.
+- Drill discovery should be treated as coach-reviewed import, not automatic source-of-truth data.
+- Drill links need basic validation if they are user-entered or imported.
+- Standard drills should stay short, with longer blocks reserved for small-sided games and match simulation.
 - Attendance response rules should be consistent with visibility and lock policies.
 
 Current next step:
-- Review the updated training UI in-browser, then continue with policy-driven recurring defaults and session generation.
+- Run manual browser checks for generated sessions, player attendance responses, past-session review, and cross-device refresh.
 
 Implementation notes:
-- Tidied the training setup, list, and detail screens around session focus, run-plan duration, and drill visual coverage.
-- Added save validation so every planned drill needs at least one image or video URL.
-- Added leadership-ready visual coverage indicators for training sessions and drills.
+- Tidied the training setup, list, and detail screens around session focus, run-plan duration, and drill link coverage.
+- Added save validation so every planned drill needs a reference link.
+- Added leadership-ready link coverage indicators for training sessions and drills.
 - Removed auto-suggested drills and cleared existing session run plans so drills can be replanned comprehensively.
 - Split the admin training list from the add/edit session form so the list screen stays focused.
+- Added policy-backed recurring training defaults for title, time, training days, location rotation, and generation window.
+- Added admin session generation from policy defaults, with existing training dates preserved instead of duplicated.
+- Added player-facing attendance responses for future visible training sessions.
+- Made past training sessions review-oriented, with historical attendance rendered read-only and admin list actions avoiding accidental edits/deletes.
+- Added focus-driven session plan generation that appends draft drills to the training session run plan for coach review.
+- Added a short training session goal field and switched training lists to show the goal instead of the longer session focus.
+- Added an automatic 20-minute warm-up block to the start of every training session run plan.
+- Simplified the drill data model to name, length, link, and skill tags, with standard drills capped at 12 minutes unless they are small-sided games or match simulation.
+- Added drill-library sources so generated session plans can use configured drills that match the session outcomes.
+- Moved drill-library management into its own admin training subsection.
+- Added URL-based drill discovery through a Supabase Edge Function using OpenAI structured outputs, with duplicate detection and selected-drill import.
+- Added skill tags to discovered library drills and generated session drills so coaches can see what each drill is designed to improve.
 
 ### ST-004 Games Played by Grade
 

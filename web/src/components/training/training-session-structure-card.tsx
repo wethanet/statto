@@ -1,63 +1,22 @@
 import {
   getTrainingRunPlanDuration,
-  getTrainingSessionMediaCoverage,
-  hasTrainingDrillMedia,
+  getTrainingSessionLinkCoverage,
+  hasTrainingDrillLink,
+  isTrainingWarmUpBlock,
 } from '@/lib/attendance';
-import type { TrainingSession, TrainingSessionDrillMedia } from '@/lib/types';
+import type { TrainingSession } from '@/lib/types';
 
 type TrainingSessionStructureCardProps = {
   isSuggested?: boolean;
   session: TrainingSession;
 };
 
-function isDirectVideoSource(url: string) {
-  return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
-}
-
-function renderMedia(drillTitle: string, media: TrainingSessionDrillMedia) {
-  if (!media.url) {
-    return null;
-  }
-
-  if (media.type === 'image') {
-    return (
-      <figure key={media.id} className="training-media-card">
-        <span className="eyebrow">Image reference</span>
-        <img alt={media.caption ?? `${drillTitle} diagram`} className="training-media-card__image" src={media.url} />
-        {media.caption ? <figcaption className="muted">{media.caption}</figcaption> : null}
-      </figure>
-    );
-  }
-
-  if (isDirectVideoSource(media.url)) {
-    return (
-      <figure key={media.id} className="training-media-card">
-        <span className="eyebrow">Video reference</span>
-        <video className="training-media-card__video" controls preload="metadata">
-          <source src={media.url} />
-        </video>
-        {media.caption ? <figcaption className="muted">{media.caption}</figcaption> : null}
-      </figure>
-    );
-  }
-
-  return (
-    <div key={media.id} className="training-media-card training-media-card--link stack-sm">
-      <span className="eyebrow">Video reference</span>
-      <a className="text-link" href={media.url} rel="noreferrer" target="_blank">
-        Open video reference
-      </a>
-      {media.caption ? <p className="muted">{media.caption}</p> : null}
-    </div>
-  );
-}
-
 export function TrainingSessionStructureCard({
   isSuggested: _isSuggested = false,
   session,
 }: TrainingSessionStructureCardProps) {
   const totalMinutes = getTrainingRunPlanDuration(session);
-  const mediaCoverage = getTrainingSessionMediaCoverage(session);
+  const linkCoverage = getTrainingSessionLinkCoverage(session);
 
   return (
     <section className="card stack">
@@ -65,17 +24,17 @@ export function TrainingSessionStructureCard({
         <div className="stack-sm">
           <h3>Session structure</h3>
           <p className="muted">
-            Share the intent, visual references, and exact drill flow so coaches and the leadership group can run the session consistently.
+            Share the intent, drill links, and exact flow so coaches and the leadership group can run the session consistently.
           </p>
         </div>
 
         <div className="training-structure__summary">
           <strong>{session.runPlan.length}</strong>
-          <span>{session.runPlan.length === 1 ? 'planned drill' : 'planned drills'}</span>
+          <span>{session.runPlan.length === 1 ? 'planned block' : 'planned blocks'}</span>
           {totalMinutes > 0 ? <span>{totalMinutes} min planned</span> : null}
-          {session.runPlan.length > 0 ? (
+          {linkCoverage.totalDrills > 0 ? (
             <span>
-              {mediaCoverage.drillsWithMedia}/{mediaCoverage.totalDrills} with visuals
+              {linkCoverage.drillsWithLinks}/{linkCoverage.totalDrills} with links
             </span>
           ) : null}
         </div>
@@ -89,42 +48,33 @@ export function TrainingSessionStructureCard({
       {session.runPlan.length > 0 ? (
         <div className="training-run-plan-list">
           {session.runPlan.map((drill, index) => {
-            const drillHasMedia = hasTrainingDrillMedia(drill);
+            const drillHasLink = hasTrainingDrillLink(drill);
+            const isWarmUpBlock = isTrainingWarmUpBlock(drill);
 
             return (
               <article key={drill.id} className="training-run-plan-card stack">
                 <div className="split-row">
                   <div className="stack-sm">
-                    <span className="eyebrow">Drill {index + 1}</span>
-                    <h4>{drill.title || 'Untitled drill'}</h4>
+                    <span className="eyebrow">Block {index + 1}</span>
+                    <h4>{drill.name || 'Untitled drill'}</h4>
+                    {drill.skills.length > 0 ? (
+                      <p className="muted">Skills: {drill.skills.join(', ')}</p>
+                    ) : null}
                   </div>
 
-                  {drill.durationMinutes ? (
-                    <span className="training-run-plan-card__duration">{drill.durationMinutes} min</span>
-                  ) : null}
+                  <span className="training-run-plan-card__duration">{drill.lengthMinutes} min</span>
                 </div>
 
-                {drill.description ? <p>{drill.description}</p> : null}
-
-                {drill.coachingPoints ? (
-                  <div className="stack-sm">
-                    <span className="field-label">Coaching points</span>
-                    <p className="muted">{drill.coachingPoints}</p>
-                  </div>
-                ) : null}
-
-                {drillHasMedia ? (
-                  <div className="training-media-grid">
-                    {drill.media.map((media) => {
-                      return renderMedia(drill.title, media);
-                    })}
-                  </div>
+                {drill.link ? (
+                  <a className="text-link" href={drill.link} rel="noreferrer" target="_blank">
+                    Open drill link
+                  </a>
+                ) : isWarmUpBlock ? (
+                  <p className="muted">Standard warm-up block included at the start of every session.</p>
                 ) : (
                   <div className="training-media-missing stack-sm">
-                    <strong>No visual reference attached</strong>
-                    <p className="muted">
-                      Add an image or video so the leadership group can help demonstrate and manage this drill.
-                    </p>
+                    <strong>No drill link attached</strong>
+                    <p className="muted">Add a drill library link so the leadership group can review the setup.</p>
                   </div>
                 )}
               </article>

@@ -33,6 +33,13 @@ export type ClubPolicySettings = {
   playerVoteRequiresLineup: boolean;
   higherGradeLabel: string;
   lowerGradeLabel: string;
+  trainingDefaultTitle: string;
+  trainingDefaultTime: string;
+  trainingDefaultDays: number[];
+  trainingDefaultLocations: string[];
+  trainingLocationRotationSpan: number;
+  trainingGenerationWeeks: number;
+  trainingDrillLibraryLinks: TrainingDrillLibraryLink[];
 };
 
 export type Player = {
@@ -61,24 +68,43 @@ export type TrainingSession = {
   date: string;
   location: string;
   squad: PlayerSquad | null;
+  goal: string | null;
   focus: string | null;
+  sessionPlan: TrainingSessionPlanAttachment | null;
   runPlan: TrainingSessionDrill[];
+};
+
+export type TrainingSessionPlanAttachment = {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
+  uploadedAt: string;
 };
 
 export type TrainingSessionDrill = {
   id: string;
-  title: string;
-  durationMinutes: number | null;
-  description: string | null;
-  coachingPoints: string | null;
-  media: TrainingSessionDrillMedia[];
+  name: string;
+  lengthMinutes: number;
+  link: string | null;
+  skills: string[];
 };
 
-export type TrainingSessionDrillMedia = {
+export type TrainingDrillLibraryDrill = {
   id: string;
-  type: 'image' | 'video';
+  name: string;
+  lengthMinutes: number;
+  link: string;
+  skills: string[];
+  outcomes: string[];
+};
+
+export type TrainingDrillLibraryLink = {
+  id: string;
+  title: string;
   url: string;
-  caption: string | null;
+  drills: TrainingDrillLibraryDrill[];
+  outcomes: string[];
 };
 
 export type AttendanceStatus = 'present' | 'absent' | 'unknown';

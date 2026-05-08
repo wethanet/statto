@@ -4,17 +4,16 @@ import { Link, useParams } from 'react-router-dom';
 import {
   getAttendanceSummary,
   getPlayersForSession,
-  getTrainingSessionMediaCoverage,
-  getTrainingRunPlanDuration,
   getTrainingSessionById,
   upsertAttendanceRecord,
 } from '@/lib/attendance';
 import { getPlayerSortValue } from '@/lib/team';
-import { resolveTrainingSessionStructure } from '@/lib/training-session-suggestions';
+import type { TrainingSessionPlanAttachment } from '@/lib/types';
 
 import { AttendancePlayerRow } from '@web/components/attendance-player-row';
-import { TrainingSessionStructureCard } from '@web/components/training/training-session-structure-card';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPermissions } from '@web/lib/club-permissions';
+import { openTrainingSessionPlan } from '@web/lib/training-session-plan';
 
 type PlayerSort = 'name' | 'number';
 
@@ -28,11 +27,24 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatFileSize(size: number) {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function isSessionPlanImage(plan: TrainingSessionPlanAttachment | null) {
+  return plan?.type.startsWith('image/') === true;
+}
+
 export function TrainingDetailRoute() {
   const { sessionId = '' } = useParams();
-  const { attendanceRecords, isHydrated, players, setAttendanceRecords, trainingSessions } =
-    useClubData();
+  const { attendanceRecords, isHydrated, players, setAttendanceRecords, trainingSessions } = useClubData();
+  const { canAccessAdmin, canViewSquadItem } = useClubPermissions();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
+  const [planMessage, setPlanMessage] = useState<string | null>(null);
   const session = getTrainingSessionById(sessionId, trainingSessions);
 
   const playersForSession = useMemo(() => {
@@ -74,18 +86,26 @@ export function TrainingDetailRoute() {
     );
   }
 
+  if (!canViewSquadItem(session.squad)) {
+    return (
+      <section className="page-grid">
+        <section className="panel stack">
+          <span className="eyebrow">Training</span>
+          <h2>Training session not available</h2>
+          <p className="muted">This session is outside your squad access.</p>
+          <Link className="text-link" to="/training">
+            Back to training
+          </Link>
+        </section>
+      </section>
+    );
+  }
+
   const summary = getAttendanceSummary(session.id, players, attendanceRecords);
-  const resolvedStructure = resolveTrainingSessionStructure(session, trainingSessions);
-  const displaySession = {
-    ...session,
-    focus: resolvedStructure.focus,
-    runPlan: resolvedStructure.runPlan,
-  };
   const totalPlayers = players.length;
   const respondedCount = summary.present + summary.absent;
   const responseRate = totalPlayers > 0 ? Math.round((respondedCount / totalPlayers) * 100) : 0;
-  const plannedMinutes = getTrainingRunPlanDuration(displaySession);
-  const mediaCoverage = getTrainingSessionMediaCoverage(displaySession);
+  const isPastSession = new Date(session.date).getTime() < Date.now();
   const responseLabel =
     respondedCount > 0
       ? `${respondedCount} of ${totalPlayers} players have checked in`
@@ -98,116 +118,155 @@ export function TrainingDetailRoute() {
         <h2>{session.title}</h2>
         <p className="muted">{formatDate(session.date)}</p>
         <p className="muted">{session.location}</p>
-        <p className="muted">
-          {displaySession.runPlan.length}{' '}
-          {displaySession.runPlan.length === 1 ? 'drill planned' : 'drills planned'}
-          {plannedMinutes > 0 ? ` • ${plannedMinutes} min run plan` : ''}
-          {displaySession.runPlan.length > 0
-            ? ` • ${mediaCoverage.drillsWithMedia}/${mediaCoverage.totalDrills} with visuals`
-            : ''}
-        </p>
-        {mediaCoverage.missingMedia > 0 ? (
+        {session.goal ? <p className="muted">Goal: {session.goal}</p> : null}
+        {session.sessionPlan ? (
           <p className="muted">
-            {mediaCoverage.missingMedia} {mediaCoverage.missingMedia === 1 ? 'drill still needs' : 'drills still need'} a visual reference for the leadership group.
+            Session plan attached: {session.sessionPlan.name} • {formatFileSize(session.sessionPlan.size)}
           </p>
-        ) : null}
+        ) : (
+          <p className="muted">No session plan has been uploaded yet.</p>
+        )}
       </section>
 
-      <TrainingSessionStructureCard isSuggested={resolvedStructure.isSuggested} session={displaySession} />
-
-      <section className="card stack">
-        <div className="split-row availability-summary__header">
-          <div className="stack-sm">
-            <h3>Session summary</h3>
-            <p className="muted">
-              {isHydrated
-                ? 'Attendance saves immediately for everyone in the club workspace.'
-                : 'Loading saved attendance...'}
-            </p>
-          </div>
-          <div className="availability-summary__response">
-            <span className="availability-summary__response-value">{responseRate}%</span>
-            <span className="availability-summary__response-label">Attendance rate</span>
-          </div>
-        </div>
-
-        <div className="availability-summary__tiles">
-          <article className="availability-tile availability-tile--positive">
-            <span className="availability-tile__label">Present</span>
-            <strong className="availability-tile__value">{summary.present}</strong>
-            <span className="availability-tile__caption">Ready for training</span>
-          </article>
-          <article className="availability-tile availability-tile--negative">
-            <span className="availability-tile__label">Absent</span>
-            <strong className="availability-tile__value">{summary.absent}</strong>
-            <span className="availability-tile__caption">Unavailable tonight</span>
-          </article>
-          <article className="availability-tile availability-tile--neutral">
-            <span className="availability-tile__label">Unknown</span>
-            <strong className="availability-tile__value">{summary.unknown}</strong>
-            <span className="availability-tile__caption">Still to confirm</span>
-          </article>
-        </div>
-
-        <div className="availability-summary__progress">
-          <div className="split-row">
-            <span>{responseLabel}</span>
-            <span className="muted">{totalPlayers} total players</span>
-          </div>
-          <div className="availability-summary__progress-track" aria-hidden="true">
-            <div className="availability-summary__progress-fill" style={{ width: `${responseRate}%` }} />
-          </div>
-        </div>
-
-        <div className="availability-summary__controls">
-          <div className="stack-sm">
-            <span className="eyebrow">Roster order</span>
-            <div className="inline-actions">
-              <button
-                className={sortBy === 'number' ? 'pill-button pill-button--selected' : 'pill-button'}
-                onClick={() => setSortBy('number')}
-                type="button">
-                Number
-              </button>
-              <button
-                className={sortBy === 'name' ? 'pill-button pill-button--selected' : 'pill-button'}
-                onClick={() => setSortBy('name')}
-                type="button">
-                Name
-              </button>
+      {session.sessionPlan ? (
+        <section className="card stack">
+          <div className="split-row session-plan-compact">
+            <div className="stack-sm">
+              <h3>Session plan</h3>
+              <p className="muted">Use this plan to run the session with the coaching and leadership group.</p>
             </div>
-          </div>
-
-          <div className="training-summary__status stack-sm">
-            <span className="eyebrow">Session status</span>
-            <p className="muted">
-              Mark players as present or absent to keep a clean roll-up before training starts.
-            </p>
-            <p className="training-summary__status-value">
-              {summary.unknown > 0
-                ? `${summary.unknown} players still need a response`
-                : 'All players have responded'}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="card selection-table">
-        {sortedPlayers.map((player) => {
-          return (
-            <AttendancePlayerRow
-              key={player.id}
-              onChange={(status) => {
-                setAttendanceRecords((current) => {
-                  return upsertAttendanceRecord(current, session.id, player.id, status);
-                });
+            <button
+              className="button button--secondary"
+              onClick={() => {
+                if (!openTrainingSessionPlan(session.sessionPlan!)) {
+                  setPlanMessage('Could not open the session plan. Ask an admin to re-upload it.');
+                }
               }}
-              player={player}
-              status={player.attendanceStatus}
-            />
-          );
-        })}
-      </section>
+              type="button">
+              Open plan
+            </button>
+          </div>
+          {planMessage ? <p className="muted">{planMessage}</p> : null}
+          {isSessionPlanImage(session.sessionPlan) ? (
+            <img alt="" className="session-plan-preview__image session-plan-preview__image--full" src={session.sessionPlan.dataUrl} />
+          ) : (
+            <div className="session-plan-compact__file">
+              <span className="session-plan-compact__badge">PDF</span>
+              <div className="stack-sm">
+                <strong>{session.sessionPlan.name}</strong>
+                <p className="muted">{formatFileSize(session.sessionPlan.size)}</p>
+              </div>
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {canAccessAdmin ? (
+        <>
+          <section className="card stack">
+            <div className="split-row availability-summary__header">
+              <div className="stack-sm">
+                <h3>Session summary</h3>
+                <p className="muted">
+                  {isPastSession
+                    ? 'Past-session attendance is shown for review only.'
+                    : isHydrated
+                      ? 'Attendance saves immediately for everyone in the club workspace.'
+                      : 'Loading saved attendance...'}
+                </p>
+              </div>
+              <div className="availability-summary__response">
+                <span className="availability-summary__response-value">{responseRate}%</span>
+                <span className="availability-summary__response-label">Attendance rate</span>
+              </div>
+            </div>
+
+            <div className="availability-summary__tiles">
+              <article className="availability-tile availability-tile--positive">
+                <span className="availability-tile__label">Present</span>
+                <strong className="availability-tile__value">{summary.present}</strong>
+                <span className="availability-tile__caption">Ready for training</span>
+              </article>
+              <article className="availability-tile availability-tile--negative">
+                <span className="availability-tile__label">Absent</span>
+                <strong className="availability-tile__value">{summary.absent}</strong>
+                <span className="availability-tile__caption">Unavailable tonight</span>
+              </article>
+              <article className="availability-tile availability-tile--neutral">
+                <span className="availability-tile__label">Unknown</span>
+                <strong className="availability-tile__value">{summary.unknown}</strong>
+                <span className="availability-tile__caption">Still to confirm</span>
+              </article>
+            </div>
+
+            <div className="availability-summary__progress">
+              <div className="split-row">
+                <span>{responseLabel}</span>
+                <span className="muted">{totalPlayers} total players</span>
+              </div>
+              <div className="availability-summary__progress-track" aria-hidden="true">
+                <div className="availability-summary__progress-fill" style={{ width: `${responseRate}%` }} />
+              </div>
+            </div>
+
+            <div className="availability-summary__controls">
+              <div className="stack-sm">
+                <span className="eyebrow">Roster order</span>
+                <div className="inline-actions">
+                  <button
+                    className={sortBy === 'number' ? 'pill-button pill-button--selected' : 'pill-button'}
+                    onClick={() => setSortBy('number')}
+                    type="button">
+                    Number
+                  </button>
+                  <button
+                    className={sortBy === 'name' ? 'pill-button pill-button--selected' : 'pill-button'}
+                    onClick={() => setSortBy('name')}
+                    type="button">
+                    Name
+                  </button>
+                </div>
+              </div>
+
+              <div className="training-summary__status stack-sm">
+                <span className="eyebrow">Session status</span>
+                <p className="muted">
+                  Mark players as present or absent to keep a clean roll-up before training starts.
+                </p>
+                <p className="training-summary__status-value">
+                  {summary.unknown > 0
+                    ? `${summary.unknown} players still need a response`
+                    : isPastSession
+                      ? 'Historical attendance reviewed'
+                      : 'All players have responded'}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="card selection-table">
+            {sortedPlayers.map((player) => {
+              return (
+                <AttendancePlayerRow
+                  isReadOnly={isPastSession}
+                  key={player.id}
+                  onChange={(status) => {
+                    if (isPastSession) {
+                      return;
+                    }
+
+                    setAttendanceRecords((current) => {
+                      return upsertAttendanceRecord(current, session.id, player.id, status);
+                    });
+                  }}
+                  player={player}
+                  status={player.attendanceStatus}
+                />
+              );
+            })}
+          </section>
+        </>
+      ) : null}
     </section>
   );
 }

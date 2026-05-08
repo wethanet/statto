@@ -32,6 +32,8 @@ type FixtureFormResult =
       };
     };
 
+type EventListFilter = 'upcoming' | 'all';
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
     weekday: 'short',
@@ -57,9 +59,19 @@ export function MatchesAdminRoute() {
   const [calendarUrl, setCalendarUrl] = useState('');
   const [calendarMessage, setCalendarMessage] = useState<string | null>(null);
   const [isImportingCalendar, setIsImportingCalendar] = useState(false);
+  const [eventListFilter, setEventListFilter] = useState<EventListFilter>('upcoming');
   const sortedFixtures = useMemo(() => {
     return getSortedFixtures(fixtures);
   }, [fixtures]);
+  const filteredFixtures = useMemo(() => {
+    if (eventListFilter === 'all') {
+      return sortedFixtures;
+    }
+
+    return sortedFixtures.filter((fixture) => {
+      return new Date(fixture.date).getTime() >= Date.now();
+    });
+  }, [eventListFilter, sortedFixtures]);
 
   function resetFixtureForm() {
     setOpponent('');
@@ -385,9 +397,28 @@ export function MatchesAdminRoute() {
       </section>
 
       <section className="card stack">
-        <h3>Upcoming fixtures</h3>
-        {sortedFixtures.length > 0 ? (
-          sortedFixtures.map((fixture) => {
+        <div className="split-row">
+          <div className="stack-sm">
+            <h3>Fixtures</h3>
+            <p className="muted">Upcoming fixtures are shown by default so past rounds stay out of the way.</p>
+          </div>
+          <div className="inline-actions">
+            <button
+              className={eventListFilter === 'upcoming' ? 'pill-button pill-button--selected' : 'pill-button'}
+              onClick={() => setEventListFilter('upcoming')}
+              type="button">
+              Upcoming
+            </button>
+            <button
+              className={eventListFilter === 'all' ? 'pill-button pill-button--selected' : 'pill-button'}
+              onClick={() => setEventListFilter('all')}
+              type="button">
+              All
+            </button>
+          </div>
+        </div>
+        {filteredFixtures.length > 0 ? (
+          filteredFixtures.map((fixture) => {
             return (
               <div key={fixture.id} className="row-card">
                 <div className="stack-sm">
@@ -419,7 +450,7 @@ export function MatchesAdminRoute() {
             );
           })
         ) : (
-          <p className="muted">No fixtures yet.</p>
+          <p className="muted">{eventListFilter === 'upcoming' ? 'No upcoming fixtures.' : 'No fixtures yet.'}</p>
         )}
       </section>
     </AdminPageShell>

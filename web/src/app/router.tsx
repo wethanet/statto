@@ -25,7 +25,12 @@ import { MatchesListRoute } from '@web/routes/matches/matches-list-route';
 import { MatchStatsRoute } from '@web/routes/matches/match-stats-route';
 import { TeamSelectionGraphicRoute } from '@web/routes/matches/team-selection-graphic-route';
 import { MatchVotesRoute } from '@web/routes/matches/match-votes-route';
-import { TrainingAdminRoute, TrainingSessionFormRoute } from '@web/routes/admin/training-admin-route';
+import {
+  TrainingAdminRoute,
+  TrainingLibraryRoute,
+  TrainingSessionFormRoute,
+  TrainingSettingsRoute,
+} from '@web/routes/admin/training-admin-route';
 import { TrainingDetailRoute } from '@web/routes/training/training-detail-route';
 import { TrainingListRoute } from '@web/routes/training/training-list-route';
 import { ShellLayout } from '@web/app/shell-layout';
@@ -66,8 +71,14 @@ function AccessGate({ allow, children, redirectTo }: AccessGateProps) {
 export function AppRouter() {
   const { isConfigured, isLoading, session } = useAuth();
   const { activeClub, isLoading: isClubAccessLoading } = useClubAccess();
-  const { canAccessAdmin, canAccessPlayerApp, canManageClubMemberships, canManageRosterSetup, isPlayer } =
-    useClubPermissions();
+  const {
+    canAccessAdmin,
+    canAccessPlayerApp,
+    canAccessTrainingSessionPlans,
+    canManageClubMemberships,
+    canManageRosterSetup,
+    isPlayer,
+  } = useClubPermissions();
   const requiresAuth = isConfigured;
   const hasSession = !requiresAuth || Boolean(session);
   const hasClubAccess = !requiresAuth || Boolean(activeClub);
@@ -93,7 +104,7 @@ export function AppRouter() {
           <Route
             path="/training/:sessionId"
             element={
-              <AccessGate allow={canAccessAdmin} redirectTo="/training">
+              <AccessGate allow={canAccessTrainingSessionPlans} redirectTo="/training">
                 <TrainingDetailRoute />
               </AccessGate>
             }
@@ -208,6 +219,22 @@ export function AppRouter() {
             element={
               <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
                 <TrainingAdminRoute />
+              </AccessGate>
+            }
+          />
+          <Route
+            path="/admin/training/settings"
+            element={
+              <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
+                <TrainingSettingsRoute />
+              </AccessGate>
+            }
+          />
+          <Route
+            path="/admin/training/library"
+            element={
+              <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
+                <TrainingLibraryRoute />
               </AccessGate>
             }
           />

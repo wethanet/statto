@@ -47,8 +47,10 @@ const adminNavGroups: AdminNavGroup[] = [
     label: 'Training',
     description: 'Sessions, plans, attendance',
     items: [
-      { label: 'Sessions', to: '/admin/training', end: true, matchPaths: ['/admin/training/'] },
+      { label: 'Sessions', to: '/admin/training', end: true },
       { label: 'Add session', to: '/admin/training/new' },
+      { label: 'Library', to: '/admin/training/library' },
+      { label: 'Settings', to: '/admin/training/settings' },
     ],
   },
   {

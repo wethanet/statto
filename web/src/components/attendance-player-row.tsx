@@ -4,6 +4,7 @@ type AttendancePlayerRowProps = {
   player: Player;
   status: AttendanceStatus;
   onChange: (status: AttendanceStatus) => void;
+  isReadOnly?: boolean;
 };
 
 const ATTENDANCE_OPTIONS: AttendanceStatus[] = ['present', 'absent', 'unknown'];
@@ -20,7 +21,7 @@ function getAttendanceTone(status: AttendanceStatus) {
   return 'neutral';
 }
 
-export function AttendancePlayerRow({ player, status, onChange }: AttendancePlayerRowProps) {
+export function AttendancePlayerRow({ isReadOnly = false, player, status, onChange }: AttendancePlayerRowProps) {
   const metaParts = [player.number != null ? `#${player.number}` : null].filter(Boolean);
 
   return (
@@ -48,6 +49,7 @@ export function AttendancePlayerRow({ player, status, onChange }: AttendancePlay
                     ? `pill-button pill-button--selected pill-button--${tone}`
                     : 'pill-button'
                 }
+                disabled={isReadOnly}
                 onClick={() => onChange(option)}
                 type="button">
                 {option}

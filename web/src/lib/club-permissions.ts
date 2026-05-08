@@ -29,6 +29,11 @@ export function useClubPermissions() {
     isPlayer && ownedPlayer?.squad
       ? [ownedPlayer.squad]
       : allowedSquads;
+  const isPlayerLeader =
+    isPlayer &&
+    (ownedPlayer?.role === 'captain' ||
+      ownedPlayer?.role === 'vice-captain' ||
+      ownedPlayer?.role === 'leader');
 
   function canManagePlayer(player: Player) {
     if (isAdmin) {
@@ -81,8 +86,10 @@ export function useClubPermissions() {
     isAdmin,
     isCoach,
     isPlayer,
+    isPlayerLeader,
     canAccessAdmin: isAdmin || isCoach,
     canAccessPlayerApp: isPlayer || isCoach || isAdmin,
+    canAccessTrainingSessionPlans: isAdmin || isCoach || isPlayerLeader,
     canManageClubMemberships: isAdmin,
     canManageRosterSetup: isAdmin,
     canManagePlayer,

@@ -7,7 +7,9 @@ export const trainingSessions: TrainingSession[] = [
     date: '2026-04-07T18:00:00+10:00',
     location: 'Central Oval',
     squad: 'cup',
+    goal: 'Cleaner exits from stoppage',
     focus: 'Sharp ball use under pressure, with quick support and cleaner exits from stoppage.',
+    sessionPlan: null,
     runPlan: [],
   },
   {
@@ -16,7 +18,9 @@ export const trainingSessions: TrainingSession[] = [
     date: '2026-04-09T18:30:00+10:00',
     location: 'Central Oval',
     squad: 'plate',
+    goal: 'Refresh structure and roles',
     focus: 'Keep legs fresh while walking through structure, roles, and first-possession setups.',
+    sessionPlan: null,
     runPlan: [],
   },
   {
@@ -25,7 +29,9 @@ export const trainingSessions: TrainingSession[] = [
     date: '2026-04-14T18:00:00+10:00',
     location: 'Clubrooms',
     squad: null,
+    goal: 'Recover and reset standards',
     focus: 'Recover well, reset after the weekend, and connect the next training block to team standards.',
+    sessionPlan: null,
     runPlan: [],
   },
 ];
