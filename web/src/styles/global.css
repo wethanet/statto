@@ -333,6 +333,36 @@ button {
   gap: 6px;
 }
 
+.app-shell--loading {
+  min-height: 100vh;
+}
+
+.shell-drawer--skeleton,
+.drawer-toggle--skeleton {
+  pointer-events: none;
+}
+
+.drawer-link--skeleton {
+  color: var(--text-muted);
+}
+
+.drawer-link--skeleton:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.drawer-link--skeleton .drawer-link__bullet {
+  background: rgba(9, 30, 74, 0.12);
+}
+
+.shell-view-switcher--skeleton {
+  min-height: 142px;
+}
+
+.mobile-topbar--skeleton {
+  min-height: 82px;
+}
+
 .drawer-toggle,
 .drawer-backdrop,
 .mobile-topbar {

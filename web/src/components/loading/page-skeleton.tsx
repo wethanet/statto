@@ -350,6 +350,78 @@ type PageSkeletonProps = {
   pathname: string;
 };
 
+type AppShellSkeletonProps = {
+  pathname?: string;
+};
+
+export function AppShellSkeleton({ pathname = '/' }: AppShellSkeletonProps) {
+  return (
+    <div aria-busy="true" aria-label="Loading workspace" className="app-shell app-shell--loading">
+      <button className="drawer-toggle drawer-toggle--skeleton" disabled type="button">
+        Menu
+      </button>
+
+      <aside className="shell-drawer shell-drawer--skeleton">
+        <div className="shell-drawer__panel">
+          <div className="shell-drawer__brand">
+            <SkeletonBlock className="skeleton-block--logo" height="54px" width="54px" />
+            <div className="stack-sm">
+              <SkeletonBlock className="skeleton-block--eyebrow" width="148px" />
+              <SkeletonBlock className="skeleton-block--title" width="180px" />
+            </div>
+          </div>
+
+          <div className="shell-drawer__meta">
+            <SkeletonBlock className="skeleton-block--chip" width="100%" />
+          </div>
+
+          <div className="shell-drawer__body">
+            <div className="shell-drawer__section">
+              <SkeletonBlock className="skeleton-block--eyebrow" width="104px" />
+              <nav aria-label="Loading primary navigation" className="drawer-nav">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <span key={index} className="drawer-link drawer-link--skeleton">
+                    <span className="drawer-link__bullet" />
+                    <SkeletonBlock className="skeleton-block--text" width={index === 0 ? '72px' : '96px'} />
+                  </span>
+                ))}
+              </nav>
+            </div>
+          </div>
+
+          <div className="shell-drawer__footer">
+            <div className="shell-drawer__section">
+              <SkeletonBlock className="skeleton-block--eyebrow" width="112px" />
+            </div>
+            <div className="shell-drawer__actions">
+              <section className="shell-view-switcher shell-view-switcher--skeleton">
+                <SkeletonBlock className="skeleton-block--eyebrow" width="96px" />
+                <SkeletonBlock className="skeleton-block--button" width="100%" />
+                <SkeletonBlock className="skeleton-block--chip" width="100%" />
+              </section>
+              <SkeletonBlock className="skeleton-block--button" width="100%" />
+              <SkeletonBlock className="skeleton-block--button" width="100%" />
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="shell-main">
+        <header className="mobile-topbar mobile-topbar--skeleton">
+          <div className="stack-sm">
+            <SkeletonBlock className="skeleton-block--eyebrow" width="150px" />
+            <SkeletonBlock className="skeleton-block--title" width="220px" />
+          </div>
+        </header>
+
+        <main className="page-shell">
+          <PageSkeleton pathname={pathname} />
+        </main>
+      </div>
+    </div>
+  );
+}
+
 export function PageSkeleton({ pathname }: PageSkeletonProps) {
   if (pathname.startsWith('/admin')) {
     return <AdminSkeleton />;

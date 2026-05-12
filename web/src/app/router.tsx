@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
-import { PageSkeleton } from '@web/components/loading/page-skeleton';
+import { AppShellSkeleton } from '@web/components/loading/page-skeleton';
 import { AuthScreen } from '@web/routes/auth-screen';
 import { ClubAccessScreen } from '@web/routes/club-access-screen';
 import { PasswordResetScreen } from '@web/routes/password-reset-screen';
@@ -148,19 +148,7 @@ const ClubAdminRoute = lazy(() =>
 );
 
 function LoadingGate() {
-  return (
-    <main className="gate-shell">
-      <section className="stack">
-        <section className="panel panel--centered stack skeleton-card">
-          <span className="eyebrow">Statto Web</span>
-          <h1>Loading your club data...</h1>
-          <p className="muted">Preparing your club workspace and syncing the latest data.</p>
-        </section>
-
-        <PageSkeleton pathname="/" />
-      </section>
-    </main>
-  );
+  return <AppShellSkeleton />;
 }
 
 type AccessGateProps = {
