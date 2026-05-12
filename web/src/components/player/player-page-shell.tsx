@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 
 import { getPlayerDisplayName, getPlayerSortValue } from '@/lib/team';
 
+import { PlayerReminderPanel } from '@web/components/player/player-reminder-panel';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
@@ -139,6 +140,8 @@ export function PlayerPageShell({
           <p className="muted">No active players are available in this club yet.</p>
         )}
       </section>
+
+      {selectedPlayer ? <PlayerReminderPanel playerId={selectedPlayer.id} /> : null}
 
       {selectedPlayer ? (
         children

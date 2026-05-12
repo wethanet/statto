@@ -1240,6 +1240,20 @@ button {
   color: var(--text);
 }
 
+.auth-link-button {
+  appearance: none;
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  padding: 0;
+  font-weight: 700;
+}
+
+.auth-link-button:hover {
+  color: var(--primary-strong);
+}
+
 .button {
   appearance: none;
   border: 1px solid transparent;
@@ -1687,6 +1701,87 @@ button {
   display: grid;
   gap: 8px;
   max-width: 720px;
+}
+
+.player-reminder-panel {
+  border-color: rgba(0, 51, 255, 0.22);
+  background:
+    linear-gradient(135deg, rgba(0, 51, 255, 0.07), rgba(63, 212, 63, 0.08)),
+    var(--surface);
+}
+
+.player-reminder-panel__count {
+  width: auto;
+  min-width: 112px;
+}
+
+.player-reminder-panel__summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.player-reminder-panel__summary-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--surface-strong);
+}
+
+.player-reminder-panel__summary-item > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.player-reminder-panel__summary-item:hover {
+  border-color: rgba(0, 51, 255, 0.32);
+}
+
+.player-reminder-panel__summary-value {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 12px;
+  background: rgba(0, 51, 255, 0.12);
+  color: var(--primary);
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.player-reminder-panel__list {
+  display: grid;
+  gap: 8px;
+}
+
+.player-reminder-panel__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--interactive-surface);
+}
+
+.player-reminder-panel__item > span {
+  display: grid;
+  gap: 2px;
+}
+
+.player-reminder-panel__item:hover {
+  border-color: rgba(0, 51, 255, 0.32);
+  background: var(--surface-strong);
+}
+
+.player-reminder-panel__meta {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: right;
 }
 
 .admin-page__actions {
@@ -4371,6 +4466,18 @@ p {
   .player-session-card__response,
   .schedule-card__status {
     justify-items: start;
+    text-align: left;
+  }
+
+  .player-reminder-panel__item {
+    grid-template-columns: 1fr;
+  }
+
+  .player-reminder-panel__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .player-reminder-panel__meta {
     text-align: left;
   }
 

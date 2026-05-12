@@ -11,6 +11,7 @@ import { PlayerDevelopmentAdminRoute } from '@web/routes/admin/player-developmen
 import { AuthScreen } from '@web/routes/auth-screen';
 import { ClubAccessScreen } from '@web/routes/club-access-screen';
 import { HomeScreen } from '@web/routes/home-screen';
+import { PasswordResetScreen } from '@web/routes/password-reset-screen';
 import { MatchesAdminRoute } from '@web/routes/admin/matches-admin-route';
 import { RotationGroupsAdminRoute } from '@web/routes/admin/rotation-groups-admin-route';
 import { SettingsAdminRoute } from '@web/routes/admin/settings-admin-route';
@@ -70,7 +71,7 @@ function AccessGate({ allow, children, redirectTo }: AccessGateProps) {
 }
 
 export function AppRouter() {
-  const { isConfigured, isLoading, session } = useAuth();
+  const { isConfigured, isLoading, isPasswordRecovery, session } = useAuth();
   const { activeClub, isLoading: isClubAccessLoading } = useClubAccess();
   const {
     canAccessAdmin,
@@ -90,6 +91,10 @@ export function AppRouter() {
 
   if (!hasSession) {
     return <AuthScreen />;
+  }
+
+  if (isPasswordRecovery) {
+    return <PasswordResetScreen />;
   }
 
   if (!hasClubAccess) {

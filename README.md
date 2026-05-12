@@ -66,8 +66,19 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 4. Run [supabase/schema.sql](/Users/andrewmccallum/Development/statto/supabase/schema.sql) in the Supabase SQL editor.
 5. Enable email/password sign-in in Supabase Auth.
-6. If you want Google login, enable the Google provider in Supabase Auth, add your app URL and local dev URL to the Google OAuth client, and add the same redirect URLs to Supabase Auth URL configuration.
-7. Restart the Vite dev server after changing environment variables.
+6. Configure Auth URL settings:
+   - Site URL: your deployed app URL.
+   - Redirect URLs: your deployed app URL plus `/auth/reset-password`, and any local dev URL you use plus `/auth/reset-password`.
+7. Configure custom SMTP for production Auth emails. Supabase's default email service is only suitable for development and restricted test addresses.
+   - Use a dedicated auth sending identity, for example `no-reply@auth.example.com`.
+   - Set DKIM, SPF, and DMARC with the email provider.
+   - Keep SMTP credentials out of `web/.env.local`; that file is for browser-safe `VITE_*` values only.
+   - For local Supabase config, copy [.env.example](/Users/andrewmccallum/Development/statto/.env.example), fill the `SMTP_*` values, and restart Supabase.
+8. Configure Resend for reminder emails sent from Supabase Edge Functions:
+   - Set `RESEND_API_KEY` as a Supabase function secret.
+   - Set `RESEND_FROM_EMAIL` to a verified sender identity, for example `Warners Bay Bulldogs <no-reply@example.com>`.
+9. If you want Google login, enable the Google provider in Supabase Auth, add your app URL and local dev URL to the Google OAuth client, and add the same redirect URLs to Supabase Auth URL configuration.
+10. Restart the Vite dev server after changing environment variables.
 
 Use only the public anon key in the client app. Do not use the Supabase service role key in `web/.env.local` or in Vercel.
 

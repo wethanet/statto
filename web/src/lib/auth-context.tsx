@@ -13,11 +13,15 @@ import { isSupabaseConfigured, supabase } from '@web/lib/supabase';
 type AuthContextValue = {
   isConfigured: boolean;
   isLoading: boolean;
+  isPasswordRecovery: boolean;
   session: Session | null;
   user: User | null;
+  clearPasswordRecovery: () => void;
+  requestPasswordReset: (email: string) => Promise<string | null>;
   signInWithGoogle: () => Promise<string | null>;
   signInWithPassword: (email: string, password: string) => Promise<string | null>;
   signUpWithPassword: (email: string, password: string) => Promise<string | null>;
+  updatePassword: (password: string) => Promise<string | null>;
   signOut: () => Promise<string | null>;
 };
 
@@ -26,6 +30,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
@@ -60,7 +65,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
+
       setSession(nextSession);
       setIsLoading(false);
     });
@@ -82,6 +91,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
 
     return error?.message ?? null;
+  }
+
+  async function requestPasswordReset(email: string) {
+    if (!supabase) {
+      return 'Supabase is not configured yet.';
+    }
+
+    const redirectTo = `${window.location.origin}/auth/reset-password`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
+    });
+
+    return error?.message ?? null;
+  }
+
+  async function updatePassword(password: string) {
+    if (!supabase) {
+      return 'Supabase is not configured yet.';
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      return error.message;
+    }
+
+    return null;
+  }
+
+  function clearPasswordRecovery() {
+    setIsPasswordRecovery(false);
   }
 
   async function signInWithGoogle() {
@@ -132,16 +172,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<AuthContextValue>(() => {
     return {
+      clearPasswordRecovery,
       isConfigured: isSupabaseConfigured,
+      isPasswordRecovery,
       isLoading,
+      requestPasswordReset,
       session,
       user: session?.user ?? null,
       signInWithGoogle,
       signInWithPassword,
       signUpWithPassword,
+      updatePassword,
       signOut,
     };
-  }, [isLoading, session]);
+  }, [isLoading, isPasswordRecovery, session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

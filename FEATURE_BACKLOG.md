@@ -109,7 +109,15 @@ Risks and decisions:
 - Release readiness depends on production-style account tests, not just code completion.
 
 Current next step:
-- Inspect the current auth/reset implementation and add the smallest in-app password reset flow that works with Supabase Auth.
+- Run production-style invite, password reset, and response reminder email validation with the hosted Supabase Auth SMTP and Resend settings.
+
+Implementation notes:
+- Added in-app password reset request and recovery-session password update screens.
+- Added useful expired/invalid reset-link messaging when Supabase redirects back with an auth error.
+- Added branded Supabase Auth templates for invite, confirmation, and password recovery emails.
+- Added local Supabase Auth SMTP config placeholders that read from root `.env` values instead of browser-exposed Vite env values.
+- Added an admin-triggered response reminder flow that emails linked players with outstanding future training or match responses through a Supabase Edge Function and Resend.
+- Hosted email settings still need end-to-end validation with real invite, reset, and reminder recipients.
 
 ### ST-002 Player Goal Setting
 
@@ -330,7 +338,7 @@ Implementation notes:
 ### ST-005 League and Club Policy Settings
 
 Priority: `P0`
-Status: `Partially implemented`
+Status: `Needs validation`
 
 Problem:
 Selection and eligibility rules are currently hardcoded or implicit. Clubs need an admin-managed settings area where league and club policies can be configured without code changes.
@@ -389,13 +397,19 @@ Risks and decisions:
 - Policy changes touch shared behavior and need careful regression checks.
 
 Current next step:
-- Continue `ST-005` validation with policy persistence, admin-only editing, availability lock behavior, and player vote timing/eligibility checks.
+- Complete an authenticated cloud admin save/refresh check against Supabase, then mark this ready if policy changes persist across sessions.
 
 Implementation notes:
 - Added `club_policy_settings` as the minimal policy data model with safe defaults for existing clubs.
 - Added admin settings controls for grade labels, finals minimum games, higher-grade cap, availability lock days, player vote delay, and lineup-required player voting.
 - Availability locking and player vote timing/eligibility now read from saved policy settings.
 - Lower-grade selection blocks now use `ST-004` games-played by grade and saved policy thresholds.
+- Verified the linked Supabase schema includes `club_policy_settings` with the expected policy columns and safe defaults.
+- Verified linked Supabase RLS allows club members to read policy settings but restricts insert/update/delete to `private.is_club_admin(club_id)`.
+- Verified local policy editing saves and persists after reload for grade labels, finals minimum, higher-grade cap, availability lock days, player vote delay, and lineup-required voting.
+- Verified player availability uses the saved lock window: a future fixture inside the configured 10-day lock disables availability buttons and shows the lock reason.
+- Verified player vote policy helpers: vote delay controls open/closed state, lineup-required voting limits candidates to lineup teammates and excludes the voter, and open squad voting limits candidates to active same-squad players.
+- Remaining validation gap: cloud save/refresh through an authenticated admin browser session was not completed in this pass.
 
 ### ST-006 Player Fines Management
 

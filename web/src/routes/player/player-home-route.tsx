@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-import { getAvailabilityStatusForPlayer, getSortedFixtures } from '@/lib/availability';
+import { getSortedFixtures } from '@/lib/availability';
 import { getSortedTrainingSessions } from '@/lib/attendance';
 import { getFineSummary, getFinesForPlayer, getSortedFines } from '@/lib/fines';
 
@@ -19,7 +19,7 @@ function formatFixtureDate(value: string) {
   }).format(new Date(value));
 }
 
-function getAvailabilityLabel(status: 'available' | 'unavailable' | 'uncertain') {
+function getAvailabilityLabel(status: 'available' | 'unavailable' | null) {
   if (status === 'available') {
     return 'Available';
   }
@@ -55,10 +55,18 @@ export function PlayerHomeRoute() {
           return new Date(session.date).getTime() >= Date.now();
         }) ?? null
       : null;
-  const nextFixtureAvailability =
+  const nextFixtureAvailabilityRecord =
     selectedPlayer && nextFixture
-      ? getAvailabilityStatusForPlayer(nextFixture.id, selectedPlayer.id, availabilityRecords)
+      ? availabilityRecords.find((record) => {
+          return record.fixtureId === nextFixture.id && record.playerId === selectedPlayer.id;
+        }) ?? null
       : null;
+  const nextFixtureAvailability =
+    nextFixtureAvailabilityRecord?.status === 'unavailable'
+      ? 'unavailable'
+      : nextFixtureAvailabilityRecord
+        ? 'available'
+        : null;
 
   return (
     <PlayerPageShell
@@ -130,7 +138,7 @@ export function PlayerHomeRoute() {
                           ? 'status-pill status-pill--negative'
                           : 'status-pill status-pill--neutral'
                     }>
-                    {getAvailabilityLabel(nextFixtureAvailability ?? 'uncertain')}
+                    {getAvailabilityLabel(nextFixtureAvailability)}
                   </span>
                 </div>
               </section>

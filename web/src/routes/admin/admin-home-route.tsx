@@ -1,26 +1,134 @@
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { getNextTrainingSession } from '@/lib/attendance';
+import { getNextTrainingSession, getSortedTrainingSessions } from '@/lib/attendance';
+import { getPlayerAvailabilityLockReason, getSortedFixtures } from '@/lib/availability';
 import { getFineSummary } from '@/lib/fines';
 import { fitnessPhases, getFitnessSummary } from '@/lib/fitness';
 import { getTeamSummary } from '@/lib/team';
 import { getVoteLeaderboard } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 import { useSettings } from '@web/lib/settings-context';
+import { supabase } from '@web/lib/supabase';
+
+function isFutureEvent(value: string, now: number) {
+  return new Date(value).getTime() >= now;
+}
+
+function canPlayerSeeSquadItem(playerSquad: string | null, eventSquad: string | null) {
+  return eventSquad === null || playerSquad === null || eventSquad === playerSquad;
+}
 
 export function AdminHomeRoute() {
-  const { fines, fitnessResults, players, trainingSessions, voteEntries } = useClubData();
+  const {
+    attendanceRecords,
+    availabilityRecords,
+    fines,
+    fitnessResults,
+    fixtures,
+    players,
+    trainingSessions,
+    voteEntries,
+  } = useClubData();
+  const { activeClubId } = useClubAccess();
+  const { policySettings } = useClubPolicy();
   const { themePreference } = useSettings();
+  const [isSendingReminders, setIsSendingReminders] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const fineSummary = getFineSummary(fines);
   const leaderboard = getVoteLeaderboard(players, voteEntries, 'best-and-fairest');
   const teamSummary = getTeamSummary(players);
   const voteLeader = leaderboard[0];
   const nextTraining = getNextTrainingSession(trainingSessions);
+  const responseReminderSummary = useMemo(() => {
+    const now = Date.now();
+    const activePlayers = players.filter((player) => player.active);
+    const pendingTrainingSessions = getSortedTrainingSessions(trainingSessions).filter((session) => {
+      return isFutureEvent(session.date, now);
+    });
+    const pendingFixtures = getSortedFixtures(fixtures).filter((fixture) => {
+      return (
+        isFutureEvent(fixture.date, now) &&
+        !getPlayerAvailabilityLockReason(fixture.date, now, policySettings.availabilityLockDays)
+      );
+    });
+    let playerCount = 0;
+    let responseCount = 0;
+
+    for (const player of activePlayers) {
+      const missingTrainingResponses = pendingTrainingSessions.filter((session) => {
+        return (
+          canPlayerSeeSquadItem(player.squad, session.squad) &&
+          !attendanceRecords.some((record) => record.sessionId === session.id && record.playerId === player.id)
+        );
+      }).length;
+      const missingMatchResponses = pendingFixtures.filter((fixture) => {
+        return (
+          canPlayerSeeSquadItem(player.squad, fixture.squad) &&
+          !availabilityRecords.some((record) => record.fixtureId === fixture.id && record.playerId === player.id)
+        );
+      }).length;
+      const playerMissingCount = missingTrainingResponses + missingMatchResponses;
+
+      if (playerMissingCount > 0) {
+        playerCount += 1;
+        responseCount += playerMissingCount;
+      }
+    }
+
+    return {
+      playerCount,
+      responseCount,
+    };
+  }, [
+    attendanceRecords,
+    availabilityRecords,
+    fixtures,
+    players,
+    policySettings.availabilityLockDays,
+    trainingSessions,
+  ]);
   const fitnessSummary = fitnessPhases.reduce((total, phase) => {
     return total + getFitnessSummary(players, fitnessResults, phase.id).completed;
   }, 0);
+
+  async function handleSendResponseReminders() {
+    if (!activeClubId || !supabase) {
+      setReminderMessage('Supabase is not configured for reminders.');
+      return;
+    }
+
+    setIsSendingReminders(true);
+    setReminderMessage(null);
+
+    const { data, error } = await supabase.functions.invoke<{ sent: number; skipped: number }>(
+      'send-response-reminders',
+      {
+        body: {
+          actionUrl: `${window.location.origin}/player`,
+          clubId: activeClubId,
+        },
+      }
+    );
+
+    setIsSendingReminders(false);
+
+    if (error) {
+      setReminderMessage(error.message);
+      return;
+    }
+
+    const sentCount = data?.sent ?? 0;
+    setReminderMessage(
+      sentCount > 0
+        ? `Sent ${sentCount} ${sentCount === 1 ? 'reminder' : 'reminders'}.`
+        : 'No linked players currently need reminder emails.'
+    );
+  }
 
   const cardSections = [
     {
@@ -141,6 +249,28 @@ export function AdminHomeRoute() {
             <span className="muted">{stat.note}</span>
           </section>
         ))}
+      </section>
+
+      <section className="card stack">
+        <div className="split-row">
+          <div className="stack-sm">
+            <span className="eyebrow">Notifications</span>
+            <h3>Response reminders</h3>
+            <p className="muted">
+              {responseReminderSummary.responseCount > 0
+                ? `${responseReminderSummary.playerCount} active players have ${responseReminderSummary.responseCount} training or match responses still outstanding.`
+                : 'No outstanding training or match responses for active players.'}
+            </p>
+          </div>
+          <button
+            className="button"
+            disabled={isSendingReminders || responseReminderSummary.responseCount <= 0}
+            onClick={() => void handleSendResponseReminders()}
+            type="button">
+            {isSendingReminders ? 'Sending...' : 'Send reminders'}
+          </button>
+        </div>
+        {reminderMessage ? <p className="auth-message">{reminderMessage}</p> : null}
       </section>
 
       {cardSections.map((section) => (

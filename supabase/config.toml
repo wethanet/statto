@@ -1,2 +1,29 @@
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/auth/reset-password", "http://localhost:5176/auth/reset-password"]
+
+[auth.email.smtp]
+host = "env(SMTP_HOST)"
+port = 587
+user = "env(SMTP_USER)"
+pass = "env(SMTP_PASS)"
+admin_email = "env(SMTP_ADMIN_EMAIL)"
+sender_name = "Warners Bay Bulldogs"
+
+[auth.email.template.invite]
+subject = "You have been invited to Warners Bay Bulldogs"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.confirmation]
+subject = "Confirm your Warners Bay Bulldogs account"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Warners Bay Bulldogs password"
+content_path = "./supabase/templates/recovery.html"
+
 [functions.send-club-invite]
+verify_jwt = false
+
+[functions.send-response-reminders]
 verify_jwt = false
