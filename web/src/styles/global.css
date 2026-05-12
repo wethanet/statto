@@ -1440,6 +1440,10 @@ button {
   text-transform: uppercase;
 }
 
+.team-player-table > .muted {
+  padding: 16px;
+}
+
 .team-player-row {
   min-width: 880px;
   border-bottom: 1px solid var(--surface-border);
@@ -4233,16 +4237,6 @@ p {
     grid-column: 2;
   }
 
-  .team-player-row__identity {
-    grid-template-columns: 1fr;
-    gap: 3px;
-  }
-
-  .team-player-row__identity::before {
-    content: '';
-    display: none;
-  }
-
   .team-player-row__actions {
     display: grid;
     grid-template-columns: 92px minmax(0, 1fr);
@@ -4252,6 +4246,70 @@ p {
 
   .team-player-row__buttons {
     justify-content: flex-start;
+  }
+
+  .report-table-wrap {
+    overflow: visible;
+  }
+
+  .report-table {
+    min-width: 0;
+  }
+
+  .report-table thead {
+    display: none;
+  }
+
+  .report-table,
+  .report-table tbody,
+  .report-table tfoot,
+  .report-table tr,
+  .report-table th,
+  .report-table td {
+    display: block;
+  }
+
+  .report-table tbody tr,
+  .report-table tfoot tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .report-table tbody tr:last-child,
+  .report-table tfoot tr {
+    border-bottom: 0;
+  }
+
+  .report-table th,
+  .report-table td {
+    padding: 0;
+    border-bottom: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .report-table tbody th,
+  .report-table tfoot th {
+    margin-bottom: 8px;
+  }
+
+  .report-table tbody td,
+  .report-table tfoot td {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 4px 0;
+    text-align: right;
+  }
+
+  .report-table tbody td::before,
+  .report-table tfoot td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-align: left;
   }
 
   .training-session-row__actions {

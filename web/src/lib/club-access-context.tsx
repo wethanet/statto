@@ -60,6 +60,15 @@ type JoinClubRpcRow = {
 };
 
 const ACTIVE_CLUB_ID_STORAGE_KEY = 'active-club-id.json';
+const LOCAL_CLUB: Club = {
+  id: 'local-club',
+  name: 'Warners Bay Bulldogs',
+  inviteCode: 'LOCAL',
+  role: 'admin',
+  email: null,
+  playerId: null,
+  squads: [],
+};
 
 const ClubAccessContext = createContext<ClubAccessContextValue | null>(null);
 
@@ -374,13 +383,23 @@ async function loadUserClubs(userId: string) {
 
 export function ClubAccessProvider({ children }: PropsWithChildren) {
   const { isConfigured, isLoading: isAuthLoading, user } = useAuth();
-  const [clubs, setClubs] = useState<Club[]>([]);
-  const [activeClubId, setActiveClubIdState] = useState<string | null>(null);
+  const [clubs, setClubs] = useState<Club[]>(isConfigured ? [] : [LOCAL_CLUB]);
+  const [activeClubId, setActiveClubIdState] = useState<string | null>(
+    isConfigured ? null : LOCAL_CLUB.id
+  );
   const [isLoading, setIsLoading] = useState(isConfigured);
   const refreshPromiseRef = useRef<Promise<void> | null>(null);
 
   const runClubRefresh = useCallback(async (options?: { claimPendingInvites?: boolean }) => {
-    if (!isConfigured || !user?.id) {
+    if (!isConfigured) {
+      setClubs([LOCAL_CLUB]);
+      setActiveClubIdState(LOCAL_CLUB.id);
+      await saveActiveClubId(LOCAL_CLUB.id);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!user?.id) {
       setClubs([]);
       setActiveClubIdState(null);
       await saveActiveClubId(null);
@@ -433,7 +452,14 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    if (!isConfigured || !user?.id) {
+    if (!isConfigured) {
+      setClubs([LOCAL_CLUB]);
+      setActiveClubIdState(LOCAL_CLUB.id);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!user?.id) {
       setClubs([]);
       setActiveClubIdState(null);
       setIsLoading(false);

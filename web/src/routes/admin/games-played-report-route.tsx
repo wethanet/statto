@@ -127,9 +127,11 @@ export function GamesPlayedReportRoute() {
                       {!player.active ? <small>Inactive</small> : null}
                     </th>
                     {gradeColumns.map((grade) => (
-                      <td key={grade}>{getSummaryGradeGames(playerSummary, grade)}</td>
+                      <td data-label={grade} key={grade}>
+                        {getSummaryGradeGames(playerSummary, grade)}
+                      </td>
                     ))}
-                    <td>{playerSummary.total}</td>
+                    <td data-label="Total">{playerSummary.total}</td>
                   </tr>
                 );
               })}
@@ -138,9 +140,11 @@ export function GamesPlayedReportRoute() {
               <tr>
                 <th scope="row">Team totals</th>
                 {reportTotals.map((total, index) => (
-                  <td key={gradeColumns[index] ?? index}>{total}</td>
+                  <td data-label={gradeColumns[index] ?? 'Team'} key={gradeColumns[index] ?? index}>
+                    {total}
+                  </td>
                 ))}
-                <td>{seasonTotal}</td>
+                <td data-label="Total">{seasonTotal}</td>
               </tr>
             </tfoot>
           </table>

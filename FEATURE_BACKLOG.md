@@ -262,7 +262,7 @@ Implementation notes:
 ### ST-004 Games Played by Grade
 
 Priority: `P1`
-Status: `Defined`
+Status: `Partially implemented`
 
 Problem:
 Coaches and admins need trusted visibility of how many games each player has played in each grade to support selection, rotation, finals eligibility, and lower-grade lockout decisions.
@@ -539,7 +539,7 @@ Current next step:
 ### ST-009 Visual QA Sweep
 
 Priority: `P1`
-Status: `Defined`
+Status: `In progress`
 
 Problem:
 The app has grown across many admin/player screens. A visual QA pass can catch layout, mobile, and empty-state issues before a release.
@@ -562,7 +562,16 @@ Acceptance criteria:
 - Larger issues are logged as new backlog items with IDs, priorities, and current next steps.
 
 Current next step:
-- Start with the recently changed admin team, match selection, settings, and games-played report screens, then continue through the remaining admin and player routes.
+- Continue the screen-by-screen QA pass through the remaining admin/player routes and then decide whether ST-009 can close or needs follow-up backlog items.
+
+Implementation notes:
+- Started ST-009 with the recently changed admin team, match selection, settings, games-played report, and public matches routes.
+- Confirmed those routes respond from the local dev server.
+- Fixed the first quick UI issue found in the table pattern: empty team-list messages now keep table padding.
+- Added a local admin-club fallback so protected screens can be visually QA'd without Supabase authentication during local development.
+- Checked admin home, team, games-played report, policy settings, training, training settings, training library, matches, match detail, training detail, player home, and player availability at desktop and mobile sizes.
+- Fixed mobile team-list labels so the responsive player table consistently shows the Player, Role, Games, Status, and Actions labels.
+- Fixed the games-played report on mobile so Cup, Plate, and Total counts remain visible without horizontal scrolling.
 
 ## New Intake
 
