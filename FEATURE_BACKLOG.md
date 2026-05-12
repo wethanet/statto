@@ -338,7 +338,7 @@ Implementation notes:
 ### ST-005 League and Club Policy Settings
 
 Priority: `P0`
-Status: `Needs validation`
+Status: `Ready`
 
 Problem:
 Selection and eligibility rules are currently hardcoded or implicit. Clubs need an admin-managed settings area where league and club policies can be configured without code changes.
@@ -397,7 +397,7 @@ Risks and decisions:
 - Policy changes touch shared behavior and need careful regression checks.
 
 Current next step:
-- Complete an authenticated cloud admin save/refresh check against Supabase, then mark this ready if policy changes persist across sessions.
+- No immediate follow-up. Re-check policy persistence and enforcement before the next release candidate.
 
 Implementation notes:
 - Added `club_policy_settings` as the minimal policy data model with safe defaults for existing clubs.
@@ -409,7 +409,7 @@ Implementation notes:
 - Verified local policy editing saves and persists after reload for grade labels, finals minimum, higher-grade cap, availability lock days, player vote delay, and lineup-required voting.
 - Verified player availability uses the saved lock window: a future fixture inside the configured 10-day lock disables availability buttons and shows the lock reason.
 - Verified player vote policy helpers: vote delay controls open/closed state, lineup-required voting limits candidates to lineup teammates and excludes the voter, and open squad voting limits candidates to active same-squad players.
-- Remaining validation gap: cloud save/refresh through an authenticated admin browser session was not completed in this pass.
+- Validated authenticated cloud admin policy save/refresh persistence against Supabase.
 
 ### ST-006 Player Fines Management
 
@@ -533,7 +533,7 @@ Current next step:
 ### ST-008 Bundle Splitting
 
 Priority: `P3`
-Status: `Proposed`
+Status: `Ready`
 
 Problem:
 The Vite build has previously warned about large chunks. This is not a product blocker, but it can affect load performance as the app grows.
@@ -552,7 +552,13 @@ Acceptance criteria:
 - Routes still load with useful skeletons/loading behavior.
 
 Current next step:
-- Run `npm run build` and inspect current Vite chunk warnings before changing code.
+- No immediate follow-up. Re-run the production build after major route or dependency changes.
+
+Implementation notes:
+- Split route screens behind React lazy imports so the initial app shell no longer imports every admin/player screen up front.
+- Added explicit Vite vendor chunks for React, Supabase, and remaining third-party modules so shared dependencies cache separately from app code.
+- Changed cloud data hydration to render a cached local club snapshot immediately when available, then refresh cloud data in the background.
+- Production build no longer emits the Vite large chunk warning; the app shell chunk is about 115 kB minified, down from about 744 kB before route splitting.
 
 ### ST-009 Visual QA Sweep
 

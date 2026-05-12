@@ -1,44 +1,151 @@
-import type { ReactElement } from 'react';
+import { lazy, Suspense, type ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { PageSkeleton } from '@web/components/loading/page-skeleton';
-import { AdminHomeRoute } from '@web/routes/admin/admin-home-route';
-import { ClubAdminRoute } from '@web/routes/admin/club-admin-route';
-import { FinesAdminRoute } from '@web/routes/admin/fines-admin-route';
-import { FitnessAdminRoute } from '@web/routes/admin/fitness-admin-route';
-import { GamesPlayedReportRoute } from '@web/routes/admin/games-played-report-route';
-import { PlayerDevelopmentAdminRoute } from '@web/routes/admin/player-development-admin-route';
 import { AuthScreen } from '@web/routes/auth-screen';
 import { ClubAccessScreen } from '@web/routes/club-access-screen';
-import { HomeScreen } from '@web/routes/home-screen';
 import { PasswordResetScreen } from '@web/routes/password-reset-screen';
-import { MatchesAdminRoute } from '@web/routes/admin/matches-admin-route';
-import { RotationGroupsAdminRoute } from '@web/routes/admin/rotation-groups-admin-route';
-import { SettingsAdminRoute } from '@web/routes/admin/settings-admin-route';
-import { TeamAdminRoute } from '@web/routes/admin/team-admin-route';
-import { TeamSetupAdminRoute } from '@web/routes/admin/team-setup-admin-route';
-import { VotesAdminRoute } from '@web/routes/admin/votes-admin-route';
-import { PlayerAvailabilityRoute } from '@web/routes/player/player-availability-route';
-import { PlayerFinesRoute } from '@web/routes/player/player-fines-route';
-import { PlayerHomeRoute } from '@web/routes/player/player-home-route';
-import { PlayerVotesRoute } from '@web/routes/player/player-votes-route';
-import { MatchDetailRoute } from '@web/routes/matches/match-detail-route';
-import { MatchesListRoute } from '@web/routes/matches/matches-list-route';
-import { MatchStatsRoute } from '@web/routes/matches/match-stats-route';
-import { TeamSelectionGraphicRoute } from '@web/routes/matches/team-selection-graphic-route';
-import { MatchVotesRoute } from '@web/routes/matches/match-votes-route';
-import {
-  TrainingAdminRoute,
-  TrainingLibraryRoute,
-  TrainingSessionFormRoute,
-  TrainingSettingsRoute,
-} from '@web/routes/admin/training-admin-route';
-import { TrainingDetailRoute } from '@web/routes/training/training-detail-route';
-import { TrainingListRoute } from '@web/routes/training/training-list-route';
-import { ShellLayout } from '@web/app/shell-layout';
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
+
+const ShellLayout = lazy(() => import('@web/app/shell-layout').then(({ ShellLayout }) => ({ default: ShellLayout })));
+const HomeScreen = lazy(() => import('@web/routes/home-screen').then(({ HomeScreen }) => ({ default: HomeScreen })));
+const TrainingListRoute = lazy(() =>
+  import('@web/routes/training/training-list-route').then(({ TrainingListRoute }) => ({
+    default: TrainingListRoute,
+  }))
+);
+const TrainingDetailRoute = lazy(() =>
+  import('@web/routes/training/training-detail-route').then(({ TrainingDetailRoute }) => ({
+    default: TrainingDetailRoute,
+  }))
+);
+const MatchesListRoute = lazy(() =>
+  import('@web/routes/matches/matches-list-route').then(({ MatchesListRoute }) => ({
+    default: MatchesListRoute,
+  }))
+);
+const MatchDetailRoute = lazy(() =>
+  import('@web/routes/matches/match-detail-route').then(({ MatchDetailRoute }) => ({
+    default: MatchDetailRoute,
+  }))
+);
+const TeamSelectionGraphicRoute = lazy(() =>
+  import('@web/routes/matches/team-selection-graphic-route').then(({ TeamSelectionGraphicRoute }) => ({
+    default: TeamSelectionGraphicRoute,
+  }))
+);
+const MatchStatsRoute = lazy(() =>
+  import('@web/routes/matches/match-stats-route').then(({ MatchStatsRoute }) => ({
+    default: MatchStatsRoute,
+  }))
+);
+const MatchVotesRoute = lazy(() =>
+  import('@web/routes/matches/match-votes-route').then(({ MatchVotesRoute }) => ({
+    default: MatchVotesRoute,
+  }))
+);
+const PlayerHomeRoute = lazy(() =>
+  import('@web/routes/player/player-home-route').then(({ PlayerHomeRoute }) => ({
+    default: PlayerHomeRoute,
+  }))
+);
+const PlayerAvailabilityRoute = lazy(() =>
+  import('@web/routes/player/player-availability-route').then(({ PlayerAvailabilityRoute }) => ({
+    default: PlayerAvailabilityRoute,
+  }))
+);
+const PlayerFinesRoute = lazy(() =>
+  import('@web/routes/player/player-fines-route').then(({ PlayerFinesRoute }) => ({
+    default: PlayerFinesRoute,
+  }))
+);
+const PlayerVotesRoute = lazy(() =>
+  import('@web/routes/player/player-votes-route').then(({ PlayerVotesRoute }) => ({
+    default: PlayerVotesRoute,
+  }))
+);
+const AdminHomeRoute = lazy(() =>
+  import('@web/routes/admin/admin-home-route').then(({ AdminHomeRoute }) => ({
+    default: AdminHomeRoute,
+  }))
+);
+const TeamAdminRoute = lazy(() =>
+  import('@web/routes/admin/team-admin-route').then(({ TeamAdminRoute }) => ({
+    default: TeamAdminRoute,
+  }))
+);
+const TeamSetupAdminRoute = lazy(() =>
+  import('@web/routes/admin/team-setup-admin-route').then(({ TeamSetupAdminRoute }) => ({
+    default: TeamSetupAdminRoute,
+  }))
+);
+const RotationGroupsAdminRoute = lazy(() =>
+  import('@web/routes/admin/rotation-groups-admin-route').then(({ RotationGroupsAdminRoute }) => ({
+    default: RotationGroupsAdminRoute,
+  }))
+);
+const PlayerDevelopmentAdminRoute = lazy(() =>
+  import('@web/routes/admin/player-development-admin-route').then(({ PlayerDevelopmentAdminRoute }) => ({
+    default: PlayerDevelopmentAdminRoute,
+  }))
+);
+const TrainingAdminRoute = lazy(() =>
+  import('@web/routes/admin/training-admin-route').then(({ TrainingAdminRoute }) => ({
+    default: TrainingAdminRoute,
+  }))
+);
+const TrainingSettingsRoute = lazy(() =>
+  import('@web/routes/admin/training-admin-route').then(({ TrainingSettingsRoute }) => ({
+    default: TrainingSettingsRoute,
+  }))
+);
+const TrainingLibraryRoute = lazy(() =>
+  import('@web/routes/admin/training-admin-route').then(({ TrainingLibraryRoute }) => ({
+    default: TrainingLibraryRoute,
+  }))
+);
+const TrainingSessionFormRoute = lazy(() =>
+  import('@web/routes/admin/training-admin-route').then(({ TrainingSessionFormRoute }) => ({
+    default: TrainingSessionFormRoute,
+  }))
+);
+const MatchesAdminRoute = lazy(() =>
+  import('@web/routes/admin/matches-admin-route').then(({ MatchesAdminRoute }) => ({
+    default: MatchesAdminRoute,
+  }))
+);
+const GamesPlayedReportRoute = lazy(() =>
+  import('@web/routes/admin/games-played-report-route').then(({ GamesPlayedReportRoute }) => ({
+    default: GamesPlayedReportRoute,
+  }))
+);
+const FinesAdminRoute = lazy(() =>
+  import('@web/routes/admin/fines-admin-route').then(({ FinesAdminRoute }) => ({
+    default: FinesAdminRoute,
+  }))
+);
+const VotesAdminRoute = lazy(() =>
+  import('@web/routes/admin/votes-admin-route').then(({ VotesAdminRoute }) => ({
+    default: VotesAdminRoute,
+  }))
+);
+const FitnessAdminRoute = lazy(() =>
+  import('@web/routes/admin/fitness-admin-route').then(({ FitnessAdminRoute }) => ({
+    default: FitnessAdminRoute,
+  }))
+);
+const SettingsAdminRoute = lazy(() =>
+  import('@web/routes/admin/settings-admin-route').then(({ SettingsAdminRoute }) => ({
+    default: SettingsAdminRoute,
+  }))
+);
+const ClubAdminRoute = lazy(() =>
+  import('@web/routes/admin/club-admin-route').then(({ ClubAdminRoute }) => ({
+    default: ClubAdminRoute,
+  }))
+);
 
 function LoadingGate() {
   return (
@@ -103,7 +210,8 @@ export function AppRouter() {
 
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={<LoadingGate />}>
+        <Routes>
         <Route element={<ShellLayout />}>
           <Route index element={canAccessPlayerApp && !canAccessAdmin ? <Navigate replace to="/player" /> : <HomeScreen />} />
           <Route path="/training" element={<TrainingListRoute />} />
@@ -317,7 +425,8 @@ export function AppRouter() {
             }
           />
         </Route>
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

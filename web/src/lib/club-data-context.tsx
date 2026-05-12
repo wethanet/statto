@@ -285,6 +285,12 @@ async function saveLocalSnapshot(snapshot: ClubDataSnapshot, storageScope: strin
   ]);
 }
 
+function hasSnapshotData(snapshot: ClubDataSnapshot) {
+  return Object.values(snapshot).some((collection) => {
+    return Array.isArray(collection) && collection.length > 0;
+  });
+}
+
 async function syncCollectionDiff<T>(
   clubId: string,
   current: T[],
@@ -759,9 +765,22 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setIsHydrated(false);
 
     async function hydrate() {
+      let didHydrateFromLocal = false;
+
       try {
         const localSnapshot = await loadLocalSnapshot(storageScope);
-        let nextSnapshot = localSnapshot;
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (!isConfigured || !activeClubId || hasSnapshotData(localSnapshot)) {
+          applySnapshot(localSnapshot);
+          hydratedStorageScopeRef.current = storageScope;
+          setSyncDebugFromSources(localSnapshot, null);
+          setIsHydrated(true);
+          didHydrateFromLocal = true;
+        }
 
         if (isConfigured && activeClubId) {
           try {
@@ -769,10 +788,19 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
             if (remoteCoreData) {
               setSyncDebugFromSources(localSnapshot, remoteCoreData);
-              nextSnapshot = normalizeClubDataSnapshot({
+              const nextSnapshot = normalizeClubDataSnapshot({
                 ...localSnapshot,
                 ...remoteCoreData,
               });
+
+              if (!isMounted) {
+                return;
+              }
+
+              applySnapshot(nextSnapshot);
+              hydratedStorageScopeRef.current = storageScope;
+              setIsHydrated(true);
+              return;
             } else {
               setSyncDebugFromSources(localSnapshot, null);
             }
@@ -780,16 +808,12 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
             console.warn('Failed to load cloud club data', error);
             setSyncDebugFromSources(localSnapshot, null);
           }
-        } else {
-          setSyncDebugFromSources(localSnapshot, null);
         }
 
-        if (!isMounted) {
-          return;
+        if (!didHydrateFromLocal) {
+          applySnapshot(localSnapshot);
+          hydratedStorageScopeRef.current = storageScope;
         }
-
-        applySnapshot(nextSnapshot);
-        hydratedStorageScopeRef.current = storageScope;
       } finally {
         if (isMounted) {
           setIsHydrated(true);
