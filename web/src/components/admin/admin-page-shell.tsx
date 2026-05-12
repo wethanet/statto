@@ -73,6 +73,10 @@ const adminNavGroups: AdminNavGroup[] = [
 ] as const;
 
 function matchesAdminNavItem(pathname: string, item: AdminNavItem) {
+  if (item.to === '/admin/training/new' && /^\/admin\/training\/[^/]+\/edit$/.test(pathname)) {
+    return true;
+  }
+
   if (item.end) {
     return pathname === item.to || item.matchPaths?.some((path) => pathname.startsWith(path)) === true;
   }
@@ -156,17 +160,19 @@ export function AdminPageShell({ actions, children, description, title }: AdminP
 
           {activeGroup ? (
             <nav aria-label={`${activeGroup.label} sections`} className="admin-ia__sections">
-              {activeGroup.items.map((item) => (
-                <NavLink
-                  className={({ isActive }) => {
-                    return isActive ? 'admin-ia__section admin-ia__section--active' : 'admin-ia__section';
-                  }}
-                  end={item.end}
-                  key={item.to}
-                  to={item.to}>
-                  {item.label}
-                </NavLink>
-              ))}
+              {activeGroup.items.map((item) => {
+                const isActive = matchesAdminNavItem(location.pathname, item);
+
+                return (
+                  <NavLink
+                    className={isActive ? 'admin-ia__section admin-ia__section--active' : 'admin-ia__section'}
+                    end={item.end}
+                    key={item.to}
+                    to={item.to}>
+                    {item.label}
+                  </NavLink>
+                );
+              })}
             </nav>
           ) : null}
         </div>

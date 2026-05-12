@@ -539,7 +539,7 @@ Current next step:
 ### ST-009 Visual QA Sweep
 
 Priority: `P1`
-Status: `In progress`
+Status: `Ready`
 
 Problem:
 The app has grown across many admin/player screens. A visual QA pass can catch layout, mobile, and empty-state issues before a release.
@@ -562,7 +562,7 @@ Acceptance criteria:
 - Larger issues are logged as new backlog items with IDs, priorities, and current next steps.
 
 Current next step:
-- Continue the screen-by-screen QA pass through the remaining admin/player routes and then decide whether ST-009 can close or needs follow-up backlog items.
+- No immediate follow-up. Re-run a visual QA sweep before the next release candidate or after major UI changes.
 
 Implementation notes:
 - Started ST-009 with the recently changed admin team, match selection, settings, games-played report, and public matches routes.
@@ -572,6 +572,9 @@ Implementation notes:
 - Checked admin home, team, games-played report, policy settings, training, training settings, training library, matches, match detail, training detail, player home, and player availability at desktop and mobile sizes.
 - Fixed mobile team-list labels so the responsive player table consistently shows the Player, Role, Games, Status, and Actions labels.
 - Fixed the games-played report on mobile so Cup, Plate, and Total counts remain visible without horizontal scrolling.
+- Completed the remaining ST-009 pass across team setup, rotation groups, development, fines, votes, fitness, club access, training add/edit, public training/matches lists, match stats, match votes, team announcement, player fines, auth, empty states, and mobile drawer behavior.
+- Fixed edit-training-session IA so the screen is grouped under Training instead of Club.
+- Confirmed the checked screens have no horizontal overflow and no browser console errors at desktop and mobile sizes.
 
 ## New Intake
 
