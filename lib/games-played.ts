@@ -73,6 +73,10 @@ export function normalizeGradeLabel(value: string | null | undefined, fallback =
 }
 
 export function getFixtureGamesPlayedGradeLabel(fixture: Fixture, options: GamesPlayedOptions = {}) {
+  if (fixture.squad) {
+    return getSquadGradeLabel(fixture, options);
+  }
+
   const grade = normalizeGradeLabel(fixture.grade, '');
 
   return grade || getSquadGradeLabel(fixture, options);

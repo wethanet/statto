@@ -262,7 +262,7 @@ Implementation notes:
 ### ST-004 Games Played by Grade
 
 Priority: `P1`
-Status: `Partially implemented`
+Status: `Ready`
 
 Problem:
 Coaches and admins need trusted visibility of how many games each player has played in each grade to support selection, rotation, finals eligibility, and lower-grade lockout decisions.
@@ -313,7 +313,7 @@ Risks and decisions:
 - Players who exceed the higher-grade cap are blocked from lower-grade selection; other policy feedback remains advisory unless explicitly promoted to a block.
 
 Current next step:
-- Review the games-played report, team-list counts, and lower-grade hard block against known fixture data; if the sample matches, mark this ready to close.
+- No immediate follow-up. Re-check against real season fixture data once production lineups are complete.
 
 Implementation notes:
 - Added a shared games-played aggregation helper that counts selected lineup assignments from past fixtures only.
@@ -322,6 +322,10 @@ Implementation notes:
 - Team management now shows read-only games played by grade for each player.
 - Match selection now hard-blocks lower-grade selection once a player has exceeded the higher-grade cap.
 - Added an admin games-played report under Matches showing each player down the rows and each team/grade across the columns.
+- Fixed demo lineup data so selected players are attached to the real sample fixture IDs.
+- Games-played grade labels now use configured Cup/Plate squad labels when fixtures are assigned to a squad, keeping reports and policy blocks aligned.
+- Validated the sample report and team list: seven selected players show Cup 1 and team totals show Cup 7, Plate 0, Total 7.
+- Validated the lower-grade hard block with a known 9-Cup-game player: Plate selection is blocked, the selected option is disabled, and saved lineup assignment is removed.
 
 ### ST-005 League and Club Policy Settings
 
@@ -385,7 +389,7 @@ Risks and decisions:
 - Policy changes touch shared behavior and need careful regression checks.
 
 Current next step:
-- Manually validate `ST-004` totals and the lower-grade selection block against known fixture data.
+- Continue `ST-005` validation with policy persistence, admin-only editing, availability lock behavior, and player vote timing/eligibility checks.
 
 Implementation notes:
 - Added `club_policy_settings` as the minimal policy data model with safe defaults for existing clubs.
