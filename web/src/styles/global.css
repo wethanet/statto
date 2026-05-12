@@ -1138,9 +1138,10 @@ button {
   margin: 0 auto;
   padding: 24px;
   border-radius: 32px;
-  background: rgba(255, 255, 255, 0.9);
+  background: linear-gradient(145deg, #eef3fb, #f7f9fd);
   border: 1px solid rgba(133, 154, 197, 0.24);
   box-shadow: 0 24px 60px rgba(24, 48, 92, 0.12);
+  color: #091e4a;
 }
 
 .auth-layout {
@@ -1152,6 +1153,7 @@ button {
 
 .auth-hero {
   padding: 16px;
+  color: #091e4a;
 }
 
 .auth-brand {
@@ -1171,6 +1173,7 @@ button {
 .auth-hero h1,
 .auth-form-card h2 {
   margin: 0;
+  color: #091e4a;
 }
 
 .auth-hero__lead {
@@ -1178,7 +1181,7 @@ button {
   max-width: 32rem;
   font-size: clamp(1.1rem, 1.5vw, 1.35rem);
   line-height: 1.4;
-  color: var(--text);
+  color: #49556b;
 }
 
 .auth-hero__card,
@@ -1195,6 +1198,7 @@ button {
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(20, 54, 123, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: #091e4a;
 }
 
 .auth-divider {
@@ -1237,7 +1241,7 @@ button {
 
 .auth-message {
   margin: 0;
-  color: var(--text);
+  color: #091e4a;
 }
 
 .auth-link-button {
@@ -1387,6 +1391,51 @@ button {
   border: 1px solid var(--surface-border);
   background: var(--surface-strong);
   color: var(--text);
+}
+
+.auth-form-card .eyebrow {
+  color: #587cff;
+}
+
+.auth-form-card .muted,
+.auth-form-card .auth-divider {
+  color: #66728a;
+}
+
+.auth-form-card .field,
+.auth-form-card .field > span {
+  color: #34425a;
+}
+
+.auth-form-card .auth-input {
+  min-height: 50px;
+  padding: 12px 14px;
+  border-color: rgba(20, 54, 123, 0.16);
+  background: #f8fbff;
+  color: #091e4a;
+}
+
+.auth-form-card .auth-input::placeholder {
+  color: #778399;
+  opacity: 1;
+}
+
+.auth-form-card .auth-input:focus {
+  outline: 2px solid rgba(49, 91, 255, 0.24);
+  outline-offset: 1px;
+  border-color: rgba(49, 91, 255, 0.5);
+}
+
+.auth-form-card .button--ghost {
+  color: #34425a;
+  border-color: rgba(20, 54, 123, 0.16);
+  background: transparent;
+}
+
+.auth-form-card .button--ghost:hover {
+  color: #0033ff;
+  border-color: rgba(0, 51, 255, 0.22);
+  background: rgba(0, 51, 255, 0.08);
 }
 
 .textarea {
@@ -4565,7 +4614,7 @@ p {
 
   .auth-hero,
   .auth-form-card {
-    padding: 12px;
+    padding: 18px;
   }
 
   .auth-brand {
