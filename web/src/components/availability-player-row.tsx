@@ -3,15 +3,22 @@ import { useEffect, useRef, useState } from 'react';
 import { matchLinePositions } from '@/lib/match-lineup';
 import { matchRotationGroups } from '@/lib/match-rotations';
 import { getPlayerRotationGroupLabel } from '@/lib/team';
-import type { AvailabilityStatus, MatchLinePosition, Player, PlayerRotationGroup } from '@/lib/types';
+import type {
+  AvailabilityResponseStatus,
+  AvailabilityStatus,
+  MatchLinePosition,
+  Player,
+  PlayerRotationGroup,
+} from '@/lib/types';
 
 type AvailabilityPlayerRowProps = {
   player: Player;
   status: AvailabilityStatus;
+  responseStatus: AvailabilityResponseStatus;
   hasSameDaySelectionConflict?: boolean;
   eligibilityWarnings?: string[];
   selectionBlockReason?: string | null;
-  onChange: (status: AvailabilityStatus) => void;
+  onChange: (status: AvailabilityResponseStatus) => void;
   selectedPosition: MatchLinePosition | null;
   onSelectPosition: (position: MatchLinePosition) => void;
   rotationGroup: PlayerRotationGroup | null;
@@ -20,11 +27,20 @@ type AvailabilityPlayerRowProps = {
   onResetRotationGroup: () => void;
 };
 
-const AVAILABILITY_OPTIONS: AvailabilityStatus[] = ['available', 'unavailable', 'uncertain'];
+const AVAILABILITY_OPTIONS: AvailabilityResponseStatus[] = [
+  'available',
+  'unavailable',
+  'uncertain',
+  'not-responded',
+];
 
-function getAvailabilityLabel(status: AvailabilityStatus) {
+function getAvailabilityLabel(status: AvailabilityResponseStatus) {
   if (status === 'available') {
     return 'selected';
+  }
+
+  if (status === 'not-responded') {
+    return 'not responded';
   }
 
   if (status === 'uncertain') {
@@ -34,7 +50,7 @@ function getAvailabilityLabel(status: AvailabilityStatus) {
   return 'unavailable';
 }
 
-function getAvailabilityTone(status: AvailabilityStatus) {
+function getAvailabilityTone(status: AvailabilityResponseStatus) {
   if (status === 'available') {
     return 'positive';
   }
@@ -49,6 +65,7 @@ function getAvailabilityTone(status: AvailabilityStatus) {
 export function AvailabilityPlayerRow({
   player,
   status,
+  responseStatus,
   hasSameDaySelectionConflict = false,
   eligibilityWarnings = [],
   selectionBlockReason = null,
@@ -206,9 +223,9 @@ export function AvailabilityPlayerRow({
         <label className="selection-row__status-field">
           <span className="hidden-input">Selection status</span>
           <select
-            className={`input selection-row__status-select selection-row__status-select--${getAvailabilityTone(status)}`}
-            onChange={(event) => onChange(event.target.value as AvailabilityStatus)}
-            value={status}>
+            className={`input selection-row__status-select selection-row__status-select--${getAvailabilityTone(responseStatus)}`}
+            onChange={(event) => onChange(event.target.value as AvailabilityResponseStatus)}
+            value={responseStatus}>
             {AVAILABILITY_OPTIONS.map((option) => (
               <option
                 disabled={option === 'available' && status !== 'available' && Boolean(selectionBlockReason)}

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import {
-  getAvailabilityStatusForPlayer,
+  deleteAvailabilityRecord,
+  getAvailabilityResponseStatusForPlayer,
   getAvailabilitySummary,
   getSortedFixtures,
   getPlayerAvailabilityLockReason,
@@ -33,11 +34,18 @@ const availabilityOptions = [
     value: 'uncertain',
     className: 'pill-button pill-button--compact pill-button--neutral',
   },
+  {
+    label: 'Not responded',
+    value: 'not-responded',
+    className: 'pill-button pill-button--compact pill-button--neutral',
+  },
 ] as const;
+
+type PlayerAvailabilityResponseStatus = (typeof availabilityOptions)[number]['value'];
 
 type EventListFilter = 'upcoming' | 'all';
 
-function getPlayerAvailabilityLabel(status: 'available' | 'unavailable' | 'uncertain') {
+function getPlayerAvailabilityLabel(status: PlayerAvailabilityResponseStatus) {
   if (status === 'available') {
     return 'Available';
   }
@@ -46,10 +54,14 @@ function getPlayerAvailabilityLabel(status: 'available' | 'unavailable' | 'uncer
     return 'Unavailable';
   }
 
-  return 'Awaiting response';
+  if (status === 'uncertain') {
+    return 'Unsure';
+  }
+
+  return 'Not responded';
 }
 
-function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | 'uncertain') {
+function getPlayerAvailabilityTone(status: PlayerAvailabilityResponseStatus) {
   if (status === 'available') {
     return 'status-pill status-pill--positive';
   }
@@ -264,7 +276,7 @@ export function MatchesListRoute() {
         ? visibleFixtures.map((fixture) => {
             const playerAvailability =
               selectedPlayer && isPlayer
-                ? getAvailabilityStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
+                ? getAvailabilityResponseStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
                 : null;
             const hasMatchStats = matchStats.some((entry) => {
               return entry.fixtureId === fixture.id;
@@ -344,6 +356,10 @@ export function MatchesListRoute() {
                           className={isSelected ? `${option.className} pill-button--selected` : option.className}
                           onClick={() => {
                             setAvailabilityRecords((current) => {
+                              if (option.value === 'not-responded') {
+                                return deleteAvailabilityRecord(current, fixture.id, selectedPlayer.id);
+                              }
+
                               return upsertAvailabilityRecord(current, fixture.id, selectedPlayer.id, option.value);
                             });
                           }}

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import {
+  deleteAvailabilityRecord,
   getAvailabilitySummary,
+  getAvailabilityResponseStatusForPlayer,
   getFixtureById,
   getPlayersForFixture,
   isPlayerSelectedInOtherSameDayFixture,
@@ -310,11 +312,26 @@ export function MatchDetailRoute() {
                   playerGamesPlayed,
                   policySettings
                 );
+                const responseStatus = getAvailabilityResponseStatusForPlayer(
+                  fixture.id,
+                  player.id,
+                  availabilityRecords
+                );
 
                 return (
                   <AvailabilityPlayerRow
                     key={player.id}
                     onChange={(status) => {
+                      if (status === 'not-responded') {
+                        setAvailabilityRecords((current) => {
+                          return deleteAvailabilityRecord(current, fixture.id, player.id);
+                        });
+                        setMatchLineupAssignments((current) => {
+                          return deleteMatchLineupAssignment(current, fixture.id, player.id);
+                        });
+                        return;
+                      }
+
                       if (status === 'available' && selectionBlockReason) {
                         return;
                       }
@@ -373,6 +390,7 @@ export function MatchDetailRoute() {
                       )
                     }
                     player={player}
+                    responseStatus={responseStatus}
                     rotationGroup={matchRotationPlan.assignments[player.id]?.group ?? null}
                     rotationGroupSource={matchRotationPlan.assignments[player.id]?.source ?? null}
                     selectionBlockReason={selectionBlockReason}
