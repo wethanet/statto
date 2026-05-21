@@ -11,12 +11,17 @@ import {
   useState,
 } from 'react';
 
+import { normalizeTrainingSessions } from '@/lib/attendance';
+import { normalizeFixtureSquad } from '@/lib/availability';
 import {
   createDemoClubDataSnapshot,
   emptyClubDataSnapshot,
   normalizeClubDataSnapshot,
   type ClubDataSnapshot,
 } from '@/lib/club-data-snapshot';
+import { normalizeMatchStatQuarter } from '@/lib/match-stats';
+import { normalizePlayerDevelopmentEntries } from '@/lib/player-development';
+import { normalizePlayerSquad, normalizePlayers } from '@/lib/team';
 import type {
   AttendanceRecord,
   AvailabilityRecord,
@@ -32,6 +37,7 @@ import type {
   TrainingSession,
   VoteEntry,
 } from '@/lib/types';
+import { normalizeVoteType } from '@/lib/votes';
 
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
@@ -159,9 +165,25 @@ const REALTIME_TABLES = [
 
 type CollectionConfig<T> = {
   label: string;
+  realtimeTable: RealtimeTableName;
   keyOf: (item: T) => string;
   upsertRemote?: (clubId: string, item: T) => Promise<void>;
   deleteRemote?: (clubId: string, item: T) => Promise<void>;
+};
+
+type CloudRow = Record<string, unknown>;
+type RealtimeEventType = 'INSERT' | 'UPDATE' | 'DELETE';
+type RealtimeTableName = (typeof REALTIME_TABLES)[number];
+type RealtimePayload = {
+  eventType: RealtimeEventType;
+  table?: string;
+  new: CloudRow;
+  old: CloudRow;
+};
+
+type CollectionDiffOperation = {
+  writeKey: string;
+  run: () => Promise<void>;
 };
 
 function resolveArrayUpdate<T>(update: SetStateAction<T[]>, current: T[]) {
@@ -291,22 +313,29 @@ function hasSnapshotData(snapshot: ClubDataSnapshot) {
   });
 }
 
-async function syncCollectionDiff<T>(
+function getCloudWriteKey(tableName: RealtimeTableName, rowKey: string) {
+  return `${tableName}:${rowKey}`;
+}
+
+function getCollectionDiffOperations<T>(
   clubId: string,
   current: T[],
   next: T[],
   config: CollectionConfig<T>
-) {
+): CollectionDiffOperation[] {
   const currentMap = new Map(current.map((item) => [config.keyOf(item), item] as const));
   const nextMap = new Map(next.map((item) => [config.keyOf(item), item] as const));
-  const tasks: Promise<void>[] = [];
+  const operations: CollectionDiffOperation[] = [];
 
   if (config.upsertRemote) {
     for (const [key, item] of nextMap.entries()) {
       const previous = currentMap.get(key);
 
       if (!previous || itemChanged(previous, item)) {
-        tasks.push(config.upsertRemote(clubId, item));
+        operations.push({
+          writeKey: getCloudWriteKey(config.realtimeTable, key),
+          run: () => config.upsertRemote?.(clubId, item) ?? Promise.resolve(),
+        });
       }
     }
   }
@@ -314,14 +343,297 @@ async function syncCollectionDiff<T>(
   if (config.deleteRemote) {
     for (const [key, item] of currentMap.entries()) {
       if (!nextMap.has(key)) {
-        tasks.push(config.deleteRemote(clubId, item));
+        operations.push({
+          writeKey: getCloudWriteKey(config.realtimeTable, key),
+          run: () => config.deleteRemote?.(clubId, item) ?? Promise.resolve(),
+        });
       }
     }
   }
 
-  if (tasks.length > 0) {
-    await Promise.all(tasks);
+  return operations;
+}
+
+function getString(row: CloudRow, key: string) {
+  const value = row[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function getNullableString(row: CloudRow, key: string) {
+  const value = row[key];
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function getNumber(row: CloudRow, key: string) {
+  const value = row[key];
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
   }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function getBoolean(row: CloudRow, key: string, fallback: boolean) {
+  const value = row[key];
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function mapCloudPlayer(row: CloudRow) {
+  const id = getString(row, 'id');
+  const name = getString(row, 'name');
+
+  if (!id || !name) {
+    return null;
+  }
+
+  return normalizePlayers([
+    {
+      id,
+      name,
+      nickname: getNullableString(row, 'nickname'),
+      number: getNumber(row, 'number'),
+      squad: getNullableString(row, 'squad'),
+      role: (getString(row, 'role') ?? 'player') as Player['role'],
+      active: getBoolean(row, 'active', true),
+      primary_position: getNullableString(row, 'primary_position'),
+      secondary_position: getNullableString(row, 'secondary_position'),
+      running_profile: getNullableString(row, 'running_profile'),
+      rotation_group_overrides: row.rotation_group_overrides,
+      season_goals: getNullableString(row, 'season_goals'),
+      skill_summary: getNullableString(row, 'skill_summary'),
+      development_level: getNullableString(row, 'development_level'),
+    },
+  ])[0] ?? null;
+}
+
+function mapCloudTrainingSession(row: CloudRow) {
+  const id = getString(row, 'id');
+  const title = getString(row, 'title');
+  const date = getString(row, 'date');
+  const location = getString(row, 'location');
+
+  if (!id || !title || !date || !location) {
+    return null;
+  }
+
+  return normalizeTrainingSessions([
+    {
+      id,
+      title,
+      date,
+      location,
+      squad: normalizePlayerSquad(getNullableString(row, 'squad')),
+      goal: getNullableString(row, 'goal'),
+      focus: getNullableString(row, 'focus'),
+      sessionPlan: row.session_plan as TrainingSession['sessionPlan'],
+      runPlan: Array.isArray(row.run_plan) ? row.run_plan : [],
+    },
+  ])[0] ?? null;
+}
+
+function mapCloudFixture(row: CloudRow): Fixture | null {
+  const id = getString(row, 'id');
+  const opponent = getString(row, 'opponent');
+  const date = getString(row, 'date');
+  const venue = getString(row, 'venue');
+
+  if (!id || !opponent || !date || !venue) {
+    return null;
+  }
+
+  const grade = getNullableString(row, 'grade');
+  const squad = normalizePlayerSquad(getNullableString(row, 'squad'));
+
+  return {
+    id,
+    opponent,
+    grade,
+    squad: normalizeFixtureSquad({ grade, squad }),
+    date,
+    venue,
+    isHome: getBoolean(row, 'is_home', true),
+  };
+}
+
+function mapCloudAttendanceRecord(row: CloudRow): AttendanceRecord | null {
+  const sessionId = getString(row, 'session_id');
+  const playerId = getString(row, 'player_id');
+  const status = getString(row, 'status');
+
+  if (!sessionId || !playerId || !status) {
+    return null;
+  }
+
+  return {
+    sessionId,
+    playerId,
+    status: status as AttendanceRecord['status'],
+  };
+}
+
+function mapCloudAvailabilityRecord(row: CloudRow): AvailabilityRecord | null {
+  const fixtureId = getString(row, 'fixture_id');
+  const playerId = getString(row, 'player_id');
+  const status = getString(row, 'status');
+
+  if (!fixtureId || !playerId || !status) {
+    return null;
+  }
+
+  return {
+    fixtureId,
+    playerId,
+    status: status as AvailabilityRecord['status'],
+  };
+}
+
+function mapCloudMatchStat(row: CloudRow): MatchStatEntry | null {
+  const fixtureId = getString(row, 'fixture_id');
+  const metric = getString(row, 'metric');
+  const team = getString(row, 'team');
+  const value = getNumber(row, 'value');
+
+  if (!fixtureId || !metric || !team || value === null) {
+    return null;
+  }
+
+  return {
+    fixtureId,
+    quarter: normalizeMatchStatQuarter(getNullableString(row, 'quarter')),
+    metric: metric as MatchStatEntry['metric'],
+    team: team as MatchStatEntry['team'],
+    value,
+  };
+}
+
+function mapCloudMatchLineupAssignment(row: CloudRow): MatchLineupAssignment | null {
+  const fixtureId = getString(row, 'fixture_id');
+  const playerId = getString(row, 'player_id');
+  const position = getString(row, 'position');
+
+  if (!fixtureId || !playerId || !position) {
+    return null;
+  }
+
+  return {
+    fixtureId,
+    playerId,
+    position: position as MatchLineupAssignment['position'],
+  };
+}
+
+function mapCloudMatchRotationAssignment(row: CloudRow): MatchRotationAssignment | null {
+  const fixtureId = getString(row, 'fixture_id');
+  const playerId = getString(row, 'player_id');
+  const group = getString(row, 'rotation_group');
+
+  if (!fixtureId || !playerId || !group) {
+    return null;
+  }
+
+  return {
+    fixtureId,
+    playerId,
+    group: group as MatchRotationAssignment['group'],
+  };
+}
+
+function mapCloudPlayerDevelopmentEntry(row: CloudRow) {
+  const playerId = getString(row, 'player_id');
+
+  if (!playerId) {
+    return null;
+  }
+
+  return normalizePlayerDevelopmentEntries([
+    {
+      playerId,
+      week_start: getString(row, 'week_start'),
+      focus_areas: row.focus_areas,
+      coaching_note: getNullableString(row, 'coaching_note'),
+      progress_status: getNullableString(row, 'progress_status'),
+      proficiency: row.proficiency,
+      progress_note: getNullableString(row, 'progress_note'),
+      generated_at: getNullableString(row, 'generated_at'),
+      updated_at: getNullableString(row, 'updated_at'),
+    },
+  ])[0] ?? null;
+}
+
+function mapCloudVoteEntry(row: CloudRow): VoteEntry | null {
+  const fixtureId = getString(row, 'fixture_id');
+  const playerId = getString(row, 'player_id');
+  const points = getNumber(row, 'points');
+
+  if (!fixtureId || !playerId || points === null) {
+    return null;
+  }
+
+  return {
+    fixtureId,
+    playerId,
+    voteType: normalizeVoteType(getString(row, 'vote_type')),
+    points,
+  };
+}
+
+function mapCloudPlayerVoteBallot(row: CloudRow): PlayerVoteBallot | null {
+  const fixtureId = getString(row, 'fixture_id');
+  const voterPlayerId = getString(row, 'voter_player_id');
+  const nomineePlayerId = getString(row, 'nominee_player_id');
+
+  if (!fixtureId || !voterPlayerId || !nomineePlayerId) {
+    return null;
+  }
+
+  return { fixtureId, voterPlayerId, nomineePlayerId };
+}
+
+function mapCloudFitnessResult(row: CloudRow): FitnessResult | null {
+  const playerId = getString(row, 'player_id');
+  const metric = getString(row, 'metric');
+  const phase = getString(row, 'phase');
+  const value = getNumber(row, 'value');
+  const recordedAt = getString(row, 'recorded_at');
+
+  if (!playerId || !metric || !phase || value === null || !recordedAt) {
+    return null;
+  }
+
+  return {
+    playerId,
+    metric: metric as FitnessResult['metric'],
+    phase: phase as FitnessResult['phase'],
+    value,
+    recordedAt,
+  };
+}
+
+function mapCloudFine(row: CloudRow): Fine | null {
+  const id = getString(row, 'id');
+  const playerId = getString(row, 'player_id');
+  const reason = getString(row, 'reason');
+  const amount = getNumber(row, 'amount');
+  const issuedAt = getString(row, 'issued_at');
+
+  if (!id || !playerId || !reason || amount === null || !issuedAt) {
+    return null;
+  }
+
+  return {
+    id,
+    playerId,
+    reason,
+    amount,
+    issuedAt,
+    paid: getBoolean(row, 'paid', false),
+  };
 }
 
 export function ClubDataProvider({ children }: PropsWithChildren) {
@@ -365,7 +677,9 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const refreshFromCloudRef = useRef<() => Promise<void>>(async () => {});
   const refreshFromCloudPromiseRef = useRef<Promise<void> | null>(null);
   const hydratedStorageScopeRef = useRef<string | null>(null);
-  const localMutationVersionRef = useRef(0);
+  const stateMutationVersionRef = useRef(0);
+  const pendingCloudWriteKeysRef = useRef(new Map<string, number>());
+  const cloudWriteQueuesRef = useRef(new Map<string, Promise<void>>());
 
   const fixturesRef = useRef(fixturesState);
   const trainingSessionsRef = useRef(trainingSessionsState);
@@ -450,6 +764,111 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setPlayerVoteBallotsState(snapshot.playerVoteBallots);
   }
 
+  function hasPendingCloudWrite(writeKey: string) {
+    return (pendingCloudWriteKeysRef.current.get(writeKey) ?? 0) > 0;
+  }
+
+  function queueCloudWrite(label: string, operation: CollectionDiffOperation) {
+    pendingCloudSyncCountRef.current += 1;
+    pendingCloudWriteKeysRef.current.set(
+      operation.writeKey,
+      (pendingCloudWriteKeysRef.current.get(operation.writeKey) ?? 0) + 1
+    );
+
+    const previousWrite = cloudWriteQueuesRef.current.get(operation.writeKey) ?? Promise.resolve();
+    const queuedWrite = previousWrite.catch(() => {}).then(operation.run);
+
+    cloudWriteQueuesRef.current.set(operation.writeKey, queuedWrite);
+
+    queuedWrite
+      .then(() => {
+        setSyncDebug((syncState) => {
+          if (syncState.lastSyncError === null) {
+            return syncState;
+          }
+
+          return {
+            ...syncState,
+            lastSyncError: null,
+          };
+        });
+      })
+      .catch((error: unknown) => {
+        console.warn(`Failed to sync ${label}`, error);
+        setSyncDebug((syncState) => {
+          return {
+            ...syncState,
+            lastSyncError:
+              error instanceof Error ? `Failed to sync ${label}: ${error.message}` : `Failed to sync ${label}.`,
+          };
+        });
+      })
+      .finally(() => {
+        pendingCloudSyncCountRef.current = Math.max(0, pendingCloudSyncCountRef.current - 1);
+
+        const pendingKeyCount = pendingCloudWriteKeysRef.current.get(operation.writeKey) ?? 0;
+        if (pendingKeyCount <= 1) {
+          pendingCloudWriteKeysRef.current.delete(operation.writeKey);
+        } else {
+          pendingCloudWriteKeysRef.current.set(operation.writeKey, pendingKeyCount - 1);
+        }
+
+        if (cloudWriteQueuesRef.current.get(operation.writeKey) === queuedWrite) {
+          cloudWriteQueuesRef.current.delete(operation.writeKey);
+        }
+
+        if (
+          pendingCloudSyncCountRef.current === 0 &&
+          pendingCloudRefreshRequestedRef.current
+        ) {
+          requestCloudRefresh();
+        }
+      });
+  }
+
+  function upsertRealtimeItem<T>(
+    ref: { current: T[] },
+    setState: Dispatch<SetStateAction<T[]>>,
+    keyOf: (item: T) => string,
+    item: T
+  ) {
+    const itemKey = keyOf(item);
+    const current = ref.current;
+    const existingIndex = current.findIndex((currentItem) => keyOf(currentItem) === itemKey);
+    const existingItem = existingIndex >= 0 ? current[existingIndex] : null;
+
+    if (existingItem && !itemChanged(existingItem, item)) {
+      return;
+    }
+
+    const next =
+      existingIndex >= 0
+        ? current.map((currentItem, index) => (index === existingIndex ? item : currentItem))
+        : [...current, item];
+
+    ref.current = next;
+    setState(next);
+    stateMutationVersionRef.current += 1;
+  }
+
+  function deleteRealtimeItem<T>(
+    ref: { current: T[] },
+    setState: Dispatch<SetStateAction<T[]>>,
+    keyOf: (item: T) => string,
+    itemKey: string
+  ) {
+    const current = ref.current;
+    const next = current.filter((item) => keyOf(item) !== itemKey);
+
+    if (next.length === current.length) {
+      return;
+    }
+
+    ref.current = next;
+    setState(next);
+    stateMutationVersionRef.current += 1;
+  }
+
   const getSnapshotFromRefs = useCallback((): ClubDataSnapshot => {
     return {
       fixtures: fixturesRef.current,
@@ -519,51 +938,22 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
       ref.current = next;
       setState(next);
-      localMutationVersionRef.current += 1;
+      stateMutationVersionRef.current += 1;
 
       if (!config || !isConfigured || !activeClubId) {
         return;
       }
 
-      pendingCloudSyncCountRef.current += 1;
-      syncCollectionDiff(activeClubId, current, next, config)
-        .then(() => {
-          setSyncDebug((syncState) => {
-            if (syncState.lastSyncError === null) {
-              return syncState;
-            }
-
-            return {
-              ...syncState,
-              lastSyncError: null,
-            };
-          });
-        })
-        .catch((error: unknown) => {
-          console.warn(`Failed to sync ${config.label}`, error);
-          setSyncDebug((syncState) => {
-            return {
-              ...syncState,
-              lastSyncError:
-                error instanceof Error ? `Failed to sync ${config.label}: ${error.message}` : `Failed to sync ${config.label}.`,
-            };
-          });
-        })
-        .finally(() => {
-          pendingCloudSyncCountRef.current = Math.max(0, pendingCloudSyncCountRef.current - 1);
-
-          if (
-            pendingCloudSyncCountRef.current === 0 &&
-            pendingCloudRefreshRequestedRef.current
-          ) {
-            requestCloudRefresh();
-          }
-        });
+      const operations = getCollectionDiffOperations(activeClubId, current, next, config);
+      operations.forEach((operation) => {
+        queueCloudWrite(config.label, operation);
+      });
     };
   }
 
   const setFixtures = createCollectionSetter(fixturesRef, setFixturesState, {
     label: 'fixtures',
+    realtimeTable: 'club_fixtures',
     keyOf: (fixture) => fixture.id,
     upsertRemote: upsertCloudFixture,
     deleteRemote: (clubId, fixture) => deleteCloudFixture(clubId, fixture.id),
@@ -571,6 +961,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setTrainingSessions = createCollectionSetter(trainingSessionsRef, setTrainingSessionsState, {
     label: 'training sessions',
+    realtimeTable: 'club_training_sessions',
     keyOf: (session) => session.id,
     upsertRemote: upsertCloudTrainingSession,
     deleteRemote: (clubId, session) => deleteCloudTrainingSession(clubId, session.id),
@@ -578,6 +969,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setAttendanceRecords = createCollectionSetter(attendanceRecordsRef, setAttendanceRecordsState, {
     label: 'attendance records',
+    realtimeTable: 'club_attendance_records',
     keyOf: (record) => `${record.sessionId}::${record.playerId}`,
     upsertRemote: upsertCloudAttendanceRecord,
     deleteRemote: (clubId, record) => deleteCloudAttendanceRecord(clubId, record.sessionId, record.playerId),
@@ -585,6 +977,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setPlayers = createCollectionSetter(playersRef, setPlayersState, {
     label: 'players',
+    realtimeTable: 'club_players',
     keyOf: (player) => player.id,
     upsertRemote: upsertCloudPlayer,
     deleteRemote: async (clubId, player) => {
@@ -605,6 +998,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setAvailabilityRecordsState,
     {
       label: 'availability records',
+      realtimeTable: 'club_availability_records',
       keyOf: (record) => `${record.fixtureId}::${record.playerId}`,
       upsertRemote: upsertCloudAvailabilityRecord,
       deleteRemote: (clubId, record) => deleteCloudAvailabilityRecord(clubId, record.fixtureId, record.playerId),
@@ -613,6 +1007,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setMatchStats = createCollectionSetter(matchStatsRef, setMatchStatsState, {
     label: 'match stats',
+    realtimeTable: 'club_match_stats',
     keyOf: (entry) => `${entry.fixtureId}::${entry.quarter}::${entry.metric}::${entry.team}`,
     upsertRemote: upsertCloudMatchStatEntry,
     deleteRemote: (clubId, entry) =>
@@ -624,6 +1019,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setMatchLineupAssignmentsState,
     {
       label: 'match lineup assignments',
+      realtimeTable: 'club_match_lineup_assignments',
       keyOf: (assignment) => `${assignment.fixtureId}::${assignment.playerId}`,
       upsertRemote: upsertCloudMatchLineupAssignment,
       deleteRemote: (clubId, assignment) =>
@@ -636,6 +1032,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setMatchRotationAssignmentsState,
     {
       label: 'match rotation assignments',
+      realtimeTable: 'club_match_rotation_assignments',
       keyOf: (assignment) => `${assignment.fixtureId}::${assignment.playerId}`,
       upsertRemote: upsertCloudMatchRotationAssignment,
       deleteRemote: (clubId, assignment) =>
@@ -645,6 +1042,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setFitnessResults = createCollectionSetter(fitnessResultsRef, setFitnessResultsState, {
     label: 'fitness results',
+    realtimeTable: 'club_fitness_results',
     keyOf: (result) => `${result.playerId}::${result.metric}::${result.phase}`,
     upsertRemote: upsertCloudFitnessResult,
     deleteRemote: (clubId, result) =>
@@ -656,6 +1054,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setPlayerDevelopmentEntriesState,
     {
       label: 'player development entries',
+      realtimeTable: 'club_player_development_entries',
       keyOf: (entry) => `${entry.playerId}::${entry.weekStart}`,
       upsertRemote: upsertCloudPlayerDevelopmentEntry,
       deleteRemote: (clubId, entry) =>
@@ -665,6 +1064,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setVoteEntries = createCollectionSetter(voteEntriesRef, setVoteEntriesState, {
     label: 'vote entries',
+    realtimeTable: 'club_vote_entries',
     keyOf: (entry) => `${entry.fixtureId}::${entry.playerId}::${entry.voteType}`,
     upsertRemote: upsertCloudVoteEntry,
     deleteRemote: (clubId, entry) =>
@@ -676,6 +1076,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setPlayerVoteBallotsState,
     {
       label: 'player vote ballots',
+      realtimeTable: 'club_player_vote_ballots',
       keyOf: (ballot) => `${ballot.fixtureId}::${ballot.voterPlayerId}`,
       upsertRemote: upsertCloudPlayerVoteBallot,
       deleteRemote: (clubId, ballot) =>
@@ -685,10 +1086,233 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   const setFines = createCollectionSetter(finesRef, setFinesState, {
     label: 'fines',
+    realtimeTable: 'club_fines',
     keyOf: (fine) => fine.id,
     upsertRemote: upsertCloudFine,
     deleteRemote: (clubId, fine) => deleteCloudFine(clubId, fine.id),
   });
+
+  function applyRealtimeCollectionPayload<T>(
+    payload: RealtimePayload,
+    tableName: RealtimeTableName,
+    getRowKey: (row: CloudRow) => string | null,
+    mapRow: (row: CloudRow) => T | null,
+    ref: { current: T[] },
+    setState: Dispatch<SetStateAction<T[]>>,
+    keyOf: (item: T) => string
+  ) {
+    const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+    const rowClubId = getString(row, 'club_id');
+
+    if (rowClubId !== activeClubId) {
+      return rowClubId !== null;
+    }
+
+    const rowKey = getRowKey(row);
+
+    if (!rowKey) {
+      return false;
+    }
+
+    if (hasPendingCloudWrite(getCloudWriteKey(tableName, rowKey))) {
+      return true;
+    }
+
+    if (payload.eventType === 'DELETE') {
+      deleteRealtimeItem(ref, setState, keyOf, rowKey);
+      return true;
+    }
+
+    const item = mapRow(row);
+
+    if (!item) {
+      return false;
+    }
+
+    upsertRealtimeItem(ref, setState, keyOf, item);
+    return true;
+  }
+
+  function applyRealtimePayload(tableName: RealtimeTableName, payload: RealtimePayload) {
+    if (!activeClubId) {
+      return false;
+    }
+
+    switch (tableName) {
+      case 'club_players':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => getString(row, 'id'),
+          mapCloudPlayer,
+          playersRef,
+          setPlayersState,
+          (player) => player.id
+        );
+      case 'club_training_sessions':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => getString(row, 'id'),
+          mapCloudTrainingSession,
+          trainingSessionsRef,
+          setTrainingSessionsState,
+          (session) => session.id
+        );
+      case 'club_attendance_records':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const sessionId = getString(row, 'session_id');
+            const playerId = getString(row, 'player_id');
+            return sessionId && playerId ? `${sessionId}::${playerId}` : null;
+          },
+          mapCloudAttendanceRecord,
+          attendanceRecordsRef,
+          setAttendanceRecordsState,
+          (record) => `${record.sessionId}::${record.playerId}`
+        );
+      case 'club_fixtures':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => getString(row, 'id'),
+          mapCloudFixture,
+          fixturesRef,
+          setFixturesState,
+          (fixture) => fixture.id
+        );
+      case 'club_availability_records':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const fixtureId = getString(row, 'fixture_id');
+            const playerId = getString(row, 'player_id');
+            return fixtureId && playerId ? `${fixtureId}::${playerId}` : null;
+          },
+          mapCloudAvailabilityRecord,
+          availabilityRecordsRef,
+          setAvailabilityRecordsState,
+          (record) => `${record.fixtureId}::${record.playerId}`
+        );
+      case 'club_match_stats':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const fixtureId = getString(row, 'fixture_id');
+            const quarter = normalizeMatchStatQuarter(getNullableString(row, 'quarter'));
+            const metric = getString(row, 'metric');
+            const team = getString(row, 'team');
+            return fixtureId && metric && team ? `${fixtureId}::${quarter}::${metric}::${team}` : null;
+          },
+          mapCloudMatchStat,
+          matchStatsRef,
+          setMatchStatsState,
+          (entry) => `${entry.fixtureId}::${entry.quarter}::${entry.metric}::${entry.team}`
+        );
+      case 'club_match_lineup_assignments':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const fixtureId = getString(row, 'fixture_id');
+            const playerId = getString(row, 'player_id');
+            return fixtureId && playerId ? `${fixtureId}::${playerId}` : null;
+          },
+          mapCloudMatchLineupAssignment,
+          matchLineupAssignmentsRef,
+          setMatchLineupAssignmentsState,
+          (assignment) => `${assignment.fixtureId}::${assignment.playerId}`
+        );
+      case 'club_match_rotation_assignments':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const fixtureId = getString(row, 'fixture_id');
+            const playerId = getString(row, 'player_id');
+            return fixtureId && playerId ? `${fixtureId}::${playerId}` : null;
+          },
+          mapCloudMatchRotationAssignment,
+          matchRotationAssignmentsRef,
+          setMatchRotationAssignmentsState,
+          (assignment) => `${assignment.fixtureId}::${assignment.playerId}`
+        );
+      case 'club_player_development_entries':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const playerId = getString(row, 'player_id');
+            const weekStart = getString(row, 'week_start');
+            return playerId && weekStart ? `${playerId}::${weekStart}` : null;
+          },
+          mapCloudPlayerDevelopmentEntry,
+          playerDevelopmentEntriesRef,
+          setPlayerDevelopmentEntriesState,
+          (entry) => `${entry.playerId}::${entry.weekStart}`
+        );
+      case 'club_vote_entries':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const fixtureId = getString(row, 'fixture_id');
+            const playerId = getString(row, 'player_id');
+            const voteType = normalizeVoteType(getString(row, 'vote_type'));
+            return fixtureId && playerId ? `${fixtureId}::${playerId}::${voteType}` : null;
+          },
+          mapCloudVoteEntry,
+          voteEntriesRef,
+          setVoteEntriesState,
+          (entry) => `${entry.fixtureId}::${entry.playerId}::${entry.voteType}`
+        );
+      case 'club_player_vote_ballots':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const fixtureId = getString(row, 'fixture_id');
+            const voterPlayerId = getString(row, 'voter_player_id');
+            return fixtureId && voterPlayerId ? `${fixtureId}::${voterPlayerId}` : null;
+          },
+          mapCloudPlayerVoteBallot,
+          playerVoteBallotsRef,
+          setPlayerVoteBallotsState,
+          (ballot) => `${ballot.fixtureId}::${ballot.voterPlayerId}`
+        );
+      case 'club_fitness_results':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => {
+            const playerId = getString(row, 'player_id');
+            const metric = getString(row, 'metric');
+            const phase = getString(row, 'phase');
+            return playerId && metric && phase ? `${playerId}::${metric}::${phase}` : null;
+          },
+          mapCloudFitnessResult,
+          fitnessResultsRef,
+          setFitnessResultsState,
+          (result) => `${result.playerId}::${result.metric}::${result.phase}`
+        );
+      case 'club_fines':
+        return applyRealtimeCollectionPayload(
+          payload,
+          tableName,
+          (row) => getString(row, 'id'),
+          mapCloudFine,
+          finesRef,
+          setFinesState,
+          (fine) => fine.id
+        );
+      default:
+        return false;
+    }
+  }
 
   function loadDemoData() {
     const snapshot = createDemoClubDataSnapshot();
@@ -726,14 +1350,14 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     const refreshPromise = (async () => {
       try {
         pendingCloudRefreshRequestedRef.current = false;
-        const refreshStartedAtVersion = localMutationVersionRef.current;
+        const refreshStartedAtVersion = stateMutationVersionRef.current;
         const remoteCoreData = await loadCloudCoreData(activeClubId);
 
         if (!remoteCoreData) {
           return;
         }
 
-        if (localMutationVersionRef.current !== refreshStartedAtVersion) {
+        if (stateMutationVersionRef.current !== refreshStartedAtVersion) {
           requestCloudRefresh();
           return;
         }
@@ -897,8 +1521,12 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           table,
           filter: `club_id=eq.${activeClubId}`,
         },
-        () => {
-          scheduleRefreshFromCloud();
+        (payload) => {
+          const didApplyPatch = applyRealtimePayload(table, payload as RealtimePayload);
+
+          if (!didApplyPatch) {
+            requestCloudRefresh();
+          }
         }
       );
     }, client.channel(`club-data:${activeClubId}`));
@@ -908,7 +1536,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     return () => {
       void client.removeChannel(channel);
     };
-  }, [activeClubId, isConfigured, isHydrated, scheduleRefreshFromCloud]);
+  }, [activeClubId, isConfigured, isHydrated]);
 
   const snapshot = useMemo<ClubDataSnapshot>(() => {
     return {
