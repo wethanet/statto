@@ -1,4 +1,11 @@
-import type { AvailabilityRecord, AvailabilityStatus, Fixture, Player, PlayerSquad } from '@/lib/types';
+import type {
+  AvailabilityRecord,
+  AvailabilityResponseStatus,
+  AvailabilityStatus,
+  Fixture,
+  Player,
+  PlayerSquad,
+} from '@/lib/types';
 import { DEFAULT_CLUB_POLICY_SETTINGS, getAvailabilityLockWindowMs } from '@/lib/club-policy';
 import { normalizePlayerSquad } from '@/lib/team';
 
@@ -112,6 +119,16 @@ export function getAvailabilityStatusForPlayer(
   })?.status ?? 'uncertain';
 }
 
+export function getAvailabilityResponseStatusForPlayer(
+  fixtureId: string,
+  playerId: string,
+  records: AvailabilityRecord[]
+): AvailabilityResponseStatus {
+  return records.find((record) => {
+    return record.fixtureId === fixtureId && record.playerId === playerId;
+  })?.status ?? 'not-responded';
+}
+
 export function isPlayerAvailabilityLocked(
   fixtureDate: string,
   now = Date.now(),
@@ -219,6 +236,12 @@ export function upsertAvailabilityRecord(
   nextRecords.push({ fixtureId, playerId, status });
 
   return nextRecords;
+}
+
+export function deleteAvailabilityRecord(records: AvailabilityRecord[], fixtureId: string, playerId: string) {
+  return records.filter((record) => {
+    return !(record.fixtureId === fixtureId && record.playerId === playerId);
+  });
 }
 
 export function getDefaultFixtureSquad(grade: Fixture['grade']): PlayerSquad | null {

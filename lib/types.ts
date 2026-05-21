@@ -126,6 +126,7 @@ export type Fixture = {
 };
 
 export type AvailabilityStatus = 'available' | 'unavailable' | 'uncertain';
+export type AvailabilityResponseStatus = AvailabilityStatus | 'not-responded';
 
 export type AvailabilityRecord = {
   fixtureId: string;
