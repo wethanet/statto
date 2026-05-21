@@ -365,6 +365,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const refreshFromCloudRef = useRef<() => Promise<void>>(async () => {});
   const refreshFromCloudPromiseRef = useRef<Promise<void> | null>(null);
   const hydratedStorageScopeRef = useRef<string | null>(null);
+  const localMutationVersionRef = useRef(0);
 
   const fixturesRef = useRef(fixturesState);
   const trainingSessionsRef = useRef(trainingSessionsState);
@@ -405,6 +406,19 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
     return `local:${user?.id ?? 'anonymous'}`;
   }, [activeClubId, isConfigured, user?.id]);
+
+  function requestCloudRefresh() {
+    pendingCloudRefreshRequestedRef.current = true;
+
+    if (refreshFromCloudTimeoutRef.current != null) {
+      return;
+    }
+
+    refreshFromCloudTimeoutRef.current = window.setTimeout(() => {
+      refreshFromCloudTimeoutRef.current = null;
+      void refreshFromCloudRef.current();
+    }, REALTIME_REFRESH_DEBOUNCE_MS);
+  }
 
   function applySnapshot(snapshot: ClubDataSnapshot) {
     fixturesRef.current = snapshot.fixtures;
@@ -505,6 +519,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
       ref.current = next;
       setState(next);
+      localMutationVersionRef.current += 1;
 
       if (!config || !isConfigured || !activeClubId) {
         return;
@@ -541,7 +556,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
             pendingCloudSyncCountRef.current === 0 &&
             pendingCloudRefreshRequestedRef.current
           ) {
-            void refreshFromCloudRef.current();
+            requestCloudRefresh();
           }
         });
     };
@@ -711,9 +726,15 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     const refreshPromise = (async () => {
       try {
         pendingCloudRefreshRequestedRef.current = false;
+        const refreshStartedAtVersion = localMutationVersionRef.current;
         const remoteCoreData = await loadCloudCoreData(activeClubId);
 
         if (!remoteCoreData) {
+          return;
+        }
+
+        if (localMutationVersionRef.current !== refreshStartedAtVersion) {
+          requestCloudRefresh();
           return;
         }
 
