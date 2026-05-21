@@ -1,5 +1,5 @@
 import { toPng } from 'html-to-image';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { getFixtureById, getPlayersForFixture } from '@/lib/availability';
@@ -11,6 +11,7 @@ import type { MatchLinePosition, Player, PlayerRotationGroup } from '@/lib/types
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 
 type AnnouncementPlayer = Player & {
   availabilityStatus: 'available' | 'unavailable' | 'uncertain';
@@ -170,12 +171,20 @@ export function TeamSelectionGraphicRoute() {
   const { fixtureId = '' } = useParams();
   const { activeClub } = useClubAccess();
   const { availabilityRecords, fixtures, matchLineupAssignments, players } = useClubData();
+  const { policySettings } = useClubPolicy();
   const teamSheetRef = useRef<HTMLElement | null>(null);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState<GraphicVariant | null>(null);
   const [playerLabelMode, setPlayerLabelMode] = useState<PlayerLabelMode>('full-name');
   const [graphicVariant, setGraphicVariant] = useState<GraphicVariant>('selection');
   const fixture = getFixtureById(fixtureId, fixtures);
+  const rotationGroupsEnabled = policySettings.rotationGroupsEnabled;
+
+  useEffect(() => {
+    if (!rotationGroupsEnabled && graphicVariant === 'rotation-groups') {
+      setGraphicVariant('selection');
+    }
+  }, [graphicVariant, rotationGroupsEnabled]);
 
   const lineupPlayers = useMemo(() => {
     if (!fixture) {
@@ -352,16 +361,18 @@ export function TeamSelectionGraphicRoute() {
                 type="button">
                 Field view
               </button>
-              <button
-                className={
-                  graphicVariant === 'rotation-groups'
-                    ? 'pill-button pill-button--compact pill-button--selected'
-                    : 'pill-button pill-button--compact'
-                }
-                onClick={() => setGraphicVariant('rotation-groups')}
-                type="button">
-                Rotation groups
-              </button>
+              {rotationGroupsEnabled ? (
+                <button
+                  className={
+                    graphicVariant === 'rotation-groups'
+                      ? 'pill-button pill-button--compact pill-button--selected'
+                      : 'pill-button pill-button--compact'
+                  }
+                  onClick={() => setGraphicVariant('rotation-groups')}
+                  type="button">
+                  Rotation groups
+                </button>
+              ) : null}
             </div>
           </div>
           <button
@@ -467,7 +478,7 @@ export function TeamSelectionGraphicRoute() {
                     <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
                     <RotationMarker
                       group={matchRotationPlan.assignments[player.id]?.group ?? null}
-                      isVisible={playerLabelMode === 'nickname'}
+                      isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                       variant={graphicVariant}
                     />
                   </div>
@@ -486,7 +497,7 @@ export function TeamSelectionGraphicRoute() {
                     <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
                     <RotationMarker
                       group={matchRotationPlan.assignments[player.id]?.group ?? null}
-                      isVisible={playerLabelMode === 'nickname'}
+                      isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                       variant={graphicVariant}
                     />
                   </div>
@@ -506,7 +517,7 @@ export function TeamSelectionGraphicRoute() {
                     </span>
                     <RotationMarker
                       group={matchRotationPlan.assignments[wingPlayers.left.id]?.group ?? null}
-                      isVisible={playerLabelMode === 'nickname'}
+                      isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                       variant={graphicVariant}
                     />
                   </div>
@@ -526,7 +537,7 @@ export function TeamSelectionGraphicRoute() {
                     </span>
                     <RotationMarker
                       group={matchRotationPlan.assignments[wingPlayers.right.id]?.group ?? null}
-                      isVisible={playerLabelMode === 'nickname'}
+                      isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                       variant={graphicVariant}
                     />
                   </div>
@@ -547,7 +558,7 @@ export function TeamSelectionGraphicRoute() {
                         <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
                         <RotationMarker
                           group={matchRotationPlan.assignments[player.id]?.group ?? null}
-                          isVisible={playerLabelMode === 'nickname'}
+                          isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                           variant={graphicVariant}
                         />
                       </div>
@@ -568,7 +579,7 @@ export function TeamSelectionGraphicRoute() {
                     <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
                     <RotationMarker
                       group={matchRotationPlan.assignments[player.id]?.group ?? null}
-                      isVisible={playerLabelMode === 'nickname'}
+                      isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                       variant={graphicVariant}
                     />
                   </div>
@@ -587,7 +598,7 @@ export function TeamSelectionGraphicRoute() {
                     <span className="team-sheet__field-player-name">{getPlayerLabel(player, playerLabelMode)}</span>
                     <RotationMarker
                       group={matchRotationPlan.assignments[player.id]?.group ?? null}
-                      isVisible={playerLabelMode === 'nickname'}
+                      isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                       variant={graphicVariant}
                     />
                   </div>
@@ -614,7 +625,7 @@ export function TeamSelectionGraphicRoute() {
                             <span className="team-sheet__bench-name">{getPlayerLabel(player, playerLabelMode)}</span>
                             <RotationMarker
                               group={matchRotationPlan.assignments[player.id]?.group ?? null}
-                              isVisible={playerLabelMode === 'nickname'}
+                              isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                               variant={graphicVariant}
                             />
                           </div>
@@ -640,7 +651,7 @@ export function TeamSelectionGraphicRoute() {
                             <span className="team-sheet__bench-name">{getPlayerLabel(player, playerLabelMode)}</span>
                             <RotationMarker
                               group={matchRotationPlan.assignments[player.id]?.group ?? null}
-                              isVisible={playerLabelMode === 'nickname'}
+                              isVisible={rotationGroupsEnabled && playerLabelMode === 'nickname'}
                               variant={graphicVariant}
                             />
                           </div>

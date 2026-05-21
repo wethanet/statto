@@ -8,6 +8,7 @@ export const DEFAULT_CLUB_POLICY_SETTINGS: ClubPolicySettings = {
   availabilityLockDays: 6,
   playerVoteOpenDelayDays: 0,
   playerVoteRequiresLineup: true,
+  rotationGroupsEnabled: true,
   higherGradeLabel: 'Cup',
   lowerGradeLabel: 'Plate',
   trainingDefaultTitle: 'Main training',
@@ -204,6 +205,7 @@ export function normalizeClubPolicySettings(
       DEFAULT_CLUB_POLICY_SETTINGS.playerVoteOpenDelayDays
     ),
     playerVoteRequiresLineup: input?.playerVoteRequiresLineup ?? DEFAULT_CLUB_POLICY_SETTINGS.playerVoteRequiresLineup,
+    rotationGroupsEnabled: input?.rotationGroupsEnabled ?? DEFAULT_CLUB_POLICY_SETTINGS.rotationGroupsEnabled,
     higherGradeLabel: normalizeLabel(input?.higherGradeLabel, DEFAULT_CLUB_POLICY_SETTINGS.higherGradeLabel),
     lowerGradeLabel: normalizeLabel(input?.lowerGradeLabel, DEFAULT_CLUB_POLICY_SETTINGS.lowerGradeLabel),
     trainingDefaultTitle: normalizeLabel(

@@ -19,6 +19,7 @@ create table if not exists public.club_policy_settings (
   availability_lock_days integer not null default 6 check (availability_lock_days >= 0),
   player_vote_open_delay_days integer not null default 0 check (player_vote_open_delay_days >= 0),
   player_vote_requires_lineup boolean not null default true,
+  rotation_groups_enabled boolean not null default true,
   higher_grade_label text not null default 'Cup',
   lower_grade_label text not null default 'Plate',
   training_default_title text not null default 'Main training',
@@ -1566,6 +1567,9 @@ add column if not exists player_vote_open_delay_days integer not null default 0;
 
 alter table public.club_policy_settings
 add column if not exists player_vote_requires_lineup boolean not null default true;
+
+alter table public.club_policy_settings
+add column if not exists rotation_groups_enabled boolean not null default true;
 
 alter table public.club_policy_settings
 add column if not exists higher_grade_label text not null default 'Cup';

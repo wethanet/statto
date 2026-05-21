@@ -150,7 +150,11 @@ export function TeamAdminRoute() {
       return 'Choose a different secondary position or leave it unassigned.';
     }
 
-    if (input.rotationGroupOverrides && input.rotationGroupOverrides.length <= 0) {
+    if (
+      policySettings.rotationGroupsEnabled &&
+      input.rotationGroupOverrides &&
+      input.rotationGroupOverrides.length <= 0
+    ) {
       return 'Select at least one manual rotation group or switch back to generated groups.';
     }
 
@@ -230,9 +234,11 @@ export function TeamAdminRoute() {
               <option value="unassigned">Unassigned</option>
             </select>
           </label>
-          <Link className="text-link" to="/admin/rotation-groups">
-            Open rotation groups
-          </Link>
+          {policySettings.rotationGroupsEnabled ? (
+            <Link className="text-link" to="/admin/rotation-groups">
+              Open rotation groups
+            </Link>
+          ) : null}
           <Link className="text-link" to="/admin/team-setup">
             Add or import players
           </Link>
@@ -267,6 +273,7 @@ export function TeamAdminRoute() {
                 }}
                 player={player}
                 gamesPlayed={getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id)}
+                rotationGroupsEnabled={policySettings.rotationGroupsEnabled}
               />
             );
           })
