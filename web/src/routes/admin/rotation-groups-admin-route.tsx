@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 
 import { buildRotationPlan } from '@/lib/rotation-groups';
 import { getPlayerSquadLabel } from '@/lib/team';
@@ -8,10 +8,12 @@ import type { PlayerSquad } from '@/lib/types';
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 
 export function RotationGroupsAdminRoute() {
   const { isHydrated, players } = useClubData();
   const { canManagePlayer } = useClubPermissions();
+  const { policySettings } = useClubPolicy();
   const [squadFilter, setSquadFilter] = useState<'all' | PlayerSquad | 'unassigned'>('all');
   const manageablePlayers = useMemo(() => {
     return players.filter((player) => canManagePlayer(player));
@@ -31,6 +33,10 @@ export function RotationGroupsAdminRoute() {
   }, [manageablePlayers, squadFilter]);
   const rotationPlan = useMemo(() => buildRotationPlan(filteredPlayers), [filteredPlayers]);
   const activePlayerCount = filteredPlayers.filter((player) => player.active).length;
+
+  if (!policySettings.rotationGroupsEnabled) {
+    return <Navigate replace to="/admin/settings" />;
+  }
 
   return (
     <AdminPageShell

@@ -33,6 +33,7 @@ type TeamPlayerSaveInput = {
 type TeamPlayerRowProps = {
   player: Player;
   gamesPlayed: PlayerGamesPlayedSummary;
+  rotationGroupsEnabled: boolean;
   onToggleActive: () => void;
   onCycleRole: () => void;
   onDelete: () => void;
@@ -42,6 +43,7 @@ type TeamPlayerRowProps = {
 export function TeamPlayerRow({
   player,
   gamesPlayed,
+  rotationGroupsEnabled,
   onToggleActive,
   onCycleRole,
   onDelete,
@@ -76,7 +78,11 @@ export function TeamPlayerRow({
       primaryPosition,
       secondaryPosition,
       runningProfile,
-      rotationGroupOverrides: useGeneratedGroups ? null : manualGroups,
+      rotationGroupOverrides: rotationGroupsEnabled
+        ? useGeneratedGroups
+          ? null
+          : manualGroups
+        : player.rotationGroupOverrides,
     });
 
     setIsSaving(false);
@@ -250,47 +256,49 @@ export function TeamPlayerRow({
             </label>
           </div>
 
-          <div className="stack-sm">
-            <div className="split-row">
-              <span className="field-label">Rotation groups</span>
-              <button
-                className={useGeneratedGroups ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
-                onClick={() => {
-                  setUseGeneratedGroups(true);
-                  setMessage(null);
-                }}
-                type="button">
-                Use generated groups
-              </button>
-            </div>
-            <div className="inline-actions">
-              {rotationGroupOptions.map((group) => {
-                const isSelected = manualGroups.includes(group);
+          {rotationGroupsEnabled ? (
+            <div className="stack-sm">
+              <div className="split-row">
+                <span className="field-label">Rotation groups</span>
+                <button
+                  className={useGeneratedGroups ? 'pill-button pill-button--compact pill-button--selected' : 'pill-button pill-button--compact'}
+                  onClick={() => {
+                    setUseGeneratedGroups(true);
+                    setMessage(null);
+                  }}
+                  type="button">
+                  Use generated groups
+                </button>
+              </div>
+              <div className="inline-actions">
+                {rotationGroupOptions.map((group) => {
+                  const isSelected = manualGroups.includes(group);
 
-                return (
-                  <button
-                    key={group}
-                    className={
-                      !useGeneratedGroups && isSelected
-                        ? 'pill-button pill-button--compact pill-button--selected'
-                        : 'pill-button pill-button--compact'
-                    }
-                    onClick={() => {
-                      setUseGeneratedGroups(false);
-                      setManualGroups((current) => {
-                        return current.includes(group)
-                          ? current.filter((entry) => entry !== group)
-                          : [...current, group];
-                      });
-                      setMessage(null);
-                    }}
-                    type="button">
-                    {getPlayerRotationGroupLabel(group)}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={group}
+                      className={
+                        !useGeneratedGroups && isSelected
+                          ? 'pill-button pill-button--compact pill-button--selected'
+                          : 'pill-button pill-button--compact'
+                      }
+                      onClick={() => {
+                        setUseGeneratedGroups(false);
+                        setManualGroups((current) => {
+                          return current.includes(group)
+                            ? current.filter((entry) => entry !== group)
+                            : [...current, group];
+                        });
+                        setMessage(null);
+                      }}
+                      type="button">
+                      {getPlayerRotationGroupLabel(group)}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="inline-actions">
             <button className="button" disabled={isSaving} type="submit">

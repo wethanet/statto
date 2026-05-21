@@ -31,6 +31,7 @@ export type ClubPolicySettings = {
   availabilityLockDays: number;
   playerVoteOpenDelayDays: number;
   playerVoteRequiresLineup: boolean;
+  rotationGroupsEnabled: boolean;
   higherGradeLabel: string;
   lowerGradeLabel: string;
   trainingDefaultTitle: string;

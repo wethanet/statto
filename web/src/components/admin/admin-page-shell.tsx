@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 
 import { useClubPermissions } from '@web/lib/club-permissions';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 
 type AdminPageShellProps = PropsWithChildren<{
   title: string;
@@ -14,7 +15,7 @@ type AdminNavItem = {
   to: string;
   end?: boolean;
   matchPaths?: string[];
-  requires?: 'club-admin' | 'roster-admin';
+  requires?: 'club-admin' | 'roster-admin' | 'rotation-groups';
 };
 
 type AdminNavGroup = {
@@ -39,7 +40,7 @@ const adminNavGroups: AdminNavGroup[] = [
     items: [
       { label: 'Team list', to: '/admin/team' },
       { label: 'Add/import', to: '/admin/team-setup', requires: 'roster-admin' },
-      { label: 'Rotation groups', to: '/admin/rotation-groups' },
+      { label: 'Rotation groups', to: '/admin/rotation-groups', requires: 'rotation-groups' },
       { label: 'Development', to: '/admin/development' },
     ],
   },
@@ -90,6 +91,7 @@ function matchesAdminNavItem(pathname: string, item: AdminNavItem) {
 
 export function AdminPageShell({ actions, children, description, title }: AdminPageShellProps) {
   const { canManageClubMemberships, canManageRosterSetup } = useClubPermissions();
+  const { policySettings } = useClubPolicy();
   const location = useLocation();
   const navGroups = adminNavGroups
     .map((group) => {
@@ -102,6 +104,10 @@ export function AdminPageShell({ actions, children, description, title }: AdminP
 
           if (item.requires === 'roster-admin') {
             return canManageRosterSetup;
+          }
+
+          if (item.requires === 'rotation-groups') {
+            return policySettings.rotationGroupsEnabled;
           }
 
           return true;

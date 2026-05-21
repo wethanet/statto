@@ -62,6 +62,7 @@ export function MatchDetailRoute() {
     setPlayers,
   } = useClubData();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
+  const [isUnavailableGroupExpanded, setIsUnavailableGroupExpanded] = useState(false);
   const fixture = getFixtureById(fixtureId, fixtures);
   const gamesPlayedByPlayer = useMemo(() => {
     return buildGamesPlayedByGrade(fixtures, matchLineupAssignments, policySettings);
@@ -295,118 +296,144 @@ export function MatchDetailRoute() {
         </div>
       </section>
 
-      {groupedPlayers.map((group) => (
-        <section className="card stack-sm" key={group.key}>
-          <div className="split-row">
-            <h3>{group.title}</h3>
-            <span className="muted">
-              {group.players.length} player{group.players.length === 1 ? '' : 's'}
-            </span>
-          </div>
-          <section className="selection-table">
-            {group.players.length > 0 ? (
-              group.players.map((player) => {
-                const playerGamesPlayed = getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id);
-                const selectionBlockReason = getLowerGradeSelectionBlockReason(
-                  fixture,
-                  playerGamesPlayed,
-                  policySettings
-                );
-                const responseStatus = getAvailabilityResponseStatusForPlayer(
-                  fixture.id,
-                  player.id,
-                  availabilityRecords
-                );
+      {groupedPlayers.map((group) => {
+        const isUnavailableGroup = group.key === 'unavailable';
+        const isGroupCollapsed = isUnavailableGroup && !isUnavailableGroupExpanded;
 
-                return (
-                  <AvailabilityPlayerRow
-                    key={player.id}
-                    onChange={(status) => {
-                      if (status === 'not-responded') {
-                        setAvailabilityRecords((current) => {
-                          return deleteAvailabilityRecord(current, fixture.id, player.id);
-                        });
-                        setMatchLineupAssignments((current) => {
-                          return deleteMatchLineupAssignment(current, fixture.id, player.id);
-                        });
-                        return;
-                      }
-
-                      if (status === 'available' && selectionBlockReason) {
-                        return;
-                      }
-
-                      setAvailabilityRecords((current) => {
-                        return upsertAvailabilityRecord(current, fixture.id, player.id, status);
-                      });
-                      if (status !== 'available') {
-                        setMatchLineupAssignments((current) => {
-                          return deleteMatchLineupAssignment(current, fixture.id, player.id);
-                        });
-                      }
-                    }}
-                    onSelectPosition={(position) => {
-                      if (selectionBlockReason) {
-                        return;
-                      }
-
-                      setMatchLineupAssignments((current) => {
-                        if (player.matchPosition === position) {
-                          return deleteMatchLineupAssignment(current, fixture.id, player.id);
-                        }
-
-                        return upsertMatchLineupAssignment(current, fixture.id, player.id, position);
-                      });
-                    }}
-                    onSelectRotationGroup={(group) => {
-                      const existingProfileGroup =
-                        player.rotationGroupOverrides?.length === 1
-                          ? player.rotationGroupOverrides[0]
-                          : null;
-
-                      if (existingProfileGroup === group) {
-                        setPlayers((current) => {
-                          return updatePlayerRotationGroupOverrides(current, player.id, null);
-                        });
-                        return;
-                      }
-
-                      setPlayers((current) => {
-                        return updatePlayerRotationGroupOverrides(current, player.id, [group]);
-                      });
-                    }}
-                    onResetRotationGroup={() => {
-                      setPlayers((current) => {
-                        return updatePlayerRotationGroupOverrides(current, player.id, null);
-                      });
-                    }}
-                    hasSameDaySelectionConflict={
-                      player.availabilityStatus === 'uncertain' &&
-                      isPlayerSelectedInOtherSameDayFixture(
-                        fixture.id,
-                        player.id,
-                        fixtures,
-                        availabilityRecords
-                      )
-                    }
-                    player={player}
-                    responseStatus={responseStatus}
-                    rotationGroup={matchRotationPlan.assignments[player.id]?.group ?? null}
-                    rotationGroupSource={matchRotationPlan.assignments[player.id]?.source ?? null}
-                    selectionBlockReason={selectionBlockReason}
-                    selectedPosition={player.matchPosition}
-                    status={player.availabilityStatus}
-                  />
-                );
-              })
-            ) : (
-              <div className="selection-row selection-row--empty">
-                <span className="muted">No players in this list yet.</span>
+        return (
+          <section className="card stack-sm" key={group.key}>
+            <div className="split-row">
+              <h3>{group.title}</h3>
+              <div className="inline-actions">
+                <span className="muted">
+                  {group.players.length} player{group.players.length === 1 ? '' : 's'}
+                </span>
+                {isUnavailableGroup ? (
+                  <button
+                    aria-expanded={isUnavailableGroupExpanded}
+                    className="pill-button pill-button--compact"
+                    onClick={() => setIsUnavailableGroupExpanded((current) => !current)}
+                    type="button">
+                    {isUnavailableGroupExpanded ? 'Hide players' : 'Show players'}
+                  </button>
+                ) : null}
               </div>
+            </div>
+            {isGroupCollapsed ? null : (
+              <section className="selection-table">
+                {group.players.length > 0 ? (
+                  group.players.map((player) => {
+                    const playerGamesPlayed = getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id);
+                    const selectionBlockReason = getLowerGradeSelectionBlockReason(
+                      fixture,
+                      playerGamesPlayed,
+                      policySettings
+                    );
+                    const responseStatus = getAvailabilityResponseStatusForPlayer(
+                      fixture.id,
+                      player.id,
+                      availabilityRecords
+                    );
+
+                    return (
+                      <AvailabilityPlayerRow
+                        key={player.id}
+                        onChange={(status) => {
+                          if (status === 'not-responded') {
+                            setAvailabilityRecords((current) => {
+                              return deleteAvailabilityRecord(current, fixture.id, player.id);
+                            });
+                            setMatchLineupAssignments((current) => {
+                              return deleteMatchLineupAssignment(current, fixture.id, player.id);
+                            });
+                            return;
+                          }
+
+                          if (status === 'available' && selectionBlockReason) {
+                            return;
+                          }
+
+                          setAvailabilityRecords((current) => {
+                            return upsertAvailabilityRecord(current, fixture.id, player.id, status);
+                          });
+                          if (status !== 'available') {
+                            setMatchLineupAssignments((current) => {
+                              return deleteMatchLineupAssignment(current, fixture.id, player.id);
+                            });
+                          }
+                        }}
+                        onSelectPosition={(position) => {
+                          if (selectionBlockReason) {
+                            return;
+                          }
+
+                          setMatchLineupAssignments((current) => {
+                            if (player.matchPosition === position) {
+                              return deleteMatchLineupAssignment(current, fixture.id, player.id);
+                            }
+
+                            return upsertMatchLineupAssignment(current, fixture.id, player.id, position);
+                          });
+                        }}
+                        onSelectRotationGroup={(group) => {
+                          const existingProfileGroup =
+                            player.rotationGroupOverrides?.length === 1
+                              ? player.rotationGroupOverrides[0]
+                              : null;
+
+                          if (existingProfileGroup === group) {
+                            setPlayers((current) => {
+                              return updatePlayerRotationGroupOverrides(current, player.id, null);
+                            });
+                            return;
+                          }
+
+                          setPlayers((current) => {
+                            return updatePlayerRotationGroupOverrides(current, player.id, [group]);
+                          });
+                        }}
+                        onResetRotationGroup={() => {
+                          setPlayers((current) => {
+                            return updatePlayerRotationGroupOverrides(current, player.id, null);
+                          });
+                        }}
+                        hasSameDaySelectionConflict={
+                          player.availabilityStatus === 'uncertain' &&
+                          isPlayerSelectedInOtherSameDayFixture(
+                            fixture.id,
+                            player.id,
+                            fixtures,
+                            availabilityRecords
+                          )
+                        }
+                        player={player}
+                        responseStatus={responseStatus}
+                        rotationGroup={
+                          policySettings.rotationGroupsEnabled
+                            ? matchRotationPlan.assignments[player.id]?.group ?? null
+                            : null
+                        }
+                        rotationGroupSource={
+                          policySettings.rotationGroupsEnabled
+                            ? matchRotationPlan.assignments[player.id]?.source ?? null
+                            : null
+                        }
+                        selectionBlockReason={selectionBlockReason}
+                        selectedPosition={player.matchPosition}
+                        status={player.availabilityStatus}
+                      />
+                    );
+                  })
+                ) : (
+                  <div className="selection-row selection-row--empty">
+                    <span className="muted">No players in this list yet.</span>
+                  </div>
+                )}
+              </section>
             )}
           </section>
-        </section>
-      ))}
+        );
+      })}
     </section>
   );
 }

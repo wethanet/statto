@@ -193,6 +193,18 @@ export function SettingsAdminRoute() {
           </span>
         </label>
 
+        <label className="field field--inline">
+          <span>Rotation groups</span>
+          <span className="inline-actions">
+            <input
+              checked={policyDraft.rotationGroupsEnabled}
+              onChange={(event) => updatePolicyDraft('rotationGroupsEnabled', event.target.checked)}
+              type="checkbox"
+            />
+            <span className="muted">Show generated rotation groups across admin and match selection screens.</span>
+          </span>
+        </label>
+
         <p className="muted">
           A higher-grade cap of {policyDraft.higherDivisionMaxGames} means players are blocked from
           lower-grade selection once they exceed that number.

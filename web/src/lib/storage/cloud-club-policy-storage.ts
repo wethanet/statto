@@ -12,6 +12,7 @@ type ClubPolicySettingsRow = {
   availability_lock_days: number | null;
   player_vote_open_delay_days: number | null;
   player_vote_requires_lineup: boolean | null;
+  rotation_groups_enabled: boolean | null;
   higher_grade_label: string | null;
   lower_grade_label: string | null;
   training_default_title: string | null;
@@ -22,6 +23,10 @@ type ClubPolicySettingsRow = {
   training_generation_weeks: number | null;
   training_drill_library_links: unknown;
 };
+
+const BASE_POLICY_SELECT =
+  'finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, higher_grade_label, lower_grade_label, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links';
+const POLICY_SELECT_WITH_ROTATION_GROUPS = `finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, rotation_groups_enabled, higher_grade_label, lower_grade_label, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links`;
 
 function requireSupabase() {
   if (!supabase) {
@@ -38,6 +43,7 @@ function mapRowToPolicySettings(row: ClubPolicySettingsRow | null | undefined): 
     availabilityLockDays: row?.availability_lock_days ?? DEFAULT_CLUB_POLICY_SETTINGS.availabilityLockDays,
     playerVoteOpenDelayDays: row?.player_vote_open_delay_days ?? DEFAULT_CLUB_POLICY_SETTINGS.playerVoteOpenDelayDays,
     playerVoteRequiresLineup: row?.player_vote_requires_lineup ?? DEFAULT_CLUB_POLICY_SETTINGS.playerVoteRequiresLineup,
+    rotationGroupsEnabled: row?.rotation_groups_enabled ?? DEFAULT_CLUB_POLICY_SETTINGS.rotationGroupsEnabled,
     higherGradeLabel: row?.higher_grade_label ?? DEFAULT_CLUB_POLICY_SETTINGS.higherGradeLabel,
     lowerGradeLabel: row?.lower_grade_label ?? DEFAULT_CLUB_POLICY_SETTINGS.lowerGradeLabel,
     trainingDefaultTitle: row?.training_default_title ?? DEFAULT_CLUB_POLICY_SETTINGS.trainingDefaultTitle,
@@ -58,6 +64,13 @@ function isMissingTableError(error: { code?: string; message?: string } | null) 
   );
 }
 
+function isMissingRotationGroupsColumnError(error: { code?: string; message?: string } | null) {
+  return (
+    error?.code === 'PGRST204' &&
+    error?.message?.includes('rotation_groups_enabled') === true
+  );
+}
+
 export async function loadCloudClubPolicySettings(clubId: string) {
   if (!supabase) {
     return DEFAULT_CLUB_POLICY_SETTINGS;
@@ -65,9 +78,7 @@ export async function loadCloudClubPolicySettings(clubId: string) {
 
   const { data, error } = await supabase
     .from('club_policy_settings')
-    .select(
-      'finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, higher_grade_label, lower_grade_label, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links'
-    )
+    .select(POLICY_SELECT_WITH_ROTATION_GROUPS)
     .eq('club_id', clubId)
     .maybeSingle();
 
@@ -76,6 +87,23 @@ export async function loadCloudClubPolicySettings(clubId: string) {
       'Club policy settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable policy management.'
     );
     return DEFAULT_CLUB_POLICY_SETTINGS;
+  }
+
+  if (isMissingRotationGroupsColumnError(error)) {
+    console.warn(
+      'Rotation group settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable the rotation group toggle.'
+    );
+    const fallbackResult = await supabase
+      .from('club_policy_settings')
+      .select(BASE_POLICY_SELECT)
+      .eq('club_id', clubId)
+      .maybeSingle();
+
+    if (fallbackResult.error) {
+      throw fallbackResult.error;
+    }
+
+    return mapRowToPolicySettings(fallbackResult.data as ClubPolicySettingsRow | null);
   }
 
   if (error) {
@@ -96,6 +124,7 @@ export async function upsertCloudClubPolicySettings(clubId: string, settings: Cl
       availability_lock_days: normalizedSettings.availabilityLockDays,
       player_vote_open_delay_days: normalizedSettings.playerVoteOpenDelayDays,
       player_vote_requires_lineup: normalizedSettings.playerVoteRequiresLineup,
+      rotation_groups_enabled: normalizedSettings.rotationGroupsEnabled,
       higher_grade_label: normalizedSettings.higherGradeLabel,
       lower_grade_label: normalizedSettings.lowerGradeLabel,
       training_default_title: normalizedSettings.trainingDefaultTitle,
@@ -110,6 +139,12 @@ export async function upsertCloudClubPolicySettings(clubId: string, settings: Cl
   );
 
   if (error) {
+    if (isMissingRotationGroupsColumnError(error)) {
+      throw new Error(
+        'Rotation group settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable the rotation group toggle.'
+      );
+    }
+
     throw error;
   }
 }

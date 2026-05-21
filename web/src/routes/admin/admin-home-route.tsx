@@ -165,12 +165,16 @@ export function AdminHomeRoute() {
           to: '/admin/team',
           action: 'Open team management',
         },
-        {
-          title: 'Rotation groups',
-          body: 'Review the automated AFL rotation plan and adjust player support groups.',
-          to: '/admin/rotation-groups',
-          action: 'Open rotation groups',
-        },
+        ...(policySettings.rotationGroupsEnabled
+          ? [
+              {
+                title: 'Rotation groups',
+                body: 'Review the automated AFL rotation plan and adjust player support groups.',
+                to: '/admin/rotation-groups',
+                action: 'Open rotation groups',
+              },
+            ]
+          : []),
         {
           title: 'Player development',
           body: 'Set season goals, track weekly growth, and generate focused coaching priorities.',
