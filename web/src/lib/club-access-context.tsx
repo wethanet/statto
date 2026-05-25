@@ -611,27 +611,25 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
           ? (joinRpc.data[0] as JoinClubRpcRow | undefined)
           : undefined;
 
-        if (!joinRow) {
-          return 'No club matched that invite code.';
+        if (joinRow) {
+          const nextClub: Club = {
+            id: joinRow.id,
+            name: joinRow.name,
+            inviteCode: joinRow.invite_code,
+            role: normalizeClubMembershipRole(joinRow.membership_role),
+            email: user.email ?? null,
+            playerId: joinRow.player_id,
+            squads: normalizePlayerSquads(joinRow.squads),
+          };
+
+          setClubs((current) => {
+            const filtered = current.filter((club) => club.id !== nextClub.id);
+            return [...filtered, nextClub].sort((left, right) => left.name.localeCompare(right.name));
+          });
+          setActiveClubIdState(nextClub.id);
+          await saveActiveClubId(nextClub.id);
+          return null;
         }
-
-        const nextClub: Club = {
-          id: joinRow.id,
-          name: joinRow.name,
-          inviteCode: joinRow.invite_code,
-          role: normalizeClubMembershipRole(joinRow.membership_role),
-          email: user.email ?? null,
-          playerId: joinRow.player_id,
-          squads: normalizePlayerSquads(joinRow.squads),
-        };
-
-        setClubs((current) => {
-          const filtered = current.filter((club) => club.id !== nextClub.id);
-          return [...filtered, nextClub].sort((left, right) => left.name.localeCompare(right.name));
-        });
-        setActiveClubIdState(nextClub.id);
-        await saveActiveClubId(nextClub.id);
-        return null;
       }
 
       const rpcMessage = getSupabaseErrorMessage(joinRpc.error);
@@ -707,7 +705,7 @@ export function ClubAccessProvider({ children }: PropsWithChildren) {
 
       return null;
     },
-    [clubs, user?.id]
+    [clubs, user?.email, user?.id]
   );
 
   const renameClub = useCallback(async (clubId: string, name: string) => {

@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
 import { getAttendanceSummary, getSortedTrainingSessions } from '@/lib/attendance';
-import { getAvailabilitySummary, getDefaultFixtureSquad, getSortedFixtures } from '@/lib/availability';
+import { getAvailabilitySummary, getSortedFixtures } from '@/lib/availability';
 import { getFineSummary } from '@/lib/fines';
 import { getTeamSummary } from '@/lib/team';
-import type { Fixture, PlayerSquad } from '@/lib/types';
+import type { Fixture } from '@/lib/types';
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { useClubAccess } from '@web/lib/club-access-context';
@@ -40,10 +40,44 @@ type AttentionItem = {
 
 type MatchDashboardCard = {
   fixture: Fixture;
-  squad: PlayerSquad | null;
   summary: ReturnType<typeof getAvailabilitySummary>;
   heading: string;
 };
+
+function getFixtureGradeKey(fixture: Fixture) {
+  return fixture.grade?.trim().toLowerCase() || fixture.squad || fixture.id;
+}
+
+function getFixtureGradeLabel(fixture: Fixture) {
+  if (fixture.grade?.trim()) {
+    return fixture.grade.trim();
+  }
+
+  if (fixture.squad === 'cup') {
+    return 'Cup';
+  }
+
+  if (fixture.squad === 'plate') {
+    return 'Plate';
+  }
+
+  return 'Match';
+}
+
+function getNextFixtureByGrade(fixtures: Fixture[]) {
+  const seenGrades = new Set<string>();
+
+  return fixtures.filter((fixture) => {
+    const gradeKey = getFixtureGradeKey(fixture);
+
+    if (seenGrades.has(gradeKey)) {
+      return false;
+    }
+
+    seenGrades.add(gradeKey);
+    return true;
+  });
+}
 
 export function HomeScreen() {
   const { activeClub } = useClubAccess();
@@ -101,15 +135,8 @@ export function HomeScreen() {
     ? getAttendanceSummary(displayedTraining.id, visiblePlayers, attendanceRecords)
     : null;
   const prioritizedFixtures = displayedMatchesToday.length > 0 ? displayedMatchesToday : upcomingFixtures;
-  const nextCupFixture =
-    prioritizedFixtures.find((fixture) => {
-      return getDefaultFixtureSquad(fixture.grade) === 'cup';
-    }) ?? null;
-  const nextPlateFixture =
-    prioritizedFixtures.find((fixture) => {
-      return getDefaultFixtureSquad(fixture.grade) === 'plate';
-    }) ?? null;
-  const primaryMatch = nextCupFixture ?? nextPlateFixture ?? prioritizedFixtures[0] ?? null;
+  const nextGradeFixtures = getNextFixtureByGrade(prioritizedFixtures);
+  const primaryMatch = nextGradeFixtures[0] ?? prioritizedFixtures[0] ?? null;
   const teamSummary = getTeamSummary(visiblePlayers);
   const fineSummary = getFineSummary(fines);
   const trainingHeading = todaysTraining.length > 0 ? 'Today’s training' : 'Next training';
@@ -117,27 +144,17 @@ export function HomeScreen() {
   const clubName = activeClub?.name ?? 'Warners Bay Bulldogs';
   const matchCards: MatchDashboardCard[] = [];
 
-  if (nextCupFixture) {
-    matchCards.push({
-      fixture: nextCupFixture,
-      squad: 'cup',
-      summary: getAvailabilitySummary(nextCupFixture.id, visiblePlayers, availabilityRecords),
-      heading: displayedMatchesToday.some((fixture) => fixture.id === nextCupFixture.id)
-        ? 'Today’s Cup match'
-        : 'Next Cup match',
-    });
-  }
+  nextGradeFixtures.forEach((fixture) => {
+    const gradeLabel = getFixtureGradeLabel(fixture);
 
-  if (nextPlateFixture) {
     matchCards.push({
-      fixture: nextPlateFixture,
-      squad: 'plate',
-      summary: getAvailabilitySummary(nextPlateFixture.id, visiblePlayers, availabilityRecords),
-      heading: displayedMatchesToday.some((fixture) => fixture.id === nextPlateFixture.id)
-        ? 'Today’s Plate match'
-        : 'Next Plate match',
+      fixture,
+      summary: getAvailabilitySummary(fixture.id, visiblePlayers, availabilityRecords),
+      heading: displayedMatchesToday.some((todayFixture) => todayFixture.id === fixture.id)
+        ? `Today’s ${gradeLabel} match`
+        : `Next ${gradeLabel} match`,
     });
-  }
+  });
 
   const attentionItems: AttentionItem[] = [];
 
@@ -162,7 +179,7 @@ export function HomeScreen() {
   matchCards.forEach((card) => {
     if (card.summary.notResponded > 0) {
       attentionItems.push({
-        title: `${card.squad === 'cup' ? 'Cup' : 'Plate'} availability still needs replies`,
+        title: `${getFixtureGradeLabel(card.fixture)} availability still needs replies`,
         detail: `${card.summary.notResponded} players have not responded for ${card.fixture.opponent}.`,
         to: `/matches/${card.fixture.id}`,
         action: 'Open match',
@@ -172,7 +189,7 @@ export function HomeScreen() {
 
     if (card.summary.respondedNotSelected > 0) {
       attentionItems.push({
-        title: `${card.squad === 'cup' ? 'Cup' : 'Plate'} selection has available players`,
+        title: `${getFixtureGradeLabel(card.fixture)} selection has available players`,
         detail: `${card.summary.respondedNotSelected} players are available and awaiting selection for ${card.fixture.opponent}.`,
         to: `/matches/${card.fixture.id}`,
         action: 'Open match',
@@ -264,11 +281,16 @@ export function HomeScreen() {
             </div>
           </div>
 
-          {primaryMatch ? (
-            <div className="stack-sm">
-              <p>{primaryMatch.grade ? `${primaryMatch.grade} • ` : ''}vs {primaryMatch.opponent}</p>
-              <p className="muted">{formatDate(primaryMatch.date)}</p>
-              <p className="muted">{primaryMatch.venue}</p>
+          {matchCards.length > 0 ? (
+            <div className="home-hero__match-grid">
+              {matchCards.map((card) => (
+                <Link className="home-hero__match-card" key={card.fixture.id} to={canAccessAdmin ? `/matches/${card.fixture.id}` : '/matches'}>
+                  <span>{card.heading}</span>
+                  <strong>{card.fixture.grade ? `${card.fixture.grade} • ` : ''}vs {card.fixture.opponent}</strong>
+                  <small>{formatDate(card.fixture.date)}</small>
+                  <small>{card.fixture.venue}</small>
+                </Link>
+              ))}
             </div>
           ) : displayedTraining && trainingSummary ? (
             <div className="stack-sm">
@@ -403,7 +425,7 @@ export function HomeScreen() {
 
                 {matchCards.length > 0 ? (
                   matchCards.map((card) => (
-                    <section className="home-focus-card" key={card.fixture.id}>
+                    <section className="home-focus-card home-focus-card--match" key={card.fixture.id}>
                       <span className="eyebrow">{card.heading}</span>
                       <h3>{card.fixture.grade ? `${card.fixture.grade} • ` : ''}vs {card.fixture.opponent}</h3>
                       <p className="muted">{formatDate(card.fixture.date)}</p>

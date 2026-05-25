@@ -14,6 +14,12 @@ import type { PlayerSquad } from '@/lib/types';
 import { deletePlayerVoteBallotsForFixture, deleteVoteEntriesForFixture } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminActionPanel,
+  AdminRecordList,
+  AdminSection,
+  AdminSupportingPanel,
+} from '@web/components/admin/admin-workflow';
 import { importFixturesFromCalendarUrl, normalizeWebcalUrl } from '@web/lib/fixture-calendar';
 import { useClubData } from '@web/lib/club-data-context';
 
@@ -239,13 +245,18 @@ export function MatchesAdminRoute() {
       }
       description="Create fixtures for the season, then manage availability from the matches tab."
       title="Match setup">
-      <form className="card stack" onSubmit={handleSaveFixture}>
-        <h3>Add fixture</h3>
-        <p className="muted">
-          {editingFixtureId
-            ? 'Update the imported or saved match details, then save the correction.'
-            : 'Set the opposition, date, time, venue, and whether it is home or away.'}
-        </p>
+      <AdminSection
+        eyebrow="Primary workflow"
+        title={editingFixtureId ? 'Edit fixture details' : 'Add the next fixture'}
+        description="Create or correct the match record before availability, selection, and stats depend on it.">
+        <form onSubmit={handleSaveFixture}>
+          <AdminActionPanel
+            title={editingFixtureId ? 'Update fixture' : 'Add fixture'}
+            description={
+              editingFixtureId
+                ? 'Update the imported or saved match details, then save the correction.'
+                : 'Set the opposition, date, time, venue, squad visibility, and home or away status.'
+            }>
 
         <label className="field">
           <span>Opponent</span>
@@ -368,14 +379,17 @@ export function MatchesAdminRoute() {
         </div>
 
         {formMessage ? <p className="muted">{formMessage}</p> : null}
-      </form>
+          </AdminActionPanel>
+        </form>
+      </AdminSection>
 
-      <section className="card stack">
-        <h3>Import from webcal</h3>
-        <p className="muted">
-          Paste a `webcal://` or `https://` calendar feed and import fixtures from event summaries,
-          start times, and locations.
-        </p>
+      <AdminSection
+        eyebrow="Supporting tool"
+        title="Bulk import fixtures"
+        description="Use calendar import when the league fixture feed is available. Review the fixture list afterward.">
+        <AdminSupportingPanel
+          title="Import from webcal"
+          description="Paste a `webcal://` or `https://` calendar feed and import fixtures from event summaries, start times, and locations.">
         <label className="field">
           <span>Calendar feed URL</span>
           <input
@@ -394,15 +408,18 @@ export function MatchesAdminRoute() {
           </button>
           {calendarMessage ? <p className="muted">{calendarMessage}</p> : null}
         </div>
-      </section>
+        </AdminSupportingPanel>
+      </AdminSection>
 
-      <section className="card stack">
-        <div className="split-row">
-          <div className="stack-sm">
-            <h3>Fixtures</h3>
-            <p className="muted">Upcoming fixtures are shown by default so past rounds stay out of the way.</p>
-          </div>
-          <div className="inline-actions">
+      <AdminSection
+        eyebrow="Records"
+        title="Fixture list"
+        description="Upcoming fixtures are shown by default so past rounds stay out of the way.">
+        <AdminRecordList
+          title="Fixtures"
+          description="Edit upcoming fixture details or delete records that should no longer drive availability and stats."
+          actions={
+            <>
             <button
               className={eventListFilter === 'upcoming' ? 'pill-button pill-button--selected' : 'pill-button'}
               onClick={() => setEventListFilter('upcoming')}
@@ -415,8 +432,8 @@ export function MatchesAdminRoute() {
               type="button">
               All
             </button>
-          </div>
-        </div>
+            </>
+          }>
         {filteredFixtures.length > 0 ? (
           filteredFixtures.map((fixture) => {
             return (
@@ -452,7 +469,8 @@ export function MatchesAdminRoute() {
         ) : (
           <p className="muted">{eventListFilter === 'upcoming' ? 'No upcoming fixtures.' : 'No fixtures yet.'}</p>
         )}
-      </section>
+        </AdminRecordList>
+      </AdminSection>
     </AdminPageShell>
   );
 }

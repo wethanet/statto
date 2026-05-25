@@ -7,6 +7,7 @@ import { getFineSummary, getFinesForPlayer, getSortedFines } from '@/lib/fines';
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
+import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
 
 function formatFixtureDate(value: string) {
@@ -34,6 +35,7 @@ function getAvailabilityLabel(status: 'available' | 'unavailable' | null) {
 export function PlayerHomeRoute() {
   const { availabilityRecords, fines, fixtures, trainingSessions } = useClubData();
   const { canViewSquadItem } = useClubPermissions();
+  const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
   const visibleFixtures = getSortedFixtures(fixtures.filter((fixture) => canViewSquadItem(fixture.squad)));
   const visibleTrainingSessions = getSortedTrainingSessions(
@@ -128,6 +130,7 @@ export function PlayerHomeRoute() {
                   </h3>
                   <p className="muted">{formatFixtureDate(nextFixture.date)}</p>
                   <p className="muted">{nextFixture.venue}</p>
+                  <p className="muted">Selection focus: {policySettings.homeAndAwaySelectionCriteria}</p>
                 </div>
                 <div className="metric-row">
                   <span

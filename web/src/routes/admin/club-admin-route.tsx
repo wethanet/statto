@@ -4,6 +4,13 @@ import { getPlayerDisplayName, getPlayerSortValue, normalizePlayerSquads } from 
 import type { ClubMembershipRole, PlayerSquad } from '@/lib/types';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminActionPanel,
+  AdminHelpText,
+  AdminRecordList,
+  AdminSection,
+  AdminSupportingPanel,
+} from '@web/components/admin/admin-workflow';
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
@@ -439,25 +446,30 @@ export function ClubAdminRoute() {
     <AdminPageShell
       description="Assign membership roles, link player accounts, and limit coaches and players to the squads they should manage or see."
       title="Club access">
-      <section className="card stack">
-        <div className="split-row">
-          <div className="stack-sm">
-            <h3>Invite club members</h3>
-            <p className="muted">
-              Share the invite code, let people join the club, then assign their role and squad access here.
-            </p>
-          </div>
+      <AdminSection
+        eyebrow="Access model"
+        title="Invite and link members"
+        description="Start with the invite path, then review pending invites and joined members separately.">
+        <AdminSupportingPanel
+          title="Club invite code"
+          description="Share this code when someone needs to join with a different email address, then link their member record afterward.">
           <span className="metric metric--neutral">
             {activeClub ? `Invite code ${activeClub.inviteCode}` : 'No active club'}
           </span>
-        </div>
-      </section>
+          <AdminHelpText>
+            Email invites apply role and player links automatically only when the signed-in email matches.
+            The invite code still lets a different email join the club so an admin can link the profile.
+          </AdminHelpText>
+        </AdminSupportingPanel>
+      </AdminSection>
 
-      <section className="card stack">
-        <h3>Email invite and player linking</h3>
-        <p className="muted">
-          Pre-assign a role, squad access, and linked player to an email address. We will email them an invite, and when they sign up or accept it with that email, they will be added to the club automatically.
-        </p>
+      <AdminSection
+        eyebrow="Primary workflow"
+        title="Pre-assign an invite"
+        description="Use this when you know the email address the player or coach will use to sign in.">
+        <AdminActionPanel
+          title="Email invite and player linking"
+          description="Pre-assign a role, squad access, and linked player before sending the invite email.">
 
         <div className="two-column">
           <label className="field">
@@ -546,12 +558,16 @@ export function ClubAdminRoute() {
             {isSavingInvite ? 'Sending invite...' : 'Send invite email'}
           </button>
         </div>
-      </section>
+        </AdminActionPanel>
+      </AdminSection>
 
-      <section className="card stack">
-        <h3>Pending invites</h3>
-        <p className="muted">These invites will be consumed automatically the next time the matching email signs in.</p>
-
+      <AdminSection
+        eyebrow="Pending"
+        title="Invites waiting for signup"
+        description="These records explain what will happen when the matching email signs in.">
+        <AdminRecordList
+          title="Pending invites"
+          description="Remove stale invites here; joined members are managed in the next section.">
         {pendingInvites.length > 0 ? (
           pendingInvites.map((invite) => (
             <section className="nested-card stack" key={invite.email}>
@@ -595,14 +611,16 @@ export function ClubAdminRoute() {
         ) : (
           <p className="muted">No pending invites yet.</p>
         )}
-      </section>
+        </AdminRecordList>
+      </AdminSection>
 
-      <section className="card stack">
-        <h3>Member roles</h3>
-        <p className="muted">
-          Admins can configure the club. Coaches can manage their squad and players. Players are locked to their linked profile.
-        </p>
-
+      <AdminSection
+        eyebrow="Members"
+        title="Joined member access"
+        description="Use this list after someone has joined to set their role, squads, and linked player profile.">
+        <AdminRecordList
+          title="Member roles"
+          description="Admins can configure the club. Coaches can manage squads. Players are locked to their linked profile.">
         {isLoading ? (
           <p className="muted">Loading club members...</p>
         ) : members.length > 0 ? (
@@ -733,7 +751,8 @@ export function ClubAdminRoute() {
         ) : (
           <p className="muted">No members have joined this club yet.</p>
         )}
-      </section>
+        </AdminRecordList>
+      </AdminSection>
 
       {message ? <p className="muted">{message}</p> : null}
     </AdminPageShell>

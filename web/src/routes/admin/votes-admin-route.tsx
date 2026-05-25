@@ -2,6 +2,7 @@ import { getPlayerDisplayName } from '@/lib/team';
 import { aggregatePlayerVoteBallots, getVoteLeaderboard, voteTypes } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import { AdminRecordList, AdminSection, AdminSummaryStrip } from '@web/components/admin/admin-workflow';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 
@@ -30,20 +31,27 @@ export function VotesAdminRoute() {
     <AdminPageShell
       description="Track the separate season ladders for player, coaches, and B&F voting."
       title="Votes leaderboard">
-      <section className="card stack">
-        <p className="muted">
-          {isHydrated ? 'Leaderboard is using saved browser data.' : 'Loading saved votes...'}
-        </p>
-      </section>
+      <AdminSection
+        eyebrow="Context"
+        title="Vote coverage"
+        description={isHydrated ? 'Leaderboard is using saved browser data.' : 'Loading saved votes...'}>
+        <AdminSummaryStrip
+          items={leaderboards.map((voteType) => ({
+            label: voteType.label,
+            value: voteType.leaderboard[0] ? getPlayerDisplayName(voteType.leaderboard[0]) : 'None yet',
+            note: voteType.leaderboard[0] ? `${voteType.leaderboard[0].totalPoints} pts` : 'waiting on votes',
+          }))}
+        />
+      </AdminSection>
 
       {leaderboards.map((voteType) => {
         return (
-          <section key={voteType.id} className="card stack">
-            <div className="stack-sm">
-              <h3>{voteType.label}</h3>
-              <p className="muted">{voteType.description}</p>
-            </div>
-
+          <AdminSection
+            key={voteType.id}
+            eyebrow="Records"
+            title={voteType.label}
+            description={voteType.description}>
+            <AdminRecordList title={`${voteType.label} leaderboard`} description="Players appear once votes have been recorded.">
             {voteType.leaderboard.length > 0 ? (
               voteType.leaderboard.map((player, index) => {
                 return (
@@ -58,7 +66,8 @@ export function VotesAdminRoute() {
             ) : (
               <p className="muted">No {voteType.label.toLowerCase()} have been recorded yet.</p>
             )}
-          </section>
+            </AdminRecordList>
+          </AdminSection>
         );
       })}
     </AdminPageShell>

@@ -11,6 +11,10 @@ export const DEFAULT_CLUB_POLICY_SETTINGS: ClubPolicySettings = {
   rotationGroupsEnabled: true,
   higherGradeLabel: 'Cup',
   lowerGradeLabel: 'Plate',
+  homeAndAwaySelectionCriteria:
+    'Home and away selection considers availability, training attendance, training effort, role fit, recent form, fitness, team balance, and how consistently players live the club standards around effort, communication, respect, and support for teammates.',
+  finalsSelectionCriteria:
+    'Finals selection prioritises eligibility, availability, fitness, role fit, recent performance, training commitment, and the strongest team balance.',
   trainingDefaultTitle: 'Main training',
   trainingDefaultTime: '18:00',
   trainingDefaultDays: [2, 4],
@@ -33,6 +37,14 @@ function normalizeNonNegativeInteger(value: unknown, fallback: number) {
 }
 
 function normalizeLabel(value: unknown, fallback: string) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  return value.trim() || fallback;
+}
+
+function normalizeCriteriaText(value: unknown, fallback: string) {
   if (typeof value !== 'string') {
     return fallback;
   }
@@ -187,6 +199,14 @@ function normalizeTrainingDrillLibraryLinks(value: unknown): TrainingDrillLibrar
 export function normalizeClubPolicySettings(
   input: Partial<ClubPolicySettings> | null | undefined
 ): ClubPolicySettings {
+  const legacySelectionCriteria = input as
+    | (Partial<ClubPolicySettings> & {
+        homeGameSelectionCriteria?: unknown;
+        awayGameSelectionCriteria?: unknown;
+      })
+    | null
+    | undefined;
+
   return {
     finalsMinimumGames: normalizeNonNegativeInteger(
       input?.finalsMinimumGames,
@@ -208,6 +228,16 @@ export function normalizeClubPolicySettings(
     rotationGroupsEnabled: input?.rotationGroupsEnabled ?? DEFAULT_CLUB_POLICY_SETTINGS.rotationGroupsEnabled,
     higherGradeLabel: normalizeLabel(input?.higherGradeLabel, DEFAULT_CLUB_POLICY_SETTINGS.higherGradeLabel),
     lowerGradeLabel: normalizeLabel(input?.lowerGradeLabel, DEFAULT_CLUB_POLICY_SETTINGS.lowerGradeLabel),
+    homeAndAwaySelectionCriteria: normalizeCriteriaText(
+      input?.homeAndAwaySelectionCriteria ??
+        legacySelectionCriteria?.homeGameSelectionCriteria ??
+        legacySelectionCriteria?.awayGameSelectionCriteria,
+      DEFAULT_CLUB_POLICY_SETTINGS.homeAndAwaySelectionCriteria
+    ),
+    finalsSelectionCriteria: normalizeCriteriaText(
+      input?.finalsSelectionCriteria,
+      DEFAULT_CLUB_POLICY_SETTINGS.finalsSelectionCriteria
+    ),
     trainingDefaultTitle: normalizeLabel(
       input?.trainingDefaultTitle,
       DEFAULT_CLUB_POLICY_SETTINGS.trainingDefaultTitle

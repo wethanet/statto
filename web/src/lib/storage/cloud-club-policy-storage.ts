@@ -15,6 +15,8 @@ type ClubPolicySettingsRow = {
   rotation_groups_enabled: boolean | null;
   higher_grade_label: string | null;
   lower_grade_label: string | null;
+  home_and_away_selection_criteria: string | null;
+  finals_selection_criteria: string | null;
   training_default_title: string | null;
   training_default_time: string | null;
   training_default_days: unknown;
@@ -27,6 +29,7 @@ type ClubPolicySettingsRow = {
 const BASE_POLICY_SELECT =
   'finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, higher_grade_label, lower_grade_label, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links';
 const POLICY_SELECT_WITH_ROTATION_GROUPS = `finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, rotation_groups_enabled, higher_grade_label, lower_grade_label, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links`;
+const POLICY_SELECT_WITH_SELECTION_CRITERIA = `finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, rotation_groups_enabled, higher_grade_label, lower_grade_label, home_and_away_selection_criteria, finals_selection_criteria, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links`;
 
 function requireSupabase() {
   if (!supabase) {
@@ -46,6 +49,9 @@ function mapRowToPolicySettings(row: ClubPolicySettingsRow | null | undefined): 
     rotationGroupsEnabled: row?.rotation_groups_enabled ?? DEFAULT_CLUB_POLICY_SETTINGS.rotationGroupsEnabled,
     higherGradeLabel: row?.higher_grade_label ?? DEFAULT_CLUB_POLICY_SETTINGS.higherGradeLabel,
     lowerGradeLabel: row?.lower_grade_label ?? DEFAULT_CLUB_POLICY_SETTINGS.lowerGradeLabel,
+    homeAndAwaySelectionCriteria:
+      row?.home_and_away_selection_criteria ?? DEFAULT_CLUB_POLICY_SETTINGS.homeAndAwaySelectionCriteria,
+    finalsSelectionCriteria: row?.finals_selection_criteria ?? DEFAULT_CLUB_POLICY_SETTINGS.finalsSelectionCriteria,
     trainingDefaultTitle: row?.training_default_title ?? DEFAULT_CLUB_POLICY_SETTINGS.trainingDefaultTitle,
     trainingDefaultTime: row?.training_default_time ?? DEFAULT_CLUB_POLICY_SETTINGS.trainingDefaultTime,
     trainingDefaultDays: row?.training_default_days as number[] | undefined,
@@ -71,6 +77,14 @@ function isMissingRotationGroupsColumnError(error: { code?: string; message?: st
   );
 }
 
+function isMissingSelectionCriteriaColumnError(error: { code?: string; message?: string } | null) {
+  return (
+    error?.code === 'PGRST204' &&
+    (error?.message?.includes('home_and_away_selection_criteria') === true ||
+      error?.message?.includes('finals_selection_criteria') === true)
+  );
+}
+
 export async function loadCloudClubPolicySettings(clubId: string) {
   if (!supabase) {
     return DEFAULT_CLUB_POLICY_SETTINGS;
@@ -78,7 +92,7 @@ export async function loadCloudClubPolicySettings(clubId: string) {
 
   const { data, error } = await supabase
     .from('club_policy_settings')
-    .select(POLICY_SELECT_WITH_ROTATION_GROUPS)
+    .select(POLICY_SELECT_WITH_SELECTION_CRITERIA)
     .eq('club_id', clubId)
     .maybeSingle();
 
@@ -96,6 +110,23 @@ export async function loadCloudClubPolicySettings(clubId: string) {
     const fallbackResult = await supabase
       .from('club_policy_settings')
       .select(BASE_POLICY_SELECT)
+      .eq('club_id', clubId)
+      .maybeSingle();
+
+    if (fallbackResult.error) {
+      throw fallbackResult.error;
+    }
+
+    return mapRowToPolicySettings(fallbackResult.data as ClubPolicySettingsRow | null);
+  }
+
+  if (isMissingSelectionCriteriaColumnError(error)) {
+    console.warn(
+      'Selection criteria settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable selection criteria.'
+    );
+    const fallbackResult = await supabase
+      .from('club_policy_settings')
+      .select(POLICY_SELECT_WITH_ROTATION_GROUPS)
       .eq('club_id', clubId)
       .maybeSingle();
 
@@ -127,6 +158,8 @@ export async function upsertCloudClubPolicySettings(clubId: string, settings: Cl
       rotation_groups_enabled: normalizedSettings.rotationGroupsEnabled,
       higher_grade_label: normalizedSettings.higherGradeLabel,
       lower_grade_label: normalizedSettings.lowerGradeLabel,
+      home_and_away_selection_criteria: normalizedSettings.homeAndAwaySelectionCriteria,
+      finals_selection_criteria: normalizedSettings.finalsSelectionCriteria,
       training_default_title: normalizedSettings.trainingDefaultTitle,
       training_default_time: normalizedSettings.trainingDefaultTime,
       training_default_days: normalizedSettings.trainingDefaultDays,
@@ -142,6 +175,12 @@ export async function upsertCloudClubPolicySettings(clubId: string, settings: Cl
     if (isMissingRotationGroupsColumnError(error)) {
       throw new Error(
         'Rotation group settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable the rotation group toggle.'
+      );
+    }
+
+    if (isMissingSelectionCriteriaColumnError(error)) {
+      throw new Error(
+        'Selection criteria settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable selection criteria.'
       );
     }
 

@@ -355,6 +355,7 @@ Scope:
 - Availability lock window policy.
 - Vote eligibility and vote timing policy.
 - Grade labels and grade hierarchy used by eligibility rules.
+- Player-facing selection criteria for home-and-away games and finals.
 - Admin-only editing for policy values.
 - Warning or block policy enforcement in selection flows, depending on the specific rule.
 - Safe defaults for existing clubs.
@@ -376,6 +377,7 @@ Acceptance criteria:
 - Existing clubs get safe defaults with no migration breakage.
 - Policy changes persist to Supabase.
 - Player and coach screens respect the configured availability and visibility policies.
+- Players can read the published home-and-away and finals selection criteria before responding to fixtures.
 - Match selection blocks lower-grade selection once the higher-grade cap is exceeded.
 
 Validation plan:
@@ -402,6 +404,7 @@ Current next step:
 Implementation notes:
 - Added `club_policy_settings` as the minimal policy data model with safe defaults for existing clubs.
 - Added admin settings controls for grade labels, finals minimum games, higher-grade cap, availability lock days, player vote delay, and lineup-required player voting.
+- Added admin-editable home-and-away and finals selection criteria with player-facing visibility on the availability flow.
 - Availability locking and player vote timing/eligibility now read from saved policy settings.
 - Lower-grade selection blocks now use `ST-004` games-played by grade and saved policy thresholds.
 - Verified the linked Supabase schema includes `club_policy_settings` with the expected policy columns and safe defaults.

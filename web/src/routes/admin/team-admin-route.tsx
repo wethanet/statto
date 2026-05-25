@@ -25,6 +25,11 @@ import {
 import { deletePlayerVoteBallotsForPlayer, deleteVoteEntriesForPlayer } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminRecordList,
+  AdminSection,
+  AdminSummaryStrip,
+} from '@web/components/admin/admin-workflow';
 import { TeamPlayerRow } from '@web/components/team/team-player-row';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
@@ -208,79 +213,99 @@ export function TeamAdminRoute() {
     <AdminPageShell
       description="Keep the playing list current, adjust leadership roles, and shape the squad cleanly."
       title="Team management">
-      <section className="card stack">
-        <h3>Roster summary</h3>
-        <div className="metric-row">
-          <span className="metric metric--neutral">{summary.total} total</span>
-          <span className="metric metric--positive">{summary.active} active</span>
-          <span className="metric metric--negative">{summary.inactive} inactive</span>
-          <span className="metric metric--neutral">{summary.leaders} leaders</span>
-          <span className="metric metric--positive">{summary.cup} cup</span>
-          <span className="metric metric--negative">{summary.plate} plate</span>
-          <span className="metric metric--neutral">{summary.unassigned} unassigned</span>
-        </div>
-        <p className="muted">
-          {isHydrated
+      <AdminSection
+        eyebrow="Context"
+        title="Roster summary"
+        description={
+          isHydrated
             ? 'Roster changes are saved in the browser app. Games played count past fixture lineups only.'
-            : 'Loading saved roster...'}
-        </p>
-        <div className="inline-actions">
-          <label className="field field--inline">
-            <span>Squad filter</span>
-            <select className="input" onChange={(event) => setSquadFilter(event.target.value as typeof squadFilter)} value={squadFilter}>
-              <option value="all">All squads</option>
-              <option value="cup">{getPlayerSquadLabel('cup')}</option>
-              <option value="plate">{getPlayerSquadLabel('plate')}</option>
-              <option value="unassigned">Unassigned</option>
-            </select>
-          </label>
-          {policySettings.rotationGroupsEnabled ? (
-            <Link className="text-link" to="/admin/rotation-groups">
-              Open rotation groups
+            : 'Loading saved roster...'
+        }
+        actions={
+          <>
+            {policySettings.rotationGroupsEnabled ? (
+              <Link className="text-link" to="/admin/rotation-groups">
+                Open rotation groups
+              </Link>
+            ) : null}
+            <Link className="text-link" to="/admin/team-setup">
+              Add or import players
             </Link>
-          ) : null}
-          <Link className="text-link" to="/admin/team-setup">
-            Add or import players
-          </Link>
-        </div>
-      </section>
+          </>
+        }>
+        <AdminSummaryStrip
+          items={[
+            { label: 'Total', value: String(summary.total), note: 'players' },
+            { label: 'Active', value: String(summary.active), note: 'available', tone: 'positive' },
+            { label: 'Inactive', value: String(summary.inactive), note: 'hidden from active work', tone: 'negative' },
+            { label: 'Leaders', value: String(summary.leaders), note: 'leadership group' },
+            { label: 'Cup', value: String(summary.cup), note: 'squad' },
+            { label: 'Plate', value: String(summary.plate), note: 'squad' },
+            { label: 'Unassigned', value: String(summary.unassigned), note: 'needs sorting' },
+          ]}
+        />
+      </AdminSection>
 
-      <section className="card team-player-table">
-        <div className="team-player-table__header" aria-hidden="true">
-          <span>Player</span>
-          <span>Role</span>
-          <span>Games</span>
-          <span>Status</span>
-          <span>Actions</span>
-        </div>
+      <AdminSection
+        eyebrow="Records"
+        title="Player list"
+        description="Filter the roster, then edit individual details, roles, status, and rotation overrides in the row.">
+        <AdminRecordList
+          title="Roster records"
+          description={`${filteredRoster.length} players match the current filter.`}
+          actions={
+            <label className="field field--inline">
+              <span>Squad filter</span>
+              <select
+                className="input"
+                onChange={(event) => setSquadFilter(event.target.value as typeof squadFilter)}
+                value={squadFilter}>
+                <option value="all">All squads</option>
+                <option value="cup">{getPlayerSquadLabel('cup')}</option>
+                <option value="plate">{getPlayerSquadLabel('plate')}</option>
+                <option value="unassigned">Unassigned</option>
+              </select>
+            </label>
+          }>
+          {importMessage ? <p className="muted">{importMessage}</p> : null}
+          <section className="team-player-table">
+            <div className="team-player-table__header" aria-hidden="true">
+              <span>Player</span>
+              <span>Role</span>
+              <span>Games</span>
+              <span>Status</span>
+              <span>Actions</span>
+            </div>
 
-        {filteredRoster.length > 0 ? (
-          filteredRoster.map((player) => {
-            return (
-              <TeamPlayerRow
-                key={player.id}
-                onCycleRole={() => {
-                  setPlayers((current) => cyclePlayerRole(current, player.id));
-                }}
-                onDelete={() => {
-                  handleDeletePlayer(player.id, player.name);
-                }}
-                onSaveDetails={(input) => {
-                  return handleSavePlayerDetails(player.id, player.name, input);
-                }}
-                onToggleActive={() => {
-                  setPlayers((current) => togglePlayerActive(current, player.id));
-                }}
-                player={player}
-                gamesPlayed={getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id)}
-                rotationGroupsEnabled={policySettings.rotationGroupsEnabled}
-              />
-            );
-          })
-        ) : (
-          <p className="muted">No players match this filter.</p>
-        )}
-      </section>
+            {filteredRoster.length > 0 ? (
+              filteredRoster.map((player) => {
+                return (
+                  <TeamPlayerRow
+                    key={player.id}
+                    onCycleRole={() => {
+                      setPlayers((current) => cyclePlayerRole(current, player.id));
+                    }}
+                    onDelete={() => {
+                      handleDeletePlayer(player.id, player.name);
+                    }}
+                    onSaveDetails={(input) => {
+                      return handleSavePlayerDetails(player.id, player.name, input);
+                    }}
+                    onToggleActive={() => {
+                      setPlayers((current) => togglePlayerActive(current, player.id));
+                    }}
+                    player={player}
+                    gamesPlayed={getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id)}
+                    rotationGroupsEnabled={policySettings.rotationGroupsEnabled}
+                  />
+                );
+              })
+            ) : (
+              <p className="muted">No players match this filter.</p>
+            )}
+          </section>
+        </AdminRecordList>
+      </AdminSection>
     </AdminPageShell>
   );
 }

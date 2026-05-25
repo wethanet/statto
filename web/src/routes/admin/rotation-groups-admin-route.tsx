@@ -6,6 +6,7 @@ import { getPlayerSquadLabel } from '@/lib/team';
 import type { PlayerSquad } from '@/lib/types';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import { AdminRecordList, AdminSection, AdminSummaryStrip } from '@web/components/admin/admin-workflow';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { useClubPolicy } from '@web/lib/club-policy-context';
@@ -42,25 +43,44 @@ export function RotationGroupsAdminRoute() {
     <AdminPageShell
       description="Review the generated rotation plan, then jump back to team management to tweak player attributes or set manual overrides."
       title="Rotation groups">
-      <section className="card stack">
-        <div className="inline-actions">
-          <label className="field field--inline">
-            <span>Squad filter</span>
-            <select className="input" onChange={(event) => setSquadFilter(event.target.value as typeof squadFilter)} value={squadFilter}>
-              <option value="all">All squads</option>
-              <option value="cup">{getPlayerSquadLabel('cup')}</option>
-              <option value="plate">{getPlayerSquadLabel('plate')}</option>
-              <option value="unassigned">Unassigned</option>
-            </select>
-          </label>
-          <span className="metric metric--neutral">{activePlayerCount} active players</span>
+      <AdminSection
+        eyebrow="Context"
+        title="Generated player groups"
+        description={isHydrated ? 'Rotation settings are saved with player records.' : 'Loading player settings...'}
+        actions={
           <Link className="text-link" to="/admin/team">
             Back to team management
           </Link>
-        </div>
-        <p className="muted">
-          {isHydrated ? 'Rotation settings are saved with player records.' : 'Loading player settings...'}
-        </p>
+        }>
+        <AdminSummaryStrip
+          items={[
+            { label: 'Active players', value: String(activePlayerCount), note: 'current filter' },
+            { label: 'Visible players', value: String(filteredPlayers.length), note: 'including inactive' },
+          ]}
+        />
+      </AdminSection>
+
+      <AdminSection
+        eyebrow="Records"
+        title="Rotation plan"
+        description="Filter by squad, then check which players are generated or manually assigned to each support group.">
+        <AdminRecordList
+          title="Rotation group records"
+          description="Manual overrides are changed from each player row in team management."
+          actions={
+            <label className="field field--inline">
+              <span>Squad filter</span>
+              <select
+                className="input"
+                onChange={(event) => setSquadFilter(event.target.value as typeof squadFilter)}
+                value={squadFilter}>
+                <option value="all">All squads</option>
+                <option value="cup">{getPlayerSquadLabel('cup')}</option>
+                <option value="plate">{getPlayerSquadLabel('plate')}</option>
+                <option value="unassigned">Unassigned</option>
+              </select>
+            </label>
+          }>
         <div className="rotation-groups-grid">
           {rotationPlan.summaries.map((summaryCard) => (
             <section className="rotation-group-card" key={summaryCard.group}>
@@ -89,7 +109,8 @@ export function RotationGroupsAdminRoute() {
             </section>
           ))}
         </div>
-      </section>
+        </AdminRecordList>
+      </AdminSection>
     </AdminPageShell>
   );
 }

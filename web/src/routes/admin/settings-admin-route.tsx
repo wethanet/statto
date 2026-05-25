@@ -5,6 +5,13 @@ import { normalizeClubPolicySettings } from '@/lib/club-policy';
 import type { ClubPolicySettings } from '@/lib/types';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminActionPanel,
+  AdminHelpText,
+  AdminRecordList,
+  AdminSection,
+  AdminSupportingPanel,
+} from '@web/components/admin/admin-workflow';
 import { ThemeOptionRow } from '@web/components/settings/theme-option-row';
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
@@ -91,95 +98,92 @@ export function SettingsAdminRoute() {
     <AdminPageShell
       description="Adjust app-wide preferences and keep the experience consistent for volunteers and coaches."
       title="Settings">
-      <section className="card stack">
-        <h3>Theme</h3>
-        <p>
-          Current setting: {themePreference}. Active appearance: {resolvedColorScheme}.
-        </p>
-        <p className="muted">
-          {isHydrated ? 'Theme changes are saved in the browser app.' : 'Loading saved settings...'}
-        </p>
-      </section>
-
-      <form className="card stack" onSubmit={handlePolicySubmit}>
-        <div className="split-row">
-          <div className="stack-sm">
-            <h3>League and club policies</h3>
-            <p className="muted">
-              {isPolicyLoading
+      <AdminSection
+        eyebrow="Policy"
+        title="League and club rules"
+        description="Start with the policies that affect selection, availability, voting, and player expectations.">
+        <form onSubmit={handlePolicySubmit}>
+          <AdminActionPanel
+            title="Selection and eligibility policies"
+            description={
+              isPolicyLoading
                 ? 'Loading policy settings...'
-                : 'Selection rules can warn or block depending on the policy being applied.'}
-            </p>
-          </div>
+                : 'Set the rules that players and coaches see in the app.'
+            }
+            actions={
+              <button className="button" disabled={isPolicySaving || isPolicyLoading} type="submit">
+                {isPolicySaving ? 'Saving...' : 'Save policies'}
+              </button>
+            }>
 
-          <button className="button" disabled={isPolicySaving || isPolicyLoading} type="submit">
-            {isPolicySaving ? 'Saving...' : 'Save policies'}
-          </button>
-        </div>
+            <AdminHelpText>
+              Keep this area focused on rules that change player eligibility, voting access, and selection
+              expectations. Club account and theme controls sit further down the page.
+            </AdminHelpText>
 
-        <div className="admin-summary-grid">
-          <label className="field">
-            <span>Higher grade label</span>
-            <input
-              className="input"
-              onChange={(event) => updatePolicyDraft('higherGradeLabel', event.target.value)}
-              value={policyDraft.higherGradeLabel}
-            />
-          </label>
+            <div className="admin-summary-grid">
+              <label className="field">
+                <span>Higher grade label</span>
+                <input
+                  className="input"
+                  onChange={(event) => updatePolicyDraft('higherGradeLabel', event.target.value)}
+                  value={policyDraft.higherGradeLabel}
+                />
+              </label>
 
-          <label className="field">
-            <span>Lower grade label</span>
-            <input
-              className="input"
-              onChange={(event) => updatePolicyDraft('lowerGradeLabel', event.target.value)}
-              value={policyDraft.lowerGradeLabel}
-            />
-          </label>
+              <label className="field">
+                <span>Lower grade label</span>
+                <input
+                  className="input"
+                  onChange={(event) => updatePolicyDraft('lowerGradeLabel', event.target.value)}
+                  value={policyDraft.lowerGradeLabel}
+                />
+              </label>
 
-          <label className="field">
-            <span>Finals minimum games</span>
-            <input
-              className="input"
-              min="0"
-              onChange={(event) => updatePolicyDraft('finalsMinimumGames', event.target.valueAsNumber)}
-              type="number"
-              value={getNumberInputValue(policyDraft.finalsMinimumGames)}
-            />
-          </label>
+              <label className="field">
+                <span>Finals minimum games</span>
+                <input
+                  className="input"
+                  min="0"
+                  onChange={(event) => updatePolicyDraft('finalsMinimumGames', event.target.valueAsNumber)}
+                  type="number"
+                  value={getNumberInputValue(policyDraft.finalsMinimumGames)}
+                />
+              </label>
 
-          <label className="field">
-            <span>Higher-grade cap</span>
-            <input
-              className="input"
-              min="0"
-              onChange={(event) => updatePolicyDraft('higherDivisionMaxGames', event.target.valueAsNumber)}
-              type="number"
-              value={getNumberInputValue(policyDraft.higherDivisionMaxGames)}
-            />
-          </label>
+              <label className="field">
+                <span>Higher-grade cap</span>
+                <input
+                  className="input"
+                  min="0"
+                  onChange={(event) => updatePolicyDraft('higherDivisionMaxGames', event.target.valueAsNumber)}
+                  type="number"
+                  value={getNumberInputValue(policyDraft.higherDivisionMaxGames)}
+                />
+              </label>
 
-          <label className="field">
-            <span>Availability lock days</span>
-            <input
-              className="input"
-              min="0"
-              onChange={(event) => updatePolicyDraft('availabilityLockDays', event.target.valueAsNumber)}
-              type="number"
-              value={getNumberInputValue(policyDraft.availabilityLockDays)}
-            />
-          </label>
+              <label className="field">
+                <span>Availability lock days</span>
+                <input
+                  className="input"
+                  min="0"
+                  onChange={(event) => updatePolicyDraft('availabilityLockDays', event.target.valueAsNumber)}
+                  type="number"
+                  value={getNumberInputValue(policyDraft.availabilityLockDays)}
+                />
+              </label>
 
-          <label className="field">
-            <span>Player vote delay days</span>
-            <input
-              className="input"
-              min="0"
-              onChange={(event) => updatePolicyDraft('playerVoteOpenDelayDays', event.target.valueAsNumber)}
-              type="number"
-              value={getNumberInputValue(policyDraft.playerVoteOpenDelayDays)}
-            />
-          </label>
-        </div>
+              <label className="field">
+                <span>Player vote delay days</span>
+                <input
+                  className="input"
+                  min="0"
+                  onChange={(event) => updatePolicyDraft('playerVoteOpenDelayDays', event.target.valueAsNumber)}
+                  type="number"
+                  value={getNumberInputValue(policyDraft.playerVoteOpenDelayDays)}
+                />
+              </label>
+            </div>
 
         <label className="field field--inline">
           <span>Player vote eligibility</span>
@@ -205,56 +209,99 @@ export function SettingsAdminRoute() {
           </span>
         </label>
 
-        <p className="muted">
-          A higher-grade cap of {policyDraft.higherDivisionMaxGames} means players are blocked from
-          lower-grade selection once they exceed that number.
-        </p>
-        {policyError ? <p className="muted">{policyError}</p> : null}
-        {policyMessage ? <p className="muted">{policyMessage}</p> : null}
-      </form>
-
-      <section className="card stack">
-        <h3>Account</h3>
-        <p>{accountDescription}</p>
-        {activeClub ? (
-          <p>
-            Active club: {activeClub.name} • Invite code {activeClub.inviteCode}
+        <section className="policy-section stack-sm">
+          <h3>Selection criteria</h3>
+          <p className="muted">
+            Publish the selection principles players should expect before home-and-away games and finals.
           </p>
-        ) : null}
-        {isConfigured ? (
-          <Link className="text-link" to="/admin/club">
-            {clubs.length > 0 ? 'Manage clubs and switch teams' : 'Create or join a club'}
-          </Link>
-        ) : null}
-        {isConfigured && user ? (
-          <button className="button button--danger" onClick={handleSignOut} type="button">
-            Sign out
-          </button>
-        ) : null}
-      </section>
+          <div className="selection-criteria-editor-grid">
+            <label className="field">
+              <span>Home and away games</span>
+              <textarea
+                className="input textarea"
+                onChange={(event) => updatePolicyDraft('homeAndAwaySelectionCriteria', event.target.value)}
+                value={policyDraft.homeAndAwaySelectionCriteria}
+              />
+            </label>
 
-      <section className="card stack">
-        <h3>Sync Debug</h3>
-        <p className="muted">Temporary diagnostic for cloud vs local hydration.</p>
-        <p>Players source: {syncDebug.playersSource}</p>
-        <p>Attendance source: {syncDebug.attendanceSource}</p>
-        <p>Availability source: {syncDebug.availabilitySource}</p>
-        <p>Match lineup source: {syncDebug.matchLineupSource}</p>
-        {syncDebug.lastSyncError ? <p className="muted">{syncDebug.lastSyncError}</p> : null}
-      </section>
+            <label className="field">
+              <span>Finals</span>
+              <textarea
+                className="input textarea"
+                onChange={(event) => updatePolicyDraft('finalsSelectionCriteria', event.target.value)}
+                value={policyDraft.finalsSelectionCriteria}
+              />
+            </label>
+          </div>
+        </section>
 
-      {themeOptions.map((option) => {
-        return (
-          <ThemeOptionRow
-            key={option.value}
-            description={option.description}
-            label={option.label}
-            onPress={setThemePreference}
-            selectedValue={themePreference}
-            value={option.value}
-          />
-        );
-      })}
+            <p className="muted">
+              A higher-grade cap of {policyDraft.higherDivisionMaxGames} means players are blocked from
+              lower-grade selection once they exceed that number.
+            </p>
+            {policyError ? <p className="muted">{policyError}</p> : null}
+            {policyMessage ? <p className="muted">{policyMessage}</p> : null}
+          </AdminActionPanel>
+        </form>
+      </AdminSection>
+
+      <AdminSection
+        eyebrow="Preferences"
+        title="Appearance and account"
+        description="These controls support the workspace but do not affect selection or match rules.">
+        <div className="two-column">
+          <AdminSupportingPanel
+            title="Theme"
+            description={`Current setting: ${themePreference}. Active appearance: ${resolvedColorScheme}.`}>
+            <p className="muted">
+              {isHydrated ? 'Theme changes are saved in the browser app.' : 'Loading saved settings...'}
+            </p>
+            {themeOptions.map((option) => {
+              return (
+                <ThemeOptionRow
+                  key={option.value}
+                  description={option.description}
+                  label={option.label}
+                  onPress={setThemePreference}
+                  selectedValue={themePreference}
+                  value={option.value}
+                />
+              );
+            })}
+          </AdminSupportingPanel>
+
+          <AdminSupportingPanel title="Account" description={accountDescription}>
+            {activeClub ? (
+              <p>
+                Active club: {activeClub.name} • Invite code {activeClub.inviteCode}
+              </p>
+            ) : null}
+            {isConfigured ? (
+              <Link className="text-link" to="/admin/club">
+                {clubs.length > 0 ? 'Manage clubs and switch teams' : 'Create or join a club'}
+              </Link>
+            ) : null}
+            {isConfigured && user ? (
+              <button className="button button--danger" onClick={handleSignOut} type="button">
+                Sign out
+              </button>
+            ) : null}
+          </AdminSupportingPanel>
+        </div>
+      </AdminSection>
+
+      <AdminSection
+        eyebrow="Diagnostics"
+        title="Sync debug"
+        description="Use this only when checking whether saved club data is loading from the expected source.">
+        <AdminRecordList title="Current sync sources" description="Temporary diagnostic for cloud vs local hydration.">
+          <p>Players source: {syncDebug.playersSource}</p>
+          <p>Attendance source: {syncDebug.attendanceSource}</p>
+          <p>Availability source: {syncDebug.availabilitySource}</p>
+          <p>Match lineup source: {syncDebug.matchLineupSource}</p>
+          {syncDebug.lastSyncError ? <p className="muted">{syncDebug.lastSyncError}</p> : null}
+        </AdminRecordList>
+      </AdminSection>
     </AdminPageShell>
   );
 }
