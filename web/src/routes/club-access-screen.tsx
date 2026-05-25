@@ -78,7 +78,8 @@ export function ClubAccessScreen() {
           <p className="club-access-shell__lede">
             Create a club for your team or join an existing club so managers can work from the same
             synced data. If an admin has already assigned your email to a player or coach role,
-            join with the club code and that access will be applied automatically.
+            join with the club code and that access will be applied automatically. If you use a
+            different email, you can still join and an admin can link your player profile afterward.
           </p>
         </div>
 
@@ -114,7 +115,7 @@ export function ClubAccessScreen() {
               <h2>Join a club</h2>
               <p className="club-access-card__description">
                 Enter the club code. If your email already has an invite, your role and linked player profile
-                will be applied automatically.
+                will be applied automatically. Different emails join first, then need admin linking.
               </p>
             </div>
             <label className="field club-access-card__field">

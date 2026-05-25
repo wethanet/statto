@@ -9,6 +9,11 @@ import { getTeamSummary } from '@/lib/team';
 import { getVoteLeaderboard } from '@/lib/votes';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminSection,
+  AdminSummaryStrip,
+  AdminSupportingPanel,
+} from '@web/components/admin/admin-workflow';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
@@ -245,61 +250,51 @@ export function AdminHomeRoute() {
     <AdminPageShell
       description="Keep club setup, roster changes, and season admin work organized from one place."
       title="Admin workspace">
-      <section className="admin-summary-grid">
-        {quickStats.map((stat) => (
-          <section className="card stack-sm" key={stat.label}>
-            <span className="eyebrow">{stat.label}</span>
-            <strong className="admin-summary-grid__value">{stat.value}</strong>
-            <span className="muted">{stat.note}</span>
-          </section>
-        ))}
-      </section>
+      <AdminSection
+        eyebrow="Overview"
+        title="Club status"
+        description="A quick read on the areas that usually need attention before training or match day.">
+        <AdminSummaryStrip items={quickStats} />
+      </AdminSection>
 
-      <section className="card stack">
-        <div className="split-row">
-          <div className="stack-sm">
-            <span className="eyebrow">Notifications</span>
-            <h3>Response reminders</h3>
-            <p className="muted">
-              {responseReminderSummary.responseCount > 0
-                ? `${responseReminderSummary.playerCount} active players have ${responseReminderSummary.responseCount} training or match responses still outstanding.`
-                : 'No outstanding training or match responses for active players.'}
-            </p>
-          </div>
-          <button
-            className="button"
-            disabled={isSendingReminders || responseReminderSummary.responseCount <= 0}
-            onClick={() => void handleSendResponseReminders()}
-            type="button">
-            {isSendingReminders ? 'Sending...' : 'Send reminders'}
-          </button>
-        </div>
-        {reminderMessage ? <p className="auth-message">{reminderMessage}</p> : null}
-      </section>
+      <AdminSection
+        eyebrow="Primary workflow"
+        title="Response follow-up"
+        description={
+          responseReminderSummary.responseCount > 0
+            ? `${responseReminderSummary.playerCount} active players have ${responseReminderSummary.responseCount} training or match responses still outstanding.`
+            : 'No outstanding training or match responses for active players.'
+        }>
+        <AdminSupportingPanel
+          title="Response reminders"
+          description="Send a reminder only when active players still owe training or match responses."
+          actions={
+            <button
+              className="button"
+              disabled={isSendingReminders || responseReminderSummary.responseCount <= 0}
+              onClick={() => void handleSendResponseReminders()}
+              type="button">
+              {isSendingReminders ? 'Sending...' : 'Send reminders'}
+            </button>
+          }>
+          {reminderMessage ? <p className="auth-message">{reminderMessage}</p> : null}
+        </AdminSupportingPanel>
+      </AdminSection>
 
       {cardSections.map((section) => (
-        <section className="admin-section" key={section.title}>
-          <div className="admin-section__header">
-            <div className="stack-sm">
-              <h3>{section.title}</h3>
-              <p className="muted">{section.description}</p>
-            </div>
-          </div>
-
+        <AdminSection key={section.title} title={section.title} description={section.description}>
           <div className="two-column">
             {section.cards.map((card) => {
               return (
-                <section key={card.to} className="card stack">
-                  <h3>{card.title}</h3>
-                  <p className="muted">{card.body}</p>
+                <AdminSupportingPanel key={card.to} title={card.title} description={card.body}>
                   <Link className="text-link" to={card.to}>
                     {card.action}
                   </Link>
-                </section>
+                </AdminSupportingPanel>
               );
             })}
           </div>
-        </section>
+        </AdminSection>
       ))}
     </AdminPageShell>
   );

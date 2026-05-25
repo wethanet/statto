@@ -4,6 +4,7 @@ import { buildGamesPlayedByGrade, getPlayerGamesPlayedSummary, normalizeGradeLab
 import { getPlayerDisplayName, getSortedTeam } from '@/lib/team';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import { AdminRecordList, AdminSection, AdminSummaryStrip } from '@web/components/admin/admin-workflow';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
@@ -73,15 +74,28 @@ export function GamesPlayedReportRoute() {
     <AdminPageShell
       description="Review how many past lineup selections each player has recorded by team."
       title="Games played report">
-      <section className="card stack">
-        <div className="split-row">
-          <div className="stack-sm">
-            <h3>Player games by team</h3>
-            <p className="muted">
-              Counts come from selected lineup assignments on past fixtures. Future fixtures and availability-only responses are not counted.
-            </p>
-          </div>
-          <div className="inline-actions">
+      <AdminSection
+        eyebrow="Context"
+        title="Selection history"
+        description="Counts come from selected lineup assignments on past fixtures. Future fixtures and availability-only responses are not counted.">
+        <AdminSummaryStrip
+          items={[
+            { label: 'Players shown', value: String(reportPlayers.length), note: playerFilter },
+            { label: 'Total games', value: String(seasonTotal), note: 'past lineup selections', tone: 'positive' },
+            { label: 'Teams', value: String(gradeColumns.length), note: 'grade columns' },
+          ]}
+        />
+      </AdminSection>
+
+      <AdminSection
+        eyebrow="Records"
+        title="Player games by team"
+        description="Filter active or all players, then review games by grade and total.">
+        <AdminRecordList
+          title="Games played table"
+          description="Use this report to check finals eligibility, load management, and grade balance."
+          actions={
+            <>
             <button
               className={playerFilter === 'active' ? 'pill-button pill-button--selected' : 'pill-button'}
               onClick={() => setPlayerFilter('active')}
@@ -94,14 +108,8 @@ export function GamesPlayedReportRoute() {
               type="button">
               All players
             </button>
-          </div>
-        </div>
-
-        <div className="metric-row">
-          <span className="metric metric--neutral">{reportPlayers.length} players</span>
-          <span className="metric metric--positive">{seasonTotal} total games</span>
-          <span className="metric metric--neutral">{gradeColumns.length} teams</span>
-        </div>
+            </>
+          }>
 
         <div className="report-table-wrap">
           <table className="report-table">
@@ -149,7 +157,8 @@ export function GamesPlayedReportRoute() {
             </tfoot>
           </table>
         </div>
-      </section>
+        </AdminRecordList>
+      </AdminSection>
     </AdminPageShell>
   );
 }

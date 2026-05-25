@@ -27,6 +27,13 @@ import {
 import type { PlayerDevelopmentEntry, PlayerDevelopmentTask, PlayerSquad } from '@/lib/types';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminActionPanel,
+  AdminRecordList,
+  AdminSection,
+  AdminSummaryStrip,
+  AdminSupportingPanel,
+} from '@web/components/admin/admin-workflow';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
@@ -397,33 +404,50 @@ export function PlayerDevelopmentAdminRoute() {
     <AdminPageShell
       description="Set season goals, track weekly progress, and generate focused coaching priorities for each player."
       title="Player development">
-      <section className="card stack">
-        <div className="inline-actions">
-          <label className="field field--inline">
+      <AdminSection
+        eyebrow="Context"
+        title="Development coverage"
+        description={
+          !isHydrated
+            ? 'Loading player development plans...'
+            : storageMode === 'cloud'
+              ? 'Coach chat uses the club’s Supabase function and OpenAI key, then lets you apply draft goals and weekly focuses into the player record.'
+              : 'Profile and progress tracking work locally. AI coaching chat needs Supabase to be configured.'
+        }>
+        <AdminSummaryStrip
+          items={[
+            { label: 'Profiles set', value: String(profileCoverageCount), note: `${filteredPlayers.length} visible players` },
+            { label: 'Weekly updates', value: String(thisWeekUpdatedCount), note: 'this week' },
+            { label: 'Current week', value: formatDevelopmentWeekLabel(currentWeekStart), note: 'active focus' },
+          ]}
+        />
+      </AdminSection>
+
+      <AdminSection
+        eyebrow="Primary workflow"
+        title="Player development workflow"
+        description="Pick a player on the left, then work through profile, coach chat, weekly focus, and history.">
+        <section className="development-layout">
+        <aside className="card stack development-player-list">
+          <div className="admin-panel-header">
+            <div className="stack-sm">
+              <span className="eyebrow">Player selector</span>
+              <h3>Players</h3>
+              <p className="muted">Filter the list before selecting the player to update.</p>
+            </div>
+          </div>
+          <label className="field">
             <span>Squad filter</span>
-            <select className="input" onChange={(event) => setSquadFilter(event.target.value as typeof squadFilter)} value={squadFilter}>
+            <select
+              className="input"
+              onChange={(event) => setSquadFilter(event.target.value as typeof squadFilter)}
+              value={squadFilter}>
               <option value="all">All squads</option>
               <option value="cup">{getPlayerSquadLabel('cup')}</option>
               <option value="plate">{getPlayerSquadLabel('plate')}</option>
               <option value="unassigned">Unassigned</option>
             </select>
           </label>
-          <span className="metric metric--neutral">{profileCoverageCount} profiles set</span>
-          <span className="metric metric--neutral">{thisWeekUpdatedCount} weekly updates this week</span>
-          <span className="metric metric--neutral">Week of {formatDevelopmentWeekLabel(currentWeekStart)}</span>
-        </div>
-        <p className="muted">
-          {!isHydrated
-            ? 'Loading player development plans...'
-            : storageMode === 'cloud'
-              ? 'Coach chat uses the club’s Supabase function and OpenAI key, then lets you apply draft goals and weekly focuses into the player record.'
-              : 'Profile and progress tracking work locally. AI coaching chat needs Supabase to be configured.'}
-        </p>
-      </section>
-
-      <section className="development-layout">
-        <aside className="card stack development-player-list">
-          <h3>Players</h3>
           {filteredPlayers.length > 0 ? (
             <div className="development-player-list__items">
               {filteredPlayers.map((player) => {
@@ -465,22 +489,18 @@ export function PlayerDevelopmentAdminRoute() {
         <div className="stack-lg">
           {selectedPlayer ? (
             <>
-              <section className="card stack">
-                <div className="split-row">
-                  <div className="stack-sm">
-                    <h3>{getPlayerDisplayName(selectedPlayer)}</h3>
-                    <p className="muted">
-                      {getPlayerPositionLabel(selectedPlayer.primaryPosition)} primary
-                      {selectedPlayer.secondaryPosition
-                        ? ` • ${getPlayerPositionLabel(selectedPlayer.secondaryPosition)} secondary`
-                        : ''}
-                      {selectedPlayer.runningProfile
-                        ? ` • ${getPlayerRunningProfileLabel(selectedPlayer.runningProfile)}`
-                        : ''}
-                    </p>
-                  </div>
-                  <span className="metric metric--neutral">{getPlayerSquadLabel(selectedPlayer.squad)}</span>
-                </div>
+              <AdminActionPanel
+                title={`${getPlayerDisplayName(selectedPlayer)} profile`}
+                description={[
+                  `${getPlayerPositionLabel(selectedPlayer.primaryPosition)} primary`,
+                  selectedPlayer.secondaryPosition
+                    ? `${getPlayerPositionLabel(selectedPlayer.secondaryPosition)} secondary`
+                    : null,
+                  selectedPlayer.runningProfile
+                    ? getPlayerRunningProfileLabel(selectedPlayer.runningProfile)
+                    : null,
+                ].filter(Boolean).join(' • ')}
+                actions={<span className="metric metric--neutral">{getPlayerSquadLabel(selectedPlayer.squad)}</span>}>
 
                 <form className="stack-sm" onSubmit={handleSaveProfile}>
                   <div className="two-column">
@@ -536,18 +556,12 @@ export function PlayerDevelopmentAdminRoute() {
                     {profileMessage ? <p className="muted">{profileMessage}</p> : null}
                   </div>
                 </form>
-              </section>
+              </AdminActionPanel>
 
-              <section className="card stack">
-                <div className="split-row">
-                  <div className="stack-sm">
-                    <h3>Coach development chat</h3>
-                    <p className="muted">
-                      Talk through what you are seeing, what role this player is growing into, and what you want their next step to be. Each reply refreshes a draft you can apply into season goals or this week’s focus.
-                    </p>
-                  </div>
-                  <span className="metric metric--neutral">Week of {formatDevelopmentWeekLabel(currentWeekStart)}</span>
-                </div>
+              <AdminSupportingPanel
+                title="Coach development chat"
+                description="Talk through what you are seeing and apply drafts into the profile or weekly focus when useful."
+                actions={<span className="metric metric--neutral">Week of {formatDevelopmentWeekLabel(currentWeekStart)}</span>}>
 
                 <div className="development-chat">
                   <div className="development-chat__messages">
@@ -620,16 +634,12 @@ export function PlayerDevelopmentAdminRoute() {
                     </div>
                   ) : null}
                 </div>
-              </section>
+              </AdminSupportingPanel>
 
-              <section className="card stack">
-                <div className="split-row">
-                  <div className="stack-sm">
-                    <h3>This week</h3>
-                    <p className="muted">Week of {formatDevelopmentWeekLabel(currentWeekStart)}</p>
-                  </div>
-                  {latestChatDraft ? <span className="metric metric--neutral">Draft ready to apply</span> : null}
-                </div>
+              <AdminActionPanel
+                title="This week"
+                description={`Week of ${formatDevelopmentWeekLabel(currentWeekStart)}`}
+                actions={latestChatDraft ? <span className="metric metric--neutral">Draft ready to apply</span> : null}>
 
                 <form className="stack-sm" onSubmit={handleSaveWeek}>
                   <div className="stack-sm">
@@ -780,13 +790,12 @@ export function PlayerDevelopmentAdminRoute() {
                     {weeklyMessage ? <p className="muted">{weeklyMessage}</p> : null}
                   </div>
                 </form>
-              </section>
+              </AdminActionPanel>
 
-              <section className="card stack">
-                <div className="split-row">
-                  <h3>Recent development history</h3>
-                  <span className="metric metric--neutral">{selectedPlayerHistory.length} weeks logged</span>
-                </div>
+              <AdminRecordList
+                title="Recent development history"
+                description="Past weekly notes stay below the current workflow so they do not compete with today's update."
+                actions={<span className="metric metric--neutral">{selectedPlayerHistory.length} weeks logged</span>}>
 
                 {selectedPlayerHistory.length > 0 ? (
                   <div className="development-history">
@@ -818,16 +827,14 @@ export function PlayerDevelopmentAdminRoute() {
                 ) : (
                   <p className="muted">No development history has been recorded for this player yet.</p>
                 )}
-              </section>
+              </AdminRecordList>
             </>
           ) : (
-            <section className="card stack">
-              <h3>No player selected</h3>
-              <p className="muted">Choose a player to set goals, generate a weekly focus, and track progress.</p>
-            </section>
+            <AdminRecordList title="No player selected" description="Choose a player to set goals, generate a weekly focus, and track progress." />
           )}
         </div>
-      </section>
+        </section>
+      </AdminSection>
     </AdminPageShell>
   );
 }

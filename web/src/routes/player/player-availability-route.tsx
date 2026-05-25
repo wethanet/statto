@@ -89,6 +89,21 @@ export function PlayerAvailabilityRoute() {
             </p>
           </section>
 
+          <section className="card stack">
+            <h3>Selection criteria</h3>
+            <p className="muted">Selection is based on the published club criteria below.</p>
+            <div className="selection-criteria-list">
+              <article className="selection-criteria-item">
+                <span className="eyebrow">Home and away games</span>
+                <p>{policySettings.homeAndAwaySelectionCriteria}</p>
+              </article>
+              <article className="selection-criteria-item">
+                <span className="eyebrow">Finals</span>
+                <p>{policySettings.finalsSelectionCriteria}</p>
+              </article>
+            </div>
+          </section>
+
           {sortedFixtures.length > 0 ? (
             sortedFixtures.map((fixture) => {
               const status = getAvailabilityStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords);

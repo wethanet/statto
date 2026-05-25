@@ -26,6 +26,13 @@ import type {
 } from '@/lib/types';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminActionPanel,
+  AdminRecordList,
+  AdminSection,
+  AdminSummaryStrip,
+  AdminSupportingPanel,
+} from '@web/components/admin/admin-workflow';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { discoverTrainingLibraryDrills, type DiscoveredTrainingLibrary } from '@web/lib/training-library-ai';
@@ -126,13 +133,15 @@ export function TrainingAdminRoute() {
       }
       description="Review scheduled sessions, open attendance, or edit the session plan on a dedicated screen."
       title="Training sessions">
-      <section className="card stack">
-        <div className="split-row">
-          <div className="stack-sm">
-            <h3>Session list</h3>
-            <p className="muted">Keep this list focused on what is scheduled and what still needs planning.</p>
-          </div>
-          <div className="inline-actions">
+      <AdminSection
+        eyebrow="Records"
+        title="Session schedule"
+        description="Keep this list focused on what is scheduled and what still needs planning.">
+        <AdminRecordList
+          title="Training sessions"
+          description="Upcoming sessions are shown by default so coaches can focus on what needs attendance or planning."
+          actions={
+            <>
             <button
               className={eventListFilter === 'upcoming' ? 'pill-button pill-button--selected' : 'pill-button'}
               onClick={() => setEventListFilter('upcoming')}
@@ -148,8 +157,8 @@ export function TrainingAdminRoute() {
             <Link className="button button--secondary" to="/admin/training/new">
               Add training session
             </Link>
-          </div>
-        </div>
+            </>
+          }>
 
         {filteredSessions.length > 0 ? (
           <div className="training-session-list">
@@ -214,7 +223,8 @@ export function TrainingAdminRoute() {
             </Link>
           </section>
         )}
-      </section>
+        </AdminRecordList>
+      </AdminSection>
     </AdminPageShell>
   );
 }
@@ -314,18 +324,19 @@ export function TrainingSettingsRoute() {
       }
       description="Manage the default pattern used to create regular training sessions."
       title="Training settings">
-      <form className="card stack" onSubmit={handleSaveTrainingDefaults}>
-        <div className="split-row">
-          <div className="stack-sm">
-            <h3>Recurring defaults</h3>
-            <p className="muted">
-              Save the regular training pattern, then generate upcoming sessions without direct data edits.
-            </p>
-          </div>
-          <button className="button" disabled={isPolicyLoading || isPolicySaving} type="submit">
-            {isPolicySaving ? 'Saving...' : 'Save defaults'}
-          </button>
-        </div>
+      <AdminSection
+        eyebrow="Primary workflow"
+        title="Recurring training pattern"
+        description="Save the regular training pattern, then generate upcoming sessions without direct data edits.">
+        <form onSubmit={handleSaveTrainingDefaults}>
+          <AdminActionPanel
+            title="Recurring defaults"
+            description="Set the title, days, times, location rotation, and generation window for regular training."
+            actions={
+              <button className="button" disabled={isPolicyLoading || isPolicySaving} type="submit">
+                {isPolicySaving ? 'Saving...' : 'Save defaults'}
+              </button>
+            }>
 
         <div className="admin-summary-grid">
           <label className="field">
@@ -412,7 +423,9 @@ export function TrainingSettingsRoute() {
           {trainingMessage ? <p className="muted">{trainingMessage}</p> : null}
           {policyError ? <p className="muted">{policyError}</p> : null}
         </div>
-      </form>
+          </AdminActionPanel>
+        </form>
+      </AdminSection>
 
     </AdminPageShell>
   );
@@ -616,16 +629,19 @@ export function TrainingLibraryRoute() {
       }
       description="Build the drill source library that generated session plans can draw from."
       title="Training library">
-      <form className="card stack" onSubmit={handleDiscoverLibrary}>
-        <div className="split-row">
-          <div className="stack-sm">
-            <h3>Discover drills from a link</h3>
-            <p className="muted">Paste a public drill library URL and review the discovered drills before adding them.</p>
-          </div>
-          <button className="button" disabled={isDiscovering || isPolicyLoading} type="submit">
-            {isDiscovering ? 'Discovering...' : 'Discover drills'}
-          </button>
-        </div>
+      <AdminSection
+        eyebrow="Primary workflow"
+        title="Discover drills"
+        description="Paste a public drill library URL and review the discovered drills before adding them.">
+        <form onSubmit={handleDiscoverLibrary}>
+          <AdminActionPanel
+            title="Discover from a link"
+            description="Found drills are staged for review before they become available to generated plans."
+            actions={
+              <button className="button" disabled={isDiscovering || isPolicyLoading} type="submit">
+                {isDiscovering ? 'Discovering...' : 'Discover drills'}
+              </button>
+            }>
 
         <label className="field">
           <span>Library URL</span>
@@ -642,29 +658,31 @@ export function TrainingLibraryRoute() {
 
         {libraryMessage ? <p className="muted">{libraryMessage}</p> : null}
         {policyError ? <p className="muted">{policyError}</p> : null}
-      </form>
+          </AdminActionPanel>
+        </form>
+      </AdminSection>
 
       {discovery ? (
-        <section className="card stack">
-          <div className="split-row">
-            <div className="stack-sm">
-              <h3>{discovery.sourceTitle}</h3>
-              <p className="muted">{discovery.summary || discovery.sourceUrl}</p>
-              {duplicateDiscoveredDrills.length > 0 ? (
-                <p className="muted">
-                  {duplicateDiscoveredDrills.length}{' '}
-                  {duplicateDiscoveredDrills.length === 1 ? 'duplicate was' : 'duplicates were'} found and left unselected.
-                </p>
-              ) : null}
-            </div>
-            <button
-              className="button"
-              disabled={selectedDiscoveredDrills.length <= 0 || isPolicySaving}
-              onClick={handleAddSelectedDrills}
-              type="button">
-              {isPolicySaving ? 'Adding...' : `Add ${selectedDiscoveredDrills.length} selected`}
-            </button>
-          </div>
+        <AdminSection
+          eyebrow="Review"
+          title="Discovered drills"
+          description={discovery.summary || discovery.sourceUrl}>
+          <AdminSupportingPanel
+            title={discovery.sourceTitle}
+            description={
+              duplicateDiscoveredDrills.length > 0
+                ? `${duplicateDiscoveredDrills.length} duplicates were found and left unselected.`
+                : 'Review the staged drills before adding them to the library.'
+            }
+            actions={
+              <button
+                className="button"
+                disabled={selectedDiscoveredDrills.length <= 0 || isPolicySaving}
+                onClick={handleAddSelectedDrills}
+                type="button">
+                {isPolicySaving ? 'Adding...' : `Add ${selectedDiscoveredDrills.length} selected`}
+              </button>
+            }>
 
           <div className="training-planner__list">
             {discoveredDrills.map((drill) => {
@@ -710,18 +728,15 @@ export function TrainingLibraryRoute() {
               );
             })}
           </div>
-        </section>
+          </AdminSupportingPanel>
+        </AdminSection>
       ) : null}
 
-      <section className="card stack">
-        <div className="split-row">
-          <div className="stack-sm">
-            <h3>Library sources</h3>
-            <p className="muted">
-              {existingDrills.length} {existingDrills.length === 1 ? 'drill is' : 'drills are'} available for generated training plans.
-            </p>
-          </div>
-        </div>
+      <AdminSection
+        eyebrow="Records"
+        title="Library sources"
+        description={`${existingDrills.length} ${existingDrills.length === 1 ? 'drill is' : 'drills are'} available for generated training plans.`}>
+        <AdminRecordList title="Saved drill sources" description="Remove sources that should no longer feed generated plans.">
 
         {policySettings.trainingDrillLibraryLinks.length > 0 ? (
           <div className="training-planner__list">
@@ -768,7 +783,8 @@ export function TrainingLibraryRoute() {
         ) : (
           <p className="muted">No library sources yet. Generated plans will use the built-in fallback templates.</p>
         )}
-      </section>
+        </AdminRecordList>
+      </AdminSection>
     </AdminPageShell>
   );
 }
@@ -934,10 +950,7 @@ export function TrainingSessionFormRoute() {
         }
         description="The selected training session could not be found."
         title="Training session not found">
-        <section className="card stack">
-          <h3>Session not found</h3>
-          <p className="muted">Choose another session from the training list.</p>
-        </section>
+        <AdminRecordList title="Session not found" description="Choose another session from the training list." />
       </AdminPageShell>
     );
   }
@@ -951,24 +964,18 @@ export function TrainingSessionFormRoute() {
       }
       description="Set the session details and upload the session plan on a dedicated screen."
       title={isEditing ? 'Edit training session' : 'Add training session'}>
-      <form className="card stack" onSubmit={handleSaveSession}>
-        <div className="training-form-hero">
-          <div className="stack-sm">
-            <h3>{isEditing ? 'Session details' : 'New session details'}</h3>
-            <p className="muted">Set the session basics, then attach the plan for the leadership group.</p>
-          </div>
-
-          <div className="training-form-hero__metrics">
-            <span>
-              <strong>{sessionPlan ? '1' : '0'}</strong>
-              plan files
-            </span>
-            <span>
-              <strong>{sessionPlan ? formatFileSize(sessionPlan.size) : '-'}</strong>
-              uploaded
-            </span>
-          </div>
-        </div>
+      <AdminSection
+        eyebrow="Primary workflow"
+        title={isEditing ? 'Update session details' : 'Create session details'}
+        description="Set the session basics, then attach the plan for the leadership group.">
+        <AdminSummaryStrip
+          items={[
+            { label: 'Plan files', value: sessionPlan ? '1' : '0', note: sessionPlan ? 'attached' : 'none yet' },
+            { label: 'Upload size', value: sessionPlan ? formatFileSize(sessionPlan.size) : '-', note: 'current plan' },
+          ]}
+        />
+        <form onSubmit={handleSaveSession}>
+          <AdminActionPanel title={isEditing ? 'Session details' : 'New session details'}>
 
         <label className="field">
           <span>Session title</span>
@@ -1140,7 +1147,9 @@ export function TrainingSessionFormRoute() {
           </Link>
           {formMessage ? <p className="muted">{formMessage}</p> : null}
         </div>
-      </form>
+          </AdminActionPanel>
+        </form>
+      </AdminSection>
     </AdminPageShell>
   );
 }

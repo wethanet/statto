@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminActionPanel,
+  AdminRecordList,
+  AdminSection,
+  AdminSummaryStrip,
+} from '@web/components/admin/admin-workflow';
 import { FineRow } from '@web/components/fines/fine-row';
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
@@ -105,112 +111,131 @@ export function FinesAdminRoute() {
     <AdminPageShell
       description="Track fines, what they were for, and whether the cash has actually been collected."
       title="Player fines">
-      <section className="card stack">
-        <h3>Summary</h3>
-        <div className="metric-row">
-          <span className="metric metric--neutral">${summary.totalAmount} total</span>
-          <span className="metric metric--negative">${summary.outstandingAmount} outstanding</span>
-          <span className="metric metric--positive">${summary.paidAmount} paid</span>
-        </div>
-        <p className="muted">
-          {isHydrated ? `${summary.outstandingCount} fines still need collecting.` : 'Loading saved fines...'}
-        </p>
-      </section>
+      <AdminSection
+        eyebrow="Context"
+        title="Collection status"
+        description={isHydrated ? `${summary.outstandingCount} fines still need collecting.` : 'Loading saved fines...'}>
+        <AdminSummaryStrip
+          items={[
+            { label: 'Total fines', value: `$${summary.totalAmount}`, note: `${sortedFines.length} records` },
+            {
+              label: 'Outstanding',
+              value: `$${summary.outstandingAmount}`,
+              note: `${summary.outstandingCount} unpaid`,
+              tone: 'negative',
+            },
+            { label: 'Paid', value: `$${summary.paidAmount}`, note: 'collected', tone: 'positive' },
+          ]}
+        />
+      </AdminSection>
 
-      <section className="card stack">
-        <h3>Add fine</h3>
-        <p className="muted">Choose a player, enter the reason, and set the amount.</p>
-
-        <label className="field">
-          <span>Player search</span>
-          <input
-            className="input"
-            onChange={(event) => {
-              setPlayerQuery(event.target.value);
-              setSelectedPlayerId('');
-              setFormMessage(null);
-            }}
-            placeholder="Search player by name or number"
-            value={playerQuery}
-          />
-        </label>
-
-        {selectedPlayer ? (
-          <button className="button button--warning" onClick={clearSelectedPlayer} type="button">
-            Clear selection
-          </button>
-        ) : null}
-
-        <div className="inline-actions">
-          {filteredPlayers.map((player) => {
-            const isSelected = player.id === selectedPlayerId;
-
-            return (
-              <button
-                key={player.id}
-                className={isSelected ? 'pill-button pill-button--selected' : 'pill-button'}
-                onClick={() => selectPlayer(player.id)}
-                type="button">
-                {getPlayerDisplayName(player)}
-              </button>
-            );
-          })}
-        </div>
-
-        <p className="muted">
-          {selectedPlayer
-            ? `Selected: ${getPlayerDisplayName(selectedPlayer)}`
-            : 'Type a player name or number, then choose a match.'}
-        </p>
-
-        <div className="two-column">
+      <AdminSection
+        eyebrow="Primary workflow"
+        title="Record a fine"
+        description="Select the player first so the saved record is unambiguous, then enter the reason and amount.">
+        <AdminActionPanel title="Fine entry" description="Search active players you are allowed to manage.">
           <label className="field">
-            <span>Reason</span>
+            <span>Player search</span>
             <input
               className="input"
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="Reason"
-              value={reason}
+              onChange={(event) => {
+                setPlayerQuery(event.target.value);
+                setSelectedPlayerId('');
+                setFormMessage(null);
+              }}
+              placeholder="Search player by name or number"
+              value={playerQuery}
             />
           </label>
-          <label className="field">
-            <span>Amount</span>
-            <input
-              className="input"
-              inputMode="decimal"
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="Amount"
-              value={amount}
-            />
-          </label>
-        </div>
 
-        <div className="inline-actions">
-          <button className="button" onClick={handleAddFine} type="button">
-            Save fine
-          </button>
-          {formMessage ? <p className="muted">{formMessage}</p> : null}
-        </div>
-      </section>
+          {selectedPlayer ? (
+            <button className="button button--warning" onClick={clearSelectedPlayer} type="button">
+              Clear selection
+            </button>
+          ) : null}
 
-      {sortedFines.map((fine) => {
-        return (
-          <FineRow
-            key={fine.id}
-            amount={fine.amount}
-            issuedAt={fine.issuedAt}
-            onDelete={() => {
-              setFines((current) => deleteFine(current, fine.id));
-            }}
-            onTogglePaid={() => {
-              setFines((current) => toggleFinePaidStatus(current, fine.id));
-            }}
-            paid={fine.paid}
-            playerName={getFinePlayerName(fine.playerId, manageablePlayers)}
-            reason={fine.reason}
-          />
-        );
-      })}
+          <div className="inline-actions">
+            {filteredPlayers.map((player) => {
+              const isSelected = player.id === selectedPlayerId;
+
+              return (
+                <button
+                  key={player.id}
+                  className={isSelected ? 'pill-button pill-button--selected' : 'pill-button'}
+                  onClick={() => selectPlayer(player.id)}
+                  type="button">
+                  {getPlayerDisplayName(player)}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="muted">
+            {selectedPlayer
+              ? `Selected: ${getPlayerDisplayName(selectedPlayer)}`
+              : 'Type a player name or number, then choose a matching player.'}
+          </p>
+
+          <div className="two-column">
+            <label className="field">
+              <span>Reason</span>
+              <input
+                className="input"
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Reason"
+                value={reason}
+              />
+            </label>
+            <label className="field">
+              <span>Amount</span>
+              <input
+                className="input"
+                inputMode="decimal"
+                onChange={(event) => setAmount(event.target.value)}
+                placeholder="Amount"
+                value={amount}
+              />
+            </label>
+          </div>
+
+          <div className="inline-actions">
+            <button className="button" onClick={handleAddFine} type="button">
+              Save fine
+            </button>
+            {formMessage ? <p className="muted">{formMessage}</p> : null}
+          </div>
+        </AdminActionPanel>
+      </AdminSection>
+
+      <AdminSection
+        eyebrow="Records"
+        title="Saved fines"
+        description="Mark fines paid as cash is collected, or remove mistakes from the record.">
+        <AdminRecordList title="Fine records" description="Newest and outstanding records stay visible for follow-up.">
+          {sortedFines.length > 0 ? (
+            sortedFines.map((fine) => {
+              return (
+                <FineRow
+                  key={fine.id}
+                  amount={fine.amount}
+                  issuedAt={fine.issuedAt}
+                  onDelete={() => {
+                    setFines((current) => deleteFine(current, fine.id));
+                  }}
+                  onTogglePaid={() => {
+                    setFines((current) => toggleFinePaidStatus(current, fine.id));
+                  }}
+                  paid={fine.paid}
+                  playerName={getFinePlayerName(fine.playerId, manageablePlayers)}
+                  reason={fine.reason}
+                />
+              );
+            })
+          ) : (
+            <p className="muted">No fines recorded yet.</p>
+          )}
+        </AdminRecordList>
+      </AdminSection>
     </AdminPageShell>
   );
 }

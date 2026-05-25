@@ -5,6 +5,13 @@ import { parsePlayersCsv } from '@/lib/team-csv';
 import { addPlayer, normalizePlayerSquad } from '@/lib/team';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
+import {
+  AdminActionPanel,
+  AdminHelpText,
+  AdminSection,
+  AdminSummaryStrip,
+  AdminSupportingPanel,
+} from '@web/components/admin/admin-workflow';
 import { useClubData } from '@web/lib/club-data-context';
 
 export function TeamSetupAdminRoute() {
@@ -143,115 +150,139 @@ export function TeamSetupAdminRoute() {
     <AdminPageShell
       description="Add players one at a time or import the roster in bulk, then move into team management for detailed edits."
       title="Player setup">
-      <section className="card stack">
-        <div className="inline-actions">
-          <span className="muted">
-            {isHydrated ? 'Player setup changes save immediately.' : 'Loading saved roster...'}
-          </span>
+      <AdminSection
+        eyebrow="Context"
+        title="Roster intake"
+        description="Use this page to get players into the system, then manage detailed roles and attributes from team management."
+        actions={
           <Link className="text-link" to="/admin/team">
             Back to team management
           </Link>
-        </div>
-      </section>
+        }>
+        <AdminSummaryStrip
+          items={[
+            {
+              label: 'Current roster',
+              value: String(players.length),
+              note: isHydrated ? 'saved players' : 'loading roster',
+            },
+            {
+              label: 'Save status',
+              value: isHydrated ? 'Ready' : 'Loading',
+              note: isHydrated ? 'changes save immediately' : 'waiting for saved data',
+            },
+          ]}
+        />
+      </AdminSection>
 
-      <form className="card stack" onSubmit={handleAddPlayer}>
-        <h3>Add player manually</h3>
-        <p className="muted">Enter a player directly if you do not want to upload a full CSV.</p>
-        <label className="field">
-          <span>Player name</span>
+      <AdminSection
+        eyebrow="Primary workflow"
+        title="Add one player"
+        description="Use the manual workflow for late additions, corrections, or players who should not come from a CSV import.">
+        <form onSubmit={handleAddPlayer}>
+          <AdminActionPanel
+            title="Manual player entry"
+            description="Enter the player name first, then add an optional guernsey number and squad.">
+            <label className="field">
+              <span>Player name</span>
+              <input
+                className="input"
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setPlayerFormMessage(null);
+                }}
+                placeholder="Player name"
+                value={name}
+              />
+            </label>
+            <div className="two-column">
+              <label className="field">
+                <span>Guernsey number</span>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  onChange={(event) => {
+                    setNumber(event.target.value);
+                    setPlayerFormMessage(null);
+                  }}
+                  placeholder="Optional"
+                  value={number}
+                />
+              </label>
+              <label className="field">
+                <span>Squad</span>
+                <select
+                  className="input"
+                  onChange={(event) => {
+                    setSquad(event.target.value);
+                    setPlayerFormMessage(null);
+                  }}
+                  value={squad}>
+                  <option value="">Unassigned</option>
+                  <option value="cup">Cup</option>
+                  <option value="plate">Plate</option>
+                </select>
+              </label>
+            </div>
+            <div className="inline-actions">
+              <button className="button" type="submit">
+                Add player
+              </button>
+              {playerFormMessage ? <p className="muted">{playerFormMessage}</p> : null}
+            </div>
+          </AdminActionPanel>
+        </form>
+      </AdminSection>
+
+      <AdminSection
+        eyebrow="Supporting tool"
+        title="Bulk import roster"
+        description="Use CSV import when the list is ready in a spreadsheet. File imports replace the roster; pasted CSV appends new players.">
+        <AdminSupportingPanel
+          title="CSV upload and paste"
+          description="CSV needs a name column. Optional columns include number, squad/designation, role, active, positions, and running profile.">
+          <AdminHelpText>
+            Review the roster after import from team management so leadership roles, player links, and rotation attributes are correct.
+          </AdminHelpText>
           <input
-            className="input"
-            onChange={(event) => {
-              setName(event.target.value);
-              setPlayerFormMessage(null);
-            }}
-            placeholder="Player name"
-            value={name}
+            accept=".csv,text/csv"
+            className="hidden-input"
+            onChange={handleImportFile}
+            ref={fileInputRef}
+            type="file"
           />
-        </label>
-        <div className="two-column">
-          <label className="field">
-            <span>Guernsey number</span>
-            <input
-              className="input"
-              inputMode="numeric"
-              onChange={(event) => {
-                setNumber(event.target.value);
-                setPlayerFormMessage(null);
+          <div className="inline-actions">
+            <button
+              className="button"
+              onClick={() => {
+                fileInputRef.current?.click();
               }}
-              placeholder="Optional"
-              value={number}
+              type="button">
+              Upload player CSV
+            </button>
+          </div>
+
+          <label className="field">
+            <span>Pasted CSV</span>
+            <textarea
+              className="input textarea"
+              onChange={(event) => {
+                setPastedCsv(event.target.value);
+                setImportMessage(null);
+              }}
+              placeholder={'name,number,squad\nJane Smith,12,cup\nAlex Green,,plate'}
+              value={pastedCsv}
             />
           </label>
-          <label className="field">
-            <span>Squad</span>
-            <select
-              className="input"
-              onChange={(event) => {
-                setSquad(event.target.value);
-                setPlayerFormMessage(null);
-              }}
-              value={squad}>
-              <option value="">Unassigned</option>
-              <option value="cup">Cup</option>
-              <option value="plate">Plate</option>
-            </select>
-          </label>
-        </div>
-        <div className="inline-actions">
-          <button className="button" type="submit">
-            Add player
-          </button>
-          {playerFormMessage ? <p className="muted">{playerFormMessage}</p> : null}
-        </div>
-      </form>
 
-      <section className="card stack">
-        <h3>CSV upload</h3>
-        <p className="muted">
-          Upload or paste CSV with a `name` column. Optional columns: `number`, `squad`
-          or `designation`, `role`, `active`, `primary_position`, `secondary_position`, `running_profile`.
-        </p>
-        <p className="muted">File imports replace the current roster in the browser app.</p>
-
-        <input
-          accept=".csv,text/csv"
-          className="hidden-input"
-          onChange={handleImportFile}
-          ref={fileInputRef}
-          type="file"
-        />
-        <div className="inline-actions">
-          <button
-            className="button"
-            onClick={() => {
-              fileInputRef.current?.click();
-            }}
-            type="button">
-            Upload player CSV
-          </button>
-        </div>
-
-        <label className="field">
-          <span>Pasted CSV</span>
-          <textarea
-            className="input textarea"
-            onChange={(event) => {
-              setPastedCsv(event.target.value);
-              setImportMessage(null);
-            }}
-            placeholder={'name,number,squad\nJane Smith,12,cup\nAlex Green,,plate'}
-            value={pastedCsv}
-          />
-        </label>
-
-        <div className="inline-actions">
-          <button className="button button--secondary" onClick={handleBulkCreatePlayers} type="button">
-            Create players from pasted CSV
-          </button>
-          {importMessage ? <p className="muted">{importMessage}</p> : null}
-        </div>
-      </section>
+          <div className="inline-actions">
+            <button className="button button--secondary" onClick={handleBulkCreatePlayers} type="button">
+              Create players from pasted CSV
+            </button>
+            {importMessage ? <p className="muted">{importMessage}</p> : null}
+          </div>
+        </AdminSupportingPanel>
+      </AdminSection>
     </AdminPageShell>
   );
 }

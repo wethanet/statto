@@ -22,6 +22,8 @@ create table if not exists public.club_policy_settings (
   rotation_groups_enabled boolean not null default true,
   higher_grade_label text not null default 'Cup',
   lower_grade_label text not null default 'Plate',
+  home_and_away_selection_criteria text not null default 'Home and away selection considers availability, training attendance, training effort, role fit, recent form, fitness, team balance, and how consistently players live the club standards around effort, communication, respect, and support for teammates.',
+  finals_selection_criteria text not null default 'Finals selection prioritises eligibility, availability, fitness, role fit, recent performance, training commitment, and the strongest team balance.',
   training_default_title text not null default 'Main training',
   training_default_time text not null default '18:00',
   training_default_days jsonb not null default '[2, 4]'::jsonb,
@@ -1576,6 +1578,12 @@ add column if not exists higher_grade_label text not null default 'Cup';
 
 alter table public.club_policy_settings
 add column if not exists lower_grade_label text not null default 'Plate';
+
+alter table public.club_policy_settings
+add column if not exists home_and_away_selection_criteria text not null default 'Home and away selection considers availability, training attendance, training effort, role fit, recent form, fitness, team balance, and how consistently players live the club standards around effort, communication, respect, and support for teammates.';
+
+alter table public.club_policy_settings
+add column if not exists finals_selection_criteria text not null default 'Finals selection prioritises eligibility, availability, fitness, role fit, recent performance, training commitment, and the strongest team balance.';
 
 alter table public.club_policy_settings
 add column if not exists training_default_title text not null default 'Main training';

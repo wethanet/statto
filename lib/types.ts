@@ -34,6 +34,8 @@ export type ClubPolicySettings = {
   rotationGroupsEnabled: boolean;
   higherGradeLabel: string;
   lowerGradeLabel: string;
+  homeAndAwaySelectionCriteria: string;
+  finalsSelectionCriteria: string;
   trainingDefaultTitle: string;
   trainingDefaultTime: string;
   trainingDefaultDays: number[];
