@@ -21,6 +21,7 @@ import {
   upsertCloudClubPolicySettings,
 } from '@web/lib/storage/cloud-club-policy-storage';
 import { readJsonStorage, writeJsonStorage } from '@web/lib/storage/local-storage';
+import { supabase } from '@web/lib/supabase';
 
 type ClubPolicyContextValue = {
   policySettings: ClubPolicySettings;
@@ -32,6 +33,7 @@ type ClubPolicyContextValue = {
 };
 
 const ClubPolicyContext = createContext<ClubPolicyContextValue | null>(null);
+const POLICY_REFRESH_INTERVAL_MS = 60000;
 
 function getLocalPolicyStorageKey(activeClubId: string | null) {
   return `club-policy:${activeClubId ?? 'local'}:settings.json`;
@@ -45,12 +47,14 @@ export function ClubPolicyProvider({ children }: PropsWithChildren) {
   const [isSaving, setIsSaving] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
-  const refreshPolicySettings = useCallback(async () => {
+  const refreshPolicySettings = useCallback(async (options?: { silent?: boolean }) => {
     if (isAuthLoading || isClubAccessLoading) {
       return;
     }
 
-    setIsLoading(true);
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
     setLastError(null);
 
     try {
@@ -66,7 +70,9 @@ export function ClubPolicyProvider({ children }: PropsWithChildren) {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not load club policy settings.';
       setLastError(message);
-      setPolicySettings(DEFAULT_CLUB_POLICY_SETTINGS);
+      if (!options?.silent) {
+        setPolicySettings(DEFAULT_CLUB_POLICY_SETTINGS);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +106,76 @@ export function ClubPolicyProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     void refreshPolicySettings();
   }, [refreshPolicySettings]);
+
+  useEffect(() => {
+    if (isAuthLoading || isClubAccessLoading || !isConfigured || !activeClubId) {
+      return;
+    }
+
+    const refreshSilently = () => {
+      void refreshPolicySettings({ silent: true });
+    };
+    const interval = window.setInterval(refreshSilently, POLICY_REFRESH_INTERVAL_MS);
+
+    function handleFocus() {
+      refreshSilently();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        refreshSilently();
+      }
+    }
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [
+    activeClubId,
+    isAuthLoading,
+    isClubAccessLoading,
+    isConfigured,
+    refreshPolicySettings,
+  ]);
+
+  useEffect(() => {
+    if (isAuthLoading || isClubAccessLoading || !isConfigured || !activeClubId || !supabase) {
+      return;
+    }
+
+    const client = supabase;
+    const channel = client
+      .channel(`club-policy:${activeClubId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'club_policy_settings',
+          filter: `club_id=eq.${activeClubId}`,
+        },
+        () => {
+          void refreshPolicySettings({ silent: true });
+        }
+      );
+
+    channel.subscribe();
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [
+    activeClubId,
+    isAuthLoading,
+    isClubAccessLoading,
+    isConfigured,
+    refreshPolicySettings,
+  ]);
 
   const value = useMemo<ClubPolicyContextValue>(() => {
     return {
