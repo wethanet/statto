@@ -114,7 +114,9 @@ export function MatchesListRoute() {
     return players.filter((player) => canViewPlayer(player));
   }, [canViewPlayer, players]);
   const visibleFixtures = useMemo(() => {
-    const squadFixtures = fixtures.filter((fixture) => canViewSquadItem(fixture.squad));
+    const squadFixtures = fixtures.filter((fixture) => {
+      return isPlayer || canViewSquadItem(fixture.squad);
+    });
 
     if (eventListFilter === 'upcoming') {
       return getSortedFixtures(
@@ -125,7 +127,7 @@ export function MatchesListRoute() {
     }
 
     return getSortedFixtures(squadFixtures);
-  }, [canViewSquadItem, eventListFilter, fixtures]);
+  }, [canViewSquadItem, eventListFilter, fixtures, isPlayer]);
   const targetFixtureId = useMemo(() => {
     if (visibleFixtures.length === 0) {
       return null;
@@ -161,7 +163,7 @@ export function MatchesListRoute() {
         <h2>{isPlayer ? 'Your fixtures' : 'Track availability before selection night'}</h2>
         <p className="muted">
           {isPlayer
-            ? 'See the fixtures for your squad and keep your own availability up to date.'
+            ? 'See upcoming fixtures across the club and keep your own availability up to date.'
             : 'Manage weekly match availability and keep selection conversations moving.'}
         </p>
       </section>
