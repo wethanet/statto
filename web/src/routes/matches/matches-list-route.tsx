@@ -272,10 +272,6 @@ export function MatchesListRoute() {
 
       {isPlayer
         ? visibleFixtures.map((fixture) => {
-            const playerAvailability =
-              selectedPlayer && isPlayer
-                ? getAvailabilityResponseStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
-                : null;
             const hasMatchStats = matchStats.some((entry) => {
               return entry.fixtureId === fixture.id;
             });
@@ -294,6 +290,13 @@ export function MatchesListRoute() {
             const lineupPlayerIds = selectedPlayer
               ? getLineupPlayerIdsForFixture(fixture.id, matchLineupAssignments)
               : [];
+            const isSelectedInLineup = selectedPlayer ? lineupPlayerIds.includes(selectedPlayer.id) : false;
+            const playerAvailability =
+              selectedPlayer && isPlayer
+                ? isSelectedInLineup
+                  ? 'available'
+                  : getAvailabilityResponseStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
+                : null;
             const playerVoteCandidates = selectedPlayer
               ? getPlayerVoteCandidates(
                   fixture,

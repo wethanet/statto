@@ -64,6 +64,32 @@ export function MatchDetailRoute() {
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const [isUnavailableGroupExpanded, setIsUnavailableGroupExpanded] = useState(false);
   const fixture = getFixtureById(fixtureId, fixtures);
+  const effectiveAvailabilityRecords = useMemo(() => {
+    if (!fixture) {
+      return availabilityRecords;
+    }
+
+    const selectedPlayerIds = new Set(
+      matchLineupAssignments
+        .filter((assignment) => assignment.fixtureId === fixture.id)
+        .map((assignment) => assignment.playerId)
+    );
+
+    if (selectedPlayerIds.size === 0) {
+      return availabilityRecords;
+    }
+
+    return [
+      ...availabilityRecords.filter((record) => {
+        return !(record.fixtureId === fixture.id && selectedPlayerIds.has(record.playerId));
+      }),
+      ...Array.from(selectedPlayerIds).map((playerId) => ({
+        fixtureId: fixture.id,
+        playerId,
+        status: 'available' as const,
+      })),
+    ];
+  }, [availabilityRecords, fixture, matchLineupAssignments]);
   const gamesPlayedByPlayer = useMemo(() => {
     return buildGamesPlayedByGrade(fixtures, matchLineupAssignments, policySettings);
   }, [fixtures, matchLineupAssignments, policySettings]);
@@ -75,10 +101,10 @@ export function MatchDetailRoute() {
 
     return getPlayersForFixtureLineup(
       fixture.id,
-      getPlayersForFixture(fixture.id, players, availabilityRecords),
+      getPlayersForFixture(fixture.id, players, effectiveAvailabilityRecords),
       matchLineupAssignments
     );
-  }, [availabilityRecords, fixture, matchLineupAssignments, players]);
+  }, [effectiveAvailabilityRecords, fixture, matchLineupAssignments, players]);
 
   const sortedPlayers = useMemo(() => {
     return [...playersForFixture].sort((left, right) => {
@@ -126,14 +152,14 @@ export function MatchDetailRoute() {
           return false;
         }
 
-        const hasSavedResponse = availabilityRecords.some((record) => {
+        const hasSavedResponse = effectiveAvailabilityRecords.some((record) => {
           return record.fixtureId === fixture.id && record.playerId === player.id;
         });
 
         return group.key === 'responded-not-selected' ? hasSavedResponse : !hasSavedResponse;
       }),
     }));
-  }, [availabilityRecords, fixture, sortedPlayers]);
+  }, [effectiveAvailabilityRecords, fixture, sortedPlayers]);
 
   if (!fixture) {
     return (
@@ -150,7 +176,7 @@ export function MatchDetailRoute() {
     );
   }
 
-  const summary = getAvailabilitySummary(fixture.id, players, availabilityRecords);
+  const summary = getAvailabilitySummary(fixture.id, players, effectiveAvailabilityRecords);
   const totalPlayers = players.length;
   const respondedCount = summary.available + summary.unavailable + summary.respondedNotSelected;
   const responseRate = totalPlayers > 0 ? Math.round((respondedCount / totalPlayers) * 100) : 0;
@@ -287,7 +313,7 @@ export function MatchDetailRoute() {
                     const responseStatus = getAvailabilityResponseStatusForPlayer(
                       fixture.id,
                       player.id,
-                      availabilityRecords
+                      effectiveAvailabilityRecords
                     );
 
                     return (
@@ -311,7 +337,16 @@ export function MatchDetailRoute() {
                           setAvailabilityRecords((current) => {
                             return upsertAvailabilityRecord(current, fixture.id, player.id, status);
                           });
-                          if (status !== 'available') {
+                          if (status === 'available') {
+                            setMatchLineupAssignments((current) => {
+                              return upsertMatchLineupAssignment(
+                                current,
+                                fixture.id,
+                                player.id,
+                                player.matchPosition ?? 'Int'
+                              );
+                            });
+                          } else {
                             setMatchLineupAssignments((current) => {
                               return deleteMatchLineupAssignment(current, fixture.id, player.id);
                             });
@@ -322,6 +357,9 @@ export function MatchDetailRoute() {
                             return;
                           }
 
+                          setAvailabilityRecords((current) => {
+                            return upsertAvailabilityRecord(current, fixture.id, player.id, 'available');
+                          });
                           setMatchLineupAssignments((current) => {
                             if (player.matchPosition === position) {
                               return deleteMatchLineupAssignment(current, fixture.id, player.id);
@@ -358,7 +396,7 @@ export function MatchDetailRoute() {
                             fixture.id,
                             player.id,
                             fixtures,
-                            availabilityRecords
+                            effectiveAvailabilityRecords
                           )
                         }
                         player={player}
