@@ -169,13 +169,17 @@ export function normalizeTrainingSessions(sessions: PartialTrainingSession[]) {
       goal: normalizeOptionalText(session.goal),
       focus: normalizeOptionalText(session.focus),
       sessionPlan: normalizeTrainingSessionPlan(session.sessionPlan),
-      runPlan: ensureTrainingWarmUpBlock(
-        Array.isArray(session.runPlan)
-          ? session.runPlan.map((drill, index) => {
-              return normalizeTrainingDrill(drill, index);
-            })
-          : []
-      ),
+      runPlan:
+        session.detailsLoaded === false
+          ? []
+          : ensureTrainingWarmUpBlock(
+              Array.isArray(session.runPlan)
+                ? session.runPlan.map((drill, index) => {
+                    return normalizeTrainingDrill(drill, index);
+                  })
+                : []
+            ),
+      detailsLoaded: session.detailsLoaded ?? true,
     } satisfies TrainingSession;
   });
 }
@@ -216,6 +220,7 @@ export function addTrainingSession(
     goal: normalizeOptionalText(input.goal),
     focus: normalizeOptionalText(input.focus),
     sessionPlan: normalizeTrainingSessionPlan(input.sessionPlan),
+    detailsLoaded: true,
     runPlan: normalizeTrainingSessions([
       {
         id: 'draft-session',
@@ -227,6 +232,7 @@ export function addTrainingSession(
         focus: input.focus ?? null,
         sessionPlan: input.sessionPlan ?? null,
         runPlan: input.runPlan ?? [],
+        detailsLoaded: true,
       },
     ])[0].runPlan,
   };
@@ -264,6 +270,7 @@ export function updateTrainingSession(
         focus: input.focus ?? null,
         sessionPlan: input.sessionPlan ?? null,
         runPlan: input.runPlan ?? [],
+        detailsLoaded: true,
       },
     ])[0];
   });

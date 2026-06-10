@@ -85,6 +85,9 @@ create table if not exists public.club_training_sessions (
   primary key (club_id, id)
 );
 
+create index if not exists club_training_sessions_club_id_date_idx
+on public.club_training_sessions (club_id, date);
+
 create table if not exists public.club_attendance_records (
   club_id text not null references public.clubs (id) on delete cascade,
   session_id text not null,

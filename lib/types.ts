@@ -75,6 +75,7 @@ export type TrainingSession = {
   focus: string | null;
   sessionPlan: TrainingSessionPlanAttachment | null;
   runPlan: TrainingSessionDrill[];
+  detailsLoaded?: boolean;
 };
 
 export type TrainingSessionPlanAttachment = {
