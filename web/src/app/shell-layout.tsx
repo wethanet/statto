@@ -4,6 +4,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getPlayerDisplayName, getPlayerSortValue } from '@/lib/team';
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { PageSkeleton } from '@web/components/loading/page-skeleton';
+import { APP_VERSION } from '@web/lib/app-version';
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
 import { useClubData } from '@web/lib/club-data-context';
@@ -200,6 +201,7 @@ export function ShellLayout() {
                 Sign out
               </button>
             </div>
+            <div className="shell-drawer__version">v{APP_VERSION}</div>
           </div>
         </div>
       </aside>

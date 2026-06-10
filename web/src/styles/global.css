@@ -269,6 +269,13 @@ button {
   justify-content: center;
 }
 
+.shell-drawer__version {
+  padding: 0 8px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .shell-view-switcher {
   display: grid;
   gap: 10px;

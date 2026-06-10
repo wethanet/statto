@@ -205,7 +205,7 @@ export function TrainingDetailRoute() {
                 <h3>Session summary</h3>
                 <p className="muted">
                   {isPastSession
-                    ? 'Past-session attendance is shown for review only.'
+                    ? 'Past-session attendance can still be corrected by coaches.'
                     : isHydrated
                       ? 'Attendance saves immediately for everyone in the club workspace.'
                       : 'Loading saved attendance...'}
@@ -267,7 +267,7 @@ export function TrainingDetailRoute() {
               <div className="training-summary__status stack-sm">
                 <span className="eyebrow">Session status</span>
                 <p className="muted">
-                  Mark players as present or absent to keep a clean roll-up before training starts.
+                  Mark players as present or absent to keep the training record accurate.
                 </p>
                 <p className="training-summary__status-value">
                   {summary.unknown > 0
@@ -284,13 +284,8 @@ export function TrainingDetailRoute() {
             {sortedPlayers.map((player) => {
               return (
                 <AttendancePlayerRow
-                  isReadOnly={isPastSession}
                   key={player.id}
                   onChange={(status) => {
-                    if (isPastSession) {
-                      return;
-                    }
-
                     setAttendanceRecords((current) => {
                       return upsertAttendanceRecord(current, session.id, player.id, status);
                     });
