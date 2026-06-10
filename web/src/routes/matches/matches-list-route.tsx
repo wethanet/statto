@@ -12,6 +12,7 @@ import {
 import { getPlayerVoteCandidates, isPlayerVoteOpen } from '@/lib/club-policy';
 import { getFixtureScoreSummary } from '@/lib/match-stats';
 import { getLineupPlayerIdsForFixture, getPlayerVoteBallot } from '@/lib/votes';
+import type { AvailabilityResponseStatus } from '@/lib/types';
 
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
@@ -21,7 +22,7 @@ import { usePlayerProfile } from '@web/lib/player-profile-context';
 const availabilityOptions = [
   {
     label: 'Available',
-    value: 'available',
+    value: 'uncertain',
     className: 'pill-button pill-button--compact pill-button--positive',
   },
   {
@@ -30,24 +31,19 @@ const availabilityOptions = [
     className: 'pill-button pill-button--compact pill-button--negative',
   },
   {
-    label: 'Unsure',
-    value: 'uncertain',
-    className: 'pill-button pill-button--compact pill-button--neutral',
-  },
-  {
     label: 'Not responded',
     value: 'not-responded',
     className: 'pill-button pill-button--compact pill-button--neutral',
   },
 ] as const;
 
-type PlayerAvailabilityResponseStatus = (typeof availabilityOptions)[number]['value'];
+type PlayerAvailabilityResponseStatus = AvailabilityResponseStatus;
 
 type EventListFilter = 'upcoming' | 'all';
 
 function getPlayerAvailabilityLabel(status: PlayerAvailabilityResponseStatus) {
   if (status === 'available') {
-    return 'Available';
+    return 'Selected';
   }
 
   if (status === 'unavailable') {
@@ -55,7 +51,7 @@ function getPlayerAvailabilityLabel(status: PlayerAvailabilityResponseStatus) {
   }
 
   if (status === 'uncertain') {
-    return 'Unsure';
+    return 'Available';
   }
 
   return 'Not responded';
