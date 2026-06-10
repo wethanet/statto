@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import {
@@ -134,51 +134,6 @@ export function MatchDetailRoute() {
       }),
     }));
   }, [availabilityRecords, fixture, sortedPlayers]);
-
-  useEffect(() => {
-    if (!fixture) {
-      return;
-    }
-
-    const blockedSelectedPlayerIds = playersForFixture
-      .filter((player) => {
-        if (player.availabilityStatus !== 'available') {
-          return false;
-        }
-
-        return Boolean(
-          getLowerGradeSelectionBlockReason(
-            fixture,
-            getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id),
-            policySettings
-          )
-        );
-      })
-      .map((player) => player.id);
-
-    if (blockedSelectedPlayerIds.length <= 0) {
-      return;
-    }
-
-    setAvailabilityRecords((current) => {
-      return blockedSelectedPlayerIds.reduce((records, playerId) => {
-        return upsertAvailabilityRecord(records, fixture.id, playerId, 'uncertain');
-      }, current);
-    });
-
-    setMatchLineupAssignments((current) => {
-      return blockedSelectedPlayerIds.reduce((assignments, playerId) => {
-        return deleteMatchLineupAssignment(assignments, fixture.id, playerId);
-      }, current);
-    });
-  }, [
-    fixture,
-    gamesPlayedByPlayer,
-    playersForFixture,
-    policySettings,
-    setAvailabilityRecords,
-    setMatchLineupAssignments,
-  ]);
 
   if (!fixture) {
     return (
