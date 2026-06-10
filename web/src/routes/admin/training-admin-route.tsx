@@ -166,7 +166,9 @@ export function TrainingAdminRoute() {
               const goalLabel = session.goal ?? 'No goal';
               const planLabel = session.sessionPlan
                 ? `${session.sessionPlan.name} • ${formatFileSize(session.sessionPlan.size)}`
-                : 'No session plan uploaded';
+                : session.detailsLoaded
+                  ? 'No session plan uploaded'
+                  : 'Open the session to load plan details';
               const isPastSession = new Date(session.date).getTime() < Date.now();
 
               return (
@@ -182,6 +184,8 @@ export function TrainingAdminRoute() {
                       <span>{planLabel}</span>
                       {session.sessionPlan ? (
                         <span className="status-pill status-pill--positive">Plan attached</span>
+                      ) : !session.detailsLoaded ? (
+                        <span className="status-pill status-pill--neutral">Plan not loaded</span>
                       ) : (
                         <span className="status-pill status-pill--neutral">Plan needed</span>
                       )}
@@ -792,7 +796,7 @@ export function TrainingLibraryRoute() {
 export function TrainingSessionFormRoute() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
-  const { setTrainingSessions, trainingSessions } = useClubData();
+  const { loadTrainingSessionDetails, setTrainingSessions, trainingSessions } = useClubData();
   const editingSession = sessionId
     ? trainingSessions.find((session) => {
         return session.id === sessionId;
@@ -808,7 +812,8 @@ export function TrainingSessionFormRoute() {
   const [focus, setFocus] = useState('');
   const [sessionPlan, setSessionPlan] = useState<TrainingSessionPlanAttachment | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
-  const loadedSessionIdRef = useRef<string | null>(null);
+  const [isLoadingSessionDetails, setIsLoadingSessionDetails] = useState(false);
+  const loadedSessionFormKeyRef = useRef<string | null>(null);
   const sessionPlanInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -816,11 +821,13 @@ export function TrainingSessionFormRoute() {
       return;
     }
 
-    if (loadedSessionIdRef.current === editingSession.id) {
+    const formKey = `${editingSession.id}:${editingSession.detailsLoaded ? 'details' : 'basic'}`;
+
+    if (loadedSessionFormKeyRef.current === formKey) {
       return;
     }
 
-    loadedSessionIdRef.current = editingSession.id;
+    loadedSessionFormKeyRef.current = formKey;
     const [datePart = '', timePartWithSeconds = '00:00:00'] = editingSession.date.split('T');
     const timePart = timePartWithSeconds.slice(0, 5);
 
@@ -833,6 +840,37 @@ export function TrainingSessionFormRoute() {
     setFocus(editingSession.focus ?? '');
     setSessionPlan(editingSession.sessionPlan);
   }, [editingSession]);
+
+  useEffect(() => {
+    if (!editingSession || editingSession.detailsLoaded) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingSessionDetails(true);
+    setFormMessage('Loading existing session plan...');
+
+    loadTrainingSessionDetails(editingSession.id)
+      .then(() => {
+        if (isMounted) {
+          setFormMessage(null);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setFormMessage('Could not load the existing session plan. Try refreshing before saving.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingSessionDetails(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [editingSession, loadTrainingSessionDetails]);
 
   function getSessionInputFromForm(): SessionFormResult {
     const normalizedTitle = title.trim();
@@ -881,6 +919,12 @@ export function TrainingSessionFormRoute() {
 
   function handleSaveSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isEditing && editingSession && !editingSession.detailsLoaded) {
+      setFormMessage('Training session details are still loading. Try again in a moment.');
+      return;
+    }
+
     const result = getSessionInputFromForm();
 
     if ('error' in result) {
@@ -970,8 +1014,16 @@ export function TrainingSessionFormRoute() {
         description="Set the session basics, then attach the plan for the leadership group.">
         <AdminSummaryStrip
           items={[
-            { label: 'Plan files', value: sessionPlan ? '1' : '0', note: sessionPlan ? 'attached' : 'none yet' },
-            { label: 'Upload size', value: sessionPlan ? formatFileSize(sessionPlan.size) : '-', note: 'current plan' },
+            {
+              label: 'Plan files',
+              value: sessionPlan ? '1' : '0',
+              note: isLoadingSessionDetails ? 'loading' : sessionPlan ? 'attached' : 'none yet',
+            },
+            {
+              label: 'Upload size',
+              value: sessionPlan ? formatFileSize(sessionPlan.size) : '-',
+              note: isLoadingSessionDetails ? 'loading plan' : 'current plan',
+            },
           ]}
         />
         <form onSubmit={handleSaveSession}>
@@ -1083,6 +1135,7 @@ export function TrainingSessionFormRoute() {
           <label className="session-plan-dropzone">
             <input
               accept="application/pdf,image/*"
+              disabled={isEditing && !editingSession?.detailsLoaded}
               onChange={(event) => {
                 handleSessionPlanUpload(event.target.files?.[0] ?? null);
               }}
@@ -1134,7 +1187,9 @@ export function TrainingSessionFormRoute() {
               </div>
             </article>
           ) : (
-            <p className="muted">No session plan uploaded yet.</p>
+            <p className="muted">
+              {isLoadingSessionDetails ? 'Loading existing session plan...' : 'No session plan uploaded yet.'}
+            </p>
           )}
         </section>
 

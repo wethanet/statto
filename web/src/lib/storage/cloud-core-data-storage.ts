@@ -163,9 +163,32 @@ async function loadCloudTrainingSessions(clubId: string) {
 
   return supabase
     .from('club_training_sessions')
-    .select('*')
+    .select('id, title, date, location, squad, goal, focus, updated_at')
     .eq('club_id', clubId)
     .order('date', { ascending: true });
+}
+
+export async function loadCloudTrainingSessionDetails(clubId: string, sessionId: string) {
+  const client = requireSupabase();
+
+  const { data, error } = await client
+    .from('club_training_sessions')
+    .select('id, session_plan, run_plan')
+    .eq('club_id', clubId)
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  await throwOnError(error);
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id as string,
+    sessionPlan: data.session_plan ?? null,
+    runPlan: Array.isArray(data.run_plan) ? data.run_plan : [],
+  };
 }
 
 async function loadCloudMatchRotationAssignments(clubId: string) {
@@ -302,8 +325,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
           squad: normalizePlayerSquad((session.squad as string | null | undefined) ?? null),
           goal: (session.goal as string | null | undefined) ?? null,
           focus: (session.focus as string | null | undefined) ?? null,
-          sessionPlan: session.session_plan ?? null,
-          runPlan: Array.isArray(session.run_plan) ? session.run_plan : [],
+          sessionPlan: null,
+          runPlan: [],
+          detailsLoaded: false,
         };
       })
     );

@@ -217,7 +217,9 @@ export function TrainingListRoute() {
                     <p className="schedule-board__meta">
                       {session.sessionPlan
                         ? `Plan attached • ${formatFileSize(session.sessionPlan.size)}`
-                        : 'No plan uploaded'}
+                        : session.detailsLoaded
+                          ? 'No plan uploaded'
+                          : 'Open session to load plan'}
                     </p>
                   </div>
 
@@ -274,6 +276,8 @@ export function TrainingListRoute() {
                       <p className="muted">
                         Session plan attached • {formatFileSize(session.sessionPlan.size)}
                       </p>
+                    ) : canAccessTrainingSessionPlans && !session.detailsLoaded ? (
+                      <p className="muted">Open the session to load plan details.</p>
                     ) : null}
                   </div>
 
@@ -285,11 +289,13 @@ export function TrainingListRoute() {
                   </div>
                 </div>
 
-                {(canAccessTrainingSessionPlans && session.sessionPlan) || (!isPastSession && selectedPlayer) ? (
+                {(canAccessTrainingSessionPlans && !session.detailsLoaded) ||
+                (canAccessTrainingSessionPlans && session.sessionPlan) ||
+                (!isPastSession && selectedPlayer) ? (
                   <div className="player-session-card__actions">
-                    {canAccessTrainingSessionPlans && session.sessionPlan ? (
+                    {canAccessTrainingSessionPlans && (session.sessionPlan || !session.detailsLoaded) ? (
                       <Link className="pill-button pill-button--compact" to={`/training/${session.id}`}>
-                        Open plan
+                        {session.sessionPlan ? 'Open plan' : 'Open session'}
                       </Link>
                     ) : null}
                     {!isPastSession && selectedPlayer ? attendanceOptions.map((option) => {

@@ -2,7 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 import { App } from '@web/app/app';
+import { checkForAppVersionRefresh } from '@web/lib/app-version-refresh';
 import '@web/styles/global.css';
+
+void checkForAppVersionRefresh();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

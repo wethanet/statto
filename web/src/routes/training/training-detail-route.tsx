@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import {
@@ -41,11 +41,45 @@ function isSessionPlanImage(plan: TrainingSessionPlanAttachment | null) {
 
 export function TrainingDetailRoute() {
   const { sessionId = '' } = useParams();
-  const { attendanceRecords, isHydrated, players, setAttendanceRecords, trainingSessions } = useClubData();
+  const {
+    attendanceRecords,
+    isHydrated,
+    loadTrainingSessionDetails,
+    players,
+    setAttendanceRecords,
+    trainingSessions,
+  } = useClubData();
   const { canAccessAdmin, canViewSquadItem } = useClubPermissions();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const [planMessage, setPlanMessage] = useState<string | null>(null);
+  const [isLoadingSessionDetails, setIsLoadingSessionDetails] = useState(false);
   const session = getTrainingSessionById(sessionId, trainingSessions);
+
+  useEffect(() => {
+    if (!session || session.detailsLoaded) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingSessionDetails(true);
+    setPlanMessage(null);
+
+    loadTrainingSessionDetails(session.id)
+      .catch(() => {
+        if (isMounted) {
+          setPlanMessage('Could not load the session plan. Try refreshing the page.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingSessionDetails(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadTrainingSessionDetails, session]);
 
   const playersForSession = useMemo(() => {
     if (!session) {
@@ -119,7 +153,9 @@ export function TrainingDetailRoute() {
         <p className="muted">{formatDate(session.date)}</p>
         <p className="muted">{session.location}</p>
         {session.goal ? <p className="muted">Goal: {session.goal}</p> : null}
-        {session.sessionPlan ? (
+        {!session.detailsLoaded || isLoadingSessionDetails ? (
+          <p className="muted">Loading session plan...</p>
+        ) : session.sessionPlan ? (
           <p className="muted">
             Session plan attached: {session.sessionPlan.name} • {formatFileSize(session.sessionPlan.size)}
           </p>

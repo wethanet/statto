@@ -70,6 +70,7 @@ import {
   deleteCloudVoteEntriesForPlayer,
   deleteCloudVoteEntry,
   loadCloudCoreData,
+  loadCloudTrainingSessionDetails,
   upsertCloudAttendanceRecord,
   upsertCloudAvailabilityRecord,
   upsertCloudFine,
@@ -92,6 +93,7 @@ type ClubDataContextValue = {
   setFixtures: Dispatch<SetStateAction<Fixture[]>>;
   trainingSessions: TrainingSession[];
   setTrainingSessions: Dispatch<SetStateAction<TrainingSession[]>>;
+  loadTrainingSessionDetails: (sessionId: string) => Promise<TrainingSession | null>;
   attendanceRecords: AttendanceRecord[];
   setAttendanceRecords: Dispatch<SetStateAction<AttendanceRecord[]>>;
   players: Player[];
@@ -433,8 +435,56 @@ function mapCloudTrainingSession(row: CloudRow) {
       focus: getNullableString(row, 'focus'),
       sessionPlan: row.session_plan as TrainingSession['sessionPlan'],
       runPlan: Array.isArray(row.run_plan) ? row.run_plan : [],
+      detailsLoaded:
+        Object.prototype.hasOwnProperty.call(row, 'session_plan') ||
+        Object.prototype.hasOwnProperty.call(row, 'run_plan'),
     },
   ])[0] ?? null;
+}
+
+function preserveLoadedTrainingSessionDetails(
+  currentSessions: TrainingSession[],
+  nextSessions: TrainingSession[]
+) {
+  const currentById = new Map(
+    currentSessions
+      .filter((session) => {
+        return session.detailsLoaded;
+      })
+      .map((session) => [session.id, session])
+  );
+
+  return nextSessions.map((session) => {
+    const currentSession = currentById.get(session.id);
+
+    if (!currentSession || session.detailsLoaded) {
+      return session;
+    }
+
+    return {
+      ...session,
+      sessionPlan: currentSession.sessionPlan,
+      runPlan: currentSession.runPlan,
+      detailsLoaded: true,
+    };
+  });
+}
+
+function mergeLoadedTrainingSessionDetails(
+  currentSnapshot: ClubDataSnapshot,
+  remoteCoreData: Partial<ClubDataSnapshot>
+) {
+  if (!remoteCoreData.trainingSessions) {
+    return remoteCoreData;
+  }
+
+  return {
+    ...remoteCoreData,
+    trainingSessions: preserveLoadedTrainingSessionDetails(
+      currentSnapshot.trainingSessions,
+      remoteCoreData.trainingSessions
+    ),
+  };
 }
 
 function mapCloudFixture(row: CloudRow): Fixture | null {
@@ -967,6 +1017,71 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     deleteRemote: (clubId, session) => deleteCloudTrainingSession(clubId, session.id),
   });
 
+  const loadTrainingSessionDetails = useCallback(
+    async (sessionId: string) => {
+      const existingSession = trainingSessionsRef.current.find((session) => {
+        return session.id === sessionId;
+      });
+
+      if (!existingSession) {
+        return null;
+      }
+
+      if (existingSession.detailsLoaded) {
+        return existingSession;
+      }
+
+      if (!isConfigured || !activeClubId) {
+        return existingSession;
+      }
+
+      try {
+        const details = await loadCloudTrainingSessionDetails(activeClubId, sessionId);
+
+        if (!details) {
+          return null;
+        }
+
+        let loadedSession: TrainingSession | null = null;
+        const nextSessions = trainingSessionsRef.current.map((session) => {
+          if (session.id !== sessionId) {
+            return session;
+          }
+
+          loadedSession = normalizeTrainingSessions([
+            {
+              ...session,
+              sessionPlan: details.sessionPlan as TrainingSession['sessionPlan'],
+              runPlan: details.runPlan as TrainingSession['runPlan'],
+              detailsLoaded: true,
+            },
+          ])[0];
+
+          return loadedSession;
+        });
+
+        trainingSessionsRef.current = nextSessions;
+        setTrainingSessionsState(nextSessions);
+        stateMutationVersionRef.current += 1;
+
+        return loadedSession;
+      } catch (error: unknown) {
+        console.warn('Failed to load training session details', error);
+        setSyncDebug((syncState) => {
+          return {
+            ...syncState,
+            lastSyncError:
+              error instanceof Error
+                ? `Failed to load training session details: ${error.message}`
+                : 'Failed to load training session details.',
+          };
+        });
+        throw error;
+      }
+    },
+    [activeClubId, isConfigured]
+  );
+
   const setAttendanceRecords = createCollectionSetter(attendanceRecordsRef, setAttendanceRecordsState, {
     label: 'attendance records',
     realtimeTable: 'club_attendance_records',
@@ -1363,11 +1478,12 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
         }
 
         const currentSnapshot = getSnapshotFromRefs();
-        setSyncDebugFromSources(currentSnapshot, remoteCoreData);
+        const nextRemoteCoreData = mergeLoadedTrainingSessionDetails(currentSnapshot, remoteCoreData);
+        setSyncDebugFromSources(currentSnapshot, nextRemoteCoreData);
         applySnapshot(
           normalizeClubDataSnapshot({
             ...currentSnapshot,
-            ...remoteCoreData,
+            ...nextRemoteCoreData,
           })
         );
       } catch (error: unknown) {
@@ -1432,10 +1548,11 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
             const remoteCoreData = await loadCloudCoreData(activeClubId);
 
             if (remoteCoreData) {
-              setSyncDebugFromSources(localSnapshot, remoteCoreData);
+              const nextRemoteCoreData = mergeLoadedTrainingSessionDetails(localSnapshot, remoteCoreData);
+              setSyncDebugFromSources(localSnapshot, nextRemoteCoreData);
               const nextSnapshot = normalizeClubDataSnapshot({
                 ...localSnapshot,
-                ...remoteCoreData,
+                ...nextRemoteCoreData,
               });
 
               if (!isMounted) {
@@ -1586,6 +1703,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setFixtures,
       trainingSessions: trainingSessionsState,
       setTrainingSessions,
+      loadTrainingSessionDetails,
       attendanceRecords: attendanceRecordsState,
       setAttendanceRecords,
       players: playersState,
@@ -1622,6 +1740,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     fixturesState,
     isConfigured,
     isHydrated,
+    loadTrainingSessionDetails,
     matchLineupAssignmentsState,
     matchRotationAssignmentsState,
     matchStatsState,
