@@ -2041,8 +2041,10 @@ as $$
       from public.club_players
       where club_players.club_id = target_club_id
         and club_players.id = target_player_id
-        and club_players.squad is not null
-        and private.has_squad_membership(target_club_id, club_players.squad)
+        and (
+          club_players.squad is null
+          or private.has_squad_membership(target_club_id, club_players.squad)
+        )
     )
     else false
   end;
