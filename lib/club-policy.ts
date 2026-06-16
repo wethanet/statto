@@ -5,7 +5,7 @@ import { normalizeTrainingDrillLength } from '@/lib/training-drill-library';
 export const DEFAULT_CLUB_POLICY_SETTINGS: ClubPolicySettings = {
   finalsMinimumGames: 3,
   higherDivisionMaxGames: 8,
-  availabilityLockDays: 6,
+  availabilityLockDays: 3,
   playerVoteOpenDelayDays: 0,
   playerVoteRequiresLineup: true,
   rotationGroupsEnabled: true,

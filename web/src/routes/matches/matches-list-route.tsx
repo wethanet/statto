@@ -291,11 +291,17 @@ export function MatchesListRoute() {
               ? getLineupPlayerIdsForFixture(fixture.id, matchLineupAssignments)
               : [];
             const isSelectedInLineup = selectedPlayer ? lineupPlayerIds.includes(selectedPlayer.id) : false;
+            const savedPlayerAvailability =
+              selectedPlayer && isPlayer
+                ? getAvailabilityResponseStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
+                : null;
             const playerAvailability =
               selectedPlayer && isPlayer
-                ? isSelectedInLineup
-                  ? 'available'
-                  : getAvailabilityResponseStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
+                ? savedPlayerAvailability === 'unavailable'
+                  ? 'unavailable'
+                  : isSelectedInLineup
+                    ? 'available'
+                    : savedPlayerAvailability
                 : null;
             const playerVoteCandidates = selectedPlayer
               ? getPlayerVoteCandidates(

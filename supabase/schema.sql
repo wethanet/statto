@@ -16,7 +16,7 @@ create table if not exists public.club_policy_settings (
   club_id text primary key references public.clubs (id) on delete cascade,
   finals_minimum_games integer not null default 3 check (finals_minimum_games >= 0),
   higher_division_max_games integer not null default 8 check (higher_division_max_games >= 0),
-  availability_lock_days integer not null default 6 check (availability_lock_days >= 0),
+  availability_lock_days integer not null default 3 check (availability_lock_days >= 0),
   player_vote_open_delay_days integer not null default 0 check (player_vote_open_delay_days >= 0),
   player_vote_requires_lineup boolean not null default true,
   rotation_groups_enabled boolean not null default true,
@@ -1565,7 +1565,7 @@ alter table public.club_policy_settings
 add column if not exists higher_division_max_games integer not null default 8;
 
 alter table public.club_policy_settings
-add column if not exists availability_lock_days integer not null default 6;
+add column if not exists availability_lock_days integer not null default 3;
 
 alter table public.club_policy_settings
 add column if not exists player_vote_open_delay_days integer not null default 0;
@@ -1616,6 +1616,10 @@ insert into public.club_policy_settings (club_id)
 select clubs.id
 from public.clubs
 on conflict (club_id) do nothing;
+
+update public.club_policy_settings
+set availability_lock_days = 3
+where availability_lock_days = 6;
 
 do $$
 begin

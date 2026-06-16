@@ -1,6 +1,4 @@
-const APP_VERSION_CHECK_KEY = 'statto:app-version:last-check';
 const APP_VERSION_RELOAD_KEY = 'statto:app-version:reload-attempted';
-const APP_VERSION_CHECK_INTERVAL_MS = 48 * 60 * 60 * 1000;
 
 function getCurrentEntrypoints() {
   return Array.from(document.querySelectorAll<HTMLScriptElement>('script[type="module"][src]'))
@@ -37,14 +35,6 @@ export async function checkForAppVersionRefresh() {
 
   try {
     const now = Date.now();
-    const lastCheck = Number(window.localStorage.getItem(APP_VERSION_CHECK_KEY) ?? '0');
-
-    if (Number.isFinite(lastCheck) && now - lastCheck < APP_VERSION_CHECK_INTERVAL_MS) {
-      return;
-    }
-
-    window.localStorage.setItem(APP_VERSION_CHECK_KEY, String(now));
-
     const response = await fetch(`${window.location.origin}/?appVersionCheck=${now}`, {
       cache: 'reload',
       credentials: 'same-origin',

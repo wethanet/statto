@@ -79,15 +79,33 @@ export function MatchDetailRoute() {
       return availabilityRecords;
     }
 
+    const unavailableSelectedPlayerIds = new Set(
+      availabilityRecords
+        .filter((record) => {
+          return (
+            record.fixtureId === fixture.id &&
+            selectedPlayerIds.has(record.playerId) &&
+            record.status === 'unavailable'
+          );
+        })
+        .map((record) => record.playerId)
+    );
+
     return [
       ...availabilityRecords.filter((record) => {
-        return !(record.fixtureId === fixture.id && selectedPlayerIds.has(record.playerId));
+        return (
+          record.fixtureId !== fixture.id ||
+          !selectedPlayerIds.has(record.playerId) ||
+          record.status === 'unavailable'
+        );
       }),
-      ...Array.from(selectedPlayerIds).map((playerId) => ({
-        fixtureId: fixture.id,
-        playerId,
-        status: 'available' as const,
-      })),
+      ...Array.from(selectedPlayerIds)
+        .filter((playerId) => !unavailableSelectedPlayerIds.has(playerId))
+        .map((playerId) => ({
+          fixtureId: fixture.id,
+          playerId,
+          status: 'available' as const,
+        })),
     ];
   }, [availabilityRecords, fixture, matchLineupAssignments]);
   const gamesPlayedByPlayer = useMemo(() => {

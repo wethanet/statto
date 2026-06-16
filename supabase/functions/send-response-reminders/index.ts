@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
     const futureTrainingSessions = (trainingSessionsResult.data ?? []).filter((session) => {
       return isFutureEvent(session.date, now);
     });
-    const availabilityLockDays = policyResult.data?.availability_lock_days ?? 6;
+    const availabilityLockDays = policyResult.data?.availability_lock_days ?? 3;
     const futureFixtures = (fixturesResult.data ?? []).filter((fixture) => {
       return isFutureEvent(fixture.date, now) && !isAvailabilityLocked(fixture.date, now, availabilityLockDays);
     });

@@ -53,6 +53,16 @@ npm run build
 npm run typecheck
 ```
 
+### Release version
+
+Bump the app version before each release so the live app shows the new build number:
+
+```bash
+npm run release:patch
+```
+
+Use `npm run release:minor` or `npm run release:major` when the release needs a larger version step.
+
 ## Supabase Setup
 
 1. Create a Supabase project.
