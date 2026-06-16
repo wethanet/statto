@@ -70,19 +70,37 @@ function isMissingTableError(error: { code?: string; message?: string } | null) 
   );
 }
 
+function isMissingColumnError(
+  error: { code?: string; message?: string } | null,
+  columnNames: string[]
+) {
+  if (!error?.message) {
+    return false;
+  }
+
+  return columnNames.some((columnName) => error.message?.includes(columnName) === true);
+}
+
 function isMissingRotationGroupsColumnError(error: { code?: string; message?: string } | null) {
-  return (
-    error?.code === 'PGRST204' &&
-    error?.message?.includes('rotation_groups_enabled') === true
-  );
+  return isMissingColumnError(error, ['rotation_groups_enabled']);
 }
 
 function isMissingSelectionCriteriaColumnError(error: { code?: string; message?: string } | null) {
-  return (
-    error?.code === 'PGRST204' &&
-    (error?.message?.includes('home_and_away_selection_criteria') === true ||
-      error?.message?.includes('finals_selection_criteria') === true)
-  );
+  return isMissingColumnError(error, [
+    'home_and_away_selection_criteria',
+    'finals_selection_criteria',
+  ]);
+}
+
+async function selectClubPolicyRow(
+  clubId: string,
+  selectClause: string
+) {
+  return supabase
+    ?.from('club_policy_settings')
+    .select(selectClause)
+    .eq('club_id', clubId)
+    .maybeSingle();
 }
 
 export async function loadCloudClubPolicySettings(clubId: string) {
@@ -90,58 +108,49 @@ export async function loadCloudClubPolicySettings(clubId: string) {
     return DEFAULT_CLUB_POLICY_SETTINGS;
   }
 
-  const { data, error } = await supabase
-    .from('club_policy_settings')
-    .select(POLICY_SELECT_WITH_SELECTION_CRITERIA)
-    .eq('club_id', clubId)
-    .maybeSingle();
+  const selectAttempts = [
+    {
+      selectClause: POLICY_SELECT_WITH_SELECTION_CRITERIA,
+      warning:
+        'Selection criteria settings are not available in this Supabase schema yet. Falling back to older club policy columns.',
+    },
+    {
+      selectClause: POLICY_SELECT_WITH_ROTATION_GROUPS,
+      warning:
+        'Rotation group settings are not available in this Supabase schema yet. Falling back to older club policy columns.',
+    },
+    {
+      selectClause: BASE_POLICY_SELECT,
+      warning: null,
+    },
+  ] as const;
 
-  if (isMissingTableError(error)) {
-    console.warn(
-      'Club policy settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable policy management.'
-    );
-    return DEFAULT_CLUB_POLICY_SETTINGS;
-  }
+  for (const attempt of selectAttempts) {
+    const result = await selectClubPolicyRow(clubId, attempt.selectClause);
+    const error = result?.error ?? null;
 
-  if (isMissingRotationGroupsColumnError(error)) {
-    console.warn(
-      'Rotation group settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable the rotation group toggle.'
-    );
-    const fallbackResult = await supabase
-      .from('club_policy_settings')
-      .select(BASE_POLICY_SELECT)
-      .eq('club_id', clubId)
-      .maybeSingle();
-
-    if (fallbackResult.error) {
-      throw fallbackResult.error;
+    if (isMissingTableError(error)) {
+      console.warn(
+        'Club policy settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable policy management.'
+      );
+      return DEFAULT_CLUB_POLICY_SETTINGS;
     }
 
-    return mapRowToPolicySettings(fallbackResult.data as ClubPolicySettingsRow | null);
-  }
-
-  if (isMissingSelectionCriteriaColumnError(error)) {
-    console.warn(
-      'Selection criteria settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable selection criteria.'
-    );
-    const fallbackResult = await supabase
-      .from('club_policy_settings')
-      .select(POLICY_SELECT_WITH_ROTATION_GROUPS)
-      .eq('club_id', clubId)
-      .maybeSingle();
-
-    if (fallbackResult.error) {
-      throw fallbackResult.error;
+    if (isMissingSelectionCriteriaColumnError(error) || isMissingRotationGroupsColumnError(error)) {
+      if (attempt.warning) {
+        console.warn(attempt.warning);
+      }
+      continue;
     }
 
-    return mapRowToPolicySettings(fallbackResult.data as ClubPolicySettingsRow | null);
+    if (error) {
+      throw error;
+    }
+
+    return mapRowToPolicySettings(result?.data as ClubPolicySettingsRow | null);
   }
 
-  if (error) {
-    throw error;
-  }
-
-  return mapRowToPolicySettings(data as ClubPolicySettingsRow | null);
+  return DEFAULT_CLUB_POLICY_SETTINGS;
 }
 
 export async function upsertCloudClubPolicySettings(clubId: string, settings: ClubPolicySettings) {
