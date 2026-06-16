@@ -22,7 +22,7 @@ import { usePlayerProfile } from '@web/lib/player-profile-context';
 const availabilityOptions = [
   {
     label: 'Available',
-    value: 'uncertain',
+    value: 'available',
     className: 'pill-button pill-button--compact pill-button--positive',
   },
   {

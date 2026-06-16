@@ -29,7 +29,7 @@ function isFutureFixture(value: string, now: number) {
 const availabilityOptions = [
   {
     label: 'Available',
-    value: 'uncertain',
+    value: 'available',
     className: 'pill-button pill-button--compact pill-button--positive',
   },
   {
@@ -60,7 +60,7 @@ function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | null) {
 }
 
 export function PlayerAvailabilityRoute() {
-  const { availabilityRecords, fixtures, isHydrated, setAvailabilityRecords } = useClubData();
+  const { availabilityRecords, fixtures, isHydrated, setAvailabilityRecords, syncDebug } = useClubData();
   const { canViewSquadItem, isPlayer } = useClubPermissions();
   const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
@@ -87,6 +87,7 @@ export function PlayerAvailabilityRoute() {
                 ? 'Choosing Available keeps you in the pool for selection. Coaches still choose the final side.'
                 : 'Loading your saved availability...'}
             </p>
+            {syncDebug.lastSyncError ? <p className="muted">{syncDebug.lastSyncError}</p> : null}
           </section>
 
           <section className="card stack">
