@@ -28,8 +28,6 @@ type ClubPolicySettingsRow = {
 
 const BASE_POLICY_SELECT =
   'finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, higher_grade_label, lower_grade_label, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links';
-const POLICY_SELECT_WITH_ROTATION_GROUPS = `finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, rotation_groups_enabled, higher_grade_label, lower_grade_label, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links`;
-const POLICY_SELECT_WITH_SELECTION_CRITERIA = `finals_minimum_games, higher_division_max_games, availability_lock_days, player_vote_open_delay_days, player_vote_requires_lineup, rotation_groups_enabled, higher_grade_label, lower_grade_label, home_and_away_selection_criteria, finals_selection_criteria, training_default_title, training_default_time, training_default_days, training_default_locations, training_location_rotation_span, training_generation_weeks, training_drill_library_links`;
 
 function requireSupabase() {
   if (!supabase) {
@@ -92,10 +90,7 @@ function isMissingSelectionCriteriaColumnError(error: { code?: string; message?:
   ]);
 }
 
-async function selectClubPolicyRow(
-  clubId: string,
-  selectClause: string
-) {
+async function selectClubPolicyRow(clubId: string, selectClause: string) {
   return supabase
     ?.from('club_policy_settings')
     .select(selectClause)
@@ -108,91 +103,102 @@ export async function loadCloudClubPolicySettings(clubId: string) {
     return DEFAULT_CLUB_POLICY_SETTINGS;
   }
 
-  const selectAttempts = [
-    {
-      selectClause: POLICY_SELECT_WITH_SELECTION_CRITERIA,
-      warning:
-        'Selection criteria settings are not available in this Supabase schema yet. Falling back to older club policy columns.',
-    },
-    {
-      selectClause: POLICY_SELECT_WITH_ROTATION_GROUPS,
-      warning:
-        'Rotation group settings are not available in this Supabase schema yet. Falling back to older club policy columns.',
-    },
-    {
-      selectClause: BASE_POLICY_SELECT,
-      warning: null,
-    },
-  ] as const;
+  const result = await selectClubPolicyRow(clubId, '*');
+  const error = result?.error ?? null;
 
-  for (const attempt of selectAttempts) {
-    const result = await selectClubPolicyRow(clubId, attempt.selectClause);
-    const error = result?.error ?? null;
-
-    if (isMissingTableError(error)) {
-      console.warn(
-        'Club policy settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable policy management.'
-      );
-      return DEFAULT_CLUB_POLICY_SETTINGS;
-    }
-
-    if (isMissingSelectionCriteriaColumnError(error) || isMissingRotationGroupsColumnError(error)) {
-      if (attempt.warning) {
-        console.warn(attempt.warning);
-      }
-      continue;
-    }
-
-    if (error) {
-      throw error;
-    }
-
-    return mapRowToPolicySettings(result?.data as ClubPolicySettingsRow | null);
+  if (isMissingTableError(error)) {
+    console.warn(
+      'Club policy settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable policy management.'
+    );
+    return DEFAULT_CLUB_POLICY_SETTINGS;
   }
 
-  return DEFAULT_CLUB_POLICY_SETTINGS;
+  if (error) {
+    throw error;
+  }
+
+  return mapRowToPolicySettings(result?.data as ClubPolicySettingsRow | null);
 }
 
 export async function upsertCloudClubPolicySettings(clubId: string, settings: ClubPolicySettings) {
   const client = requireSupabase();
   const normalizedSettings = normalizeClubPolicySettings(settings);
-  const { error } = await client.from('club_policy_settings').upsert(
-    {
-      club_id: clubId,
-      finals_minimum_games: normalizedSettings.finalsMinimumGames,
-      higher_division_max_games: normalizedSettings.higherDivisionMaxGames,
-      availability_lock_days: normalizedSettings.availabilityLockDays,
-      player_vote_open_delay_days: normalizedSettings.playerVoteOpenDelayDays,
-      player_vote_requires_lineup: normalizedSettings.playerVoteRequiresLineup,
-      rotation_groups_enabled: normalizedSettings.rotationGroupsEnabled,
-      higher_grade_label: normalizedSettings.higherGradeLabel,
-      lower_grade_label: normalizedSettings.lowerGradeLabel,
-      home_and_away_selection_criteria: normalizedSettings.homeAndAwaySelectionCriteria,
-      finals_selection_criteria: normalizedSettings.finalsSelectionCriteria,
-      training_default_title: normalizedSettings.trainingDefaultTitle,
-      training_default_time: normalizedSettings.trainingDefaultTime,
-      training_default_days: normalizedSettings.trainingDefaultDays,
-      training_default_locations: normalizedSettings.trainingDefaultLocations,
-      training_location_rotation_span: normalizedSettings.trainingLocationRotationSpan,
-      training_generation_weeks: normalizedSettings.trainingGenerationWeeks,
-      training_drill_library_links: normalizedSettings.trainingDrillLibraryLinks,
-    },
-    { onConflict: 'club_id' }
-  );
+  const basePayload = {
+    club_id: clubId,
+    finals_minimum_games: normalizedSettings.finalsMinimumGames,
+    higher_division_max_games: normalizedSettings.higherDivisionMaxGames,
+    availability_lock_days: normalizedSettings.availabilityLockDays,
+    player_vote_open_delay_days: normalizedSettings.playerVoteOpenDelayDays,
+    player_vote_requires_lineup: normalizedSettings.playerVoteRequiresLineup,
+    higher_grade_label: normalizedSettings.higherGradeLabel,
+    lower_grade_label: normalizedSettings.lowerGradeLabel,
+    training_default_title: normalizedSettings.trainingDefaultTitle,
+    training_default_time: normalizedSettings.trainingDefaultTime,
+    training_default_days: normalizedSettings.trainingDefaultDays,
+    training_default_locations: normalizedSettings.trainingDefaultLocations,
+    training_location_rotation_span: normalizedSettings.trainingLocationRotationSpan,
+    training_generation_weeks: normalizedSettings.trainingGenerationWeeks,
+    training_drill_library_links: normalizedSettings.trainingDrillLibraryLinks,
+  };
+  const rotationGroupsPayload = {
+    ...basePayload,
+    rotation_groups_enabled: normalizedSettings.rotationGroupsEnabled,
+  };
+  const fullPayload = {
+    ...rotationGroupsPayload,
+    home_and_away_selection_criteria: normalizedSettings.homeAndAwaySelectionCriteria,
+    finals_selection_criteria: normalizedSettings.finalsSelectionCriteria,
+  };
 
-  if (error) {
-    if (isMissingRotationGroupsColumnError(error)) {
-      throw new Error(
-        'Rotation group settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable the rotation group toggle.'
-      );
-    }
+  const fullResult = await client.from('club_policy_settings').upsert(fullPayload, {
+    onConflict: 'club_id',
+  });
 
-    if (isMissingSelectionCriteriaColumnError(error)) {
+  if (!fullResult.error) {
+    return;
+  }
+
+  if (isMissingSelectionCriteriaColumnError(fullResult.error)) {
+    const rotationGroupsResult = await client.from('club_policy_settings').upsert(rotationGroupsPayload, {
+      onConflict: 'club_id',
+    });
+
+    if (!rotationGroupsResult.error) {
       throw new Error(
         'Selection criteria settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable selection criteria.'
       );
     }
 
-    throw error;
+    if (isMissingRotationGroupsColumnError(rotationGroupsResult.error)) {
+      const baseResult = await client.from('club_policy_settings').upsert(basePayload, {
+        onConflict: 'club_id',
+      });
+
+      if (!baseResult.error) {
+        throw new Error(
+          'Rotation group and selection criteria settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable them.'
+        );
+      }
+
+      throw baseResult.error;
+    }
+
+    throw rotationGroupsResult.error;
   }
+
+  if (isMissingRotationGroupsColumnError(fullResult.error)) {
+    const baseResult = await client.from('club_policy_settings').upsert(basePayload, {
+      onConflict: 'club_id',
+    });
+
+    if (!baseResult.error) {
+      throw new Error(
+        'Rotation group settings are not available in this Supabase schema yet. Run the latest supabase/schema.sql to enable the rotation group toggle.'
+      );
+    }
+
+    throw baseResult.error;
+  }
+
+  throw fullResult.error;
 }
