@@ -721,17 +721,37 @@ export async function deleteCloudFixture(clubId: string, fixtureId: string) {
 
 export async function upsertCloudAvailabilityRecord(clubId: string, record: AvailabilityRecord) {
   const client = requireSupabase();
-  const { error } = await client.from('club_availability_records').upsert(
-    {
-      club_id: clubId,
-      fixture_id: record.fixtureId,
-      player_id: record.playerId,
-      status: record.status,
-    },
-    { onConflict: 'club_id,fixture_id,player_id' }
-  );
+  const payload = {
+    club_id: clubId,
+    fixture_id: record.fixtureId,
+    player_id: record.playerId,
+    status: record.status,
+  };
 
-  await throwOnError(error);
+  const updateResult = await client
+    .from('club_availability_records')
+    .update({
+      status: record.status,
+    })
+    .eq('club_id', clubId)
+    .eq('fixture_id', record.fixtureId)
+    .eq('player_id', record.playerId)
+    .select('fixture_id, player_id, status')
+    .maybeSingle();
+
+  await throwOnError(updateResult.error);
+
+  if (updateResult.data) {
+    return;
+  }
+
+  const insertResult = await client
+    .from('club_availability_records')
+    .insert(payload)
+    .select('fixture_id, player_id, status')
+    .single();
+
+  await throwOnError(insertResult.error);
 }
 
 export async function upsertCloudAvailabilityRecords(

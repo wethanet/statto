@@ -1219,8 +1219,8 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
     const rowClubId = getString(row, 'club_id');
 
-    if (rowClubId !== activeClubId) {
-      return rowClubId !== null;
+    if (rowClubId && rowClubId !== activeClubId) {
+      return true;
     }
 
     const rowKey = getRowKey(row);
