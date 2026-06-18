@@ -94,18 +94,6 @@ function isMissingColumnError(
   return error.message?.includes(`column ${columnName} does not exist`) === true;
 }
 
-function isMissingAvailabilityResponseRpcError(error: { code?: string; message?: string } | null) {
-  if (!error) {
-    return false;
-  }
-
-  return (
-    error.code === 'PGRST202' ||
-    error.code === '42883' ||
-    error.message?.includes('set_club_availability_response') === true
-  );
-}
-
 async function loadCloudPlayers(clubId: string) {
   if (!supabase) {
     return { data: null, error: null };
@@ -733,13 +721,6 @@ export async function deleteCloudFixture(clubId: string, fixtureId: string) {
 
 export async function upsertCloudAvailabilityRecord(clubId: string, record: AvailabilityRecord) {
   const client = requireSupabase();
-  const payload = {
-    club_id: clubId,
-    fixture_id: record.fixtureId,
-    player_id: record.playerId,
-    status: record.status,
-  };
-
   const responseResult = await client.rpc('set_club_availability_response', {
     target_club_id: clubId,
     target_fixture_id: record.fixtureId,
@@ -747,38 +728,53 @@ export async function upsertCloudAvailabilityRecord(clubId: string, record: Avai
     target_status: record.status,
   });
 
-  if (!responseResult.error) {
-    return;
-  }
+  await throwOnError(responseResult.error);
 
-  if (!isMissingAvailabilityResponseRpcError(responseResult.error)) {
-    throw responseResult.error;
-  }
-
-  const updateResult = await client
+  const verificationResult = await client
     .from('club_availability_records')
-    .update({
-      status: record.status,
-    })
+    .select('status')
     .eq('club_id', clubId)
     .eq('fixture_id', record.fixtureId)
     .eq('player_id', record.playerId)
-    .select('fixture_id, player_id, status')
     .maybeSingle();
 
-  await throwOnError(updateResult.error);
+  await throwOnError(verificationResult.error);
 
-  if (updateResult.data) {
-    return;
+  if (!verificationResult.data || verificationResult.data.status !== record.status) {
+    throw new Error(
+      `Availability save was not confirmed for ${record.playerId} on ${record.fixtureId}.`
+    );
   }
+}
 
-  const insertResult = await client
+export async function deleteCloudAvailabilityRecord(
+  clubId: string,
+  fixtureId: string,
+  playerId: string
+) {
+  const client = requireSupabase();
+  const responseResult = await client.rpc('set_club_availability_response', {
+    target_club_id: clubId,
+    target_fixture_id: fixtureId,
+    target_player_id: playerId,
+    target_status: 'not-responded',
+  });
+
+  await throwOnError(responseResult.error);
+
+  const verificationResult = await client
     .from('club_availability_records')
-    .insert(payload)
-    .select('fixture_id, player_id, status')
-    .single();
+    .select('status')
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId)
+    .eq('player_id', playerId)
+    .maybeSingle();
 
-  await throwOnError(insertResult.error);
+  await throwOnError(verificationResult.error);
+
+  if (verificationResult.data) {
+    throw new Error(`Availability reset was not confirmed for ${playerId} on ${fixtureId}.`);
+  }
 }
 
 export async function upsertCloudAvailabilityRecords(
@@ -812,36 +808,6 @@ export async function deleteCloudAvailabilityRecordsForFixture(clubId: string, f
     .delete()
     .eq('club_id', clubId)
     .eq('fixture_id', fixtureId);
-  await throwOnError(error);
-}
-
-export async function deleteCloudAvailabilityRecord(
-  clubId: string,
-  fixtureId: string,
-  playerId: string
-) {
-  const client = requireSupabase();
-  const responseResult = await client.rpc('set_club_availability_response', {
-    target_club_id: clubId,
-    target_fixture_id: fixtureId,
-    target_player_id: playerId,
-    target_status: 'not-responded',
-  });
-
-  if (!responseResult.error) {
-    return;
-  }
-
-  if (!isMissingAvailabilityResponseRpcError(responseResult.error)) {
-    throw responseResult.error;
-  }
-
-  const { error } = await client
-    .from('club_availability_records')
-    .delete()
-    .eq('club_id', clubId)
-    .eq('fixture_id', fixtureId)
-    .eq('player_id', playerId);
   await throwOnError(error);
 }
 
