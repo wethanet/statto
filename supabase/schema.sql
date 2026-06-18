@@ -2142,8 +2142,7 @@ as $$
   from public.club_availability_records
   where club_availability_records.club_id = target_club_id
     and (
-      private.current_membership_role(target_club_id) = 'admin'
-      or private.can_manage_player(target_club_id, club_availability_records.player_id)
+      private.is_club_coach_or_admin(target_club_id)
       or private.current_membership_player_id(target_club_id) = club_availability_records.player_id
     )
   order by

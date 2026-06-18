@@ -94,20 +94,6 @@ function isMissingColumnError(
   return error.message?.includes(`column ${columnName} does not exist`) === true;
 }
 
-function isMissingFunctionError(error: { code?: string; message?: string } | null, functionName?: string) {
-  if (!error) {
-    return false;
-  }
-
-  const message = error.message ?? '';
-
-  return (
-    error.code === 'PGRST202' ||
-    message.includes('Could not find the function') ||
-    (functionName ? message.includes(`function ${functionName}`) : false)
-  );
-}
-
 function mapCloudAvailabilityRecord(record: {
   fixture_id?: unknown;
   player_id?: unknown;
@@ -264,26 +250,9 @@ async function loadCloudAvailabilityRecords(clubId: string) {
     return { data: null, error: null };
   }
 
-  const rpcResult = await supabase.rpc('get_club_availability_records', {
+  return supabase.rpc('get_club_availability_records', {
     target_club_id: clubId,
   });
-
-  if (!rpcResult.error) {
-    return rpcResult;
-  }
-
-  if (!isMissingFunctionError(rpcResult.error, 'get_club_availability_records')) {
-    return rpcResult;
-  }
-
-  console.warn(
-    'Availability records are loading through the legacy table read. Run the latest supabase/schema.sql to enable permission-aware availability reads.'
-  );
-
-  return supabase
-    .from('club_availability_records')
-    .select('fixture_id, player_id, status')
-    .eq('club_id', clubId);
 }
 
 export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCoreData> | null> {
