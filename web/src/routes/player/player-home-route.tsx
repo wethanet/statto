@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
 
 import { getSortedFixtures } from '@/lib/availability';
 import { getSortedTrainingSessions } from '@/lib/attendance';
@@ -33,7 +34,7 @@ function getAvailabilityLabel(status: 'available' | 'unavailable' | null) {
 }
 
 export function PlayerHomeRoute() {
-  const { availabilityRecords, fines, fixtures, trainingSessions } = useClubData();
+  const { availabilityRecords, fines, fixtures, refreshAvailabilityRecordsForPlayer, trainingSessions } = useClubData();
   const { canViewSquadItem } = useClubPermissions();
   const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
@@ -69,6 +70,14 @@ export function PlayerHomeRoute() {
       : nextFixtureAvailabilityRecord
         ? 'available'
         : null;
+
+  useEffect(() => {
+    if (!selectedPlayer) {
+      return;
+    }
+
+    void refreshAvailabilityRecordsForPlayer(selectedPlayer.id);
+  }, [refreshAvailabilityRecordsForPlayer, selectedPlayer]);
 
   return (
     <PlayerPageShell

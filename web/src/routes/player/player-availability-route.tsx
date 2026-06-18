@@ -4,7 +4,7 @@ import {
   getPlayerAvailabilityLockReason,
   upsertAvailabilityRecord,
 } from '@/lib/availability';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
 import { useClubData } from '@web/lib/club-data-context';
@@ -60,7 +60,14 @@ function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | null) {
 }
 
 export function PlayerAvailabilityRoute() {
-  const { availabilityRecords, fixtures, isHydrated, setAvailabilityRecords, syncDebug } = useClubData();
+  const {
+    availabilityRecords,
+    fixtures,
+    isHydrated,
+    refreshAvailabilityRecordsForPlayer,
+    setAvailabilityRecords,
+    syncDebug,
+  } = useClubData();
   const { canViewSquadItem, isPlayer } = useClubPermissions();
   const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
@@ -73,6 +80,14 @@ export function PlayerAvailabilityRoute() {
       })
     );
   }, [canViewSquadItem, fixtures, isPlayer]);
+
+  useEffect(() => {
+    if (!isHydrated || !selectedPlayer) {
+      return;
+    }
+
+    void refreshAvailabilityRecordsForPlayer(selectedPlayer.id);
+  }, [isHydrated, refreshAvailabilityRecordsForPlayer, selectedPlayer]);
 
   return (
     <PlayerPageShell

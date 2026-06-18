@@ -2,81 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import {
-  deleteAvailabilityRecord,
-  getAvailabilityResponseStatusForPlayer,
-  getAvailabilitySummary,
   getSortedFixtures,
-  getPlayerAvailabilityLockReason,
-  upsertAvailabilityRecord,
 } from '@/lib/availability';
 import { getPlayerVoteCandidates, isPlayerVoteOpen } from '@/lib/club-policy';
 import { getFixtureScoreSummary } from '@/lib/match-stats';
 import { getLineupPlayerIdsForFixture, getPlayerVoteBallot } from '@/lib/votes';
-import type { AvailabilityResponseStatus } from '@/lib/types';
 
 import { useClubData } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
 
-const availabilityOptions = [
-  {
-    label: 'Available',
-    value: 'available',
-    className: 'pill-button pill-button--compact pill-button--positive',
-  },
-  {
-    label: 'Unavailable',
-    value: 'unavailable',
-    className: 'pill-button pill-button--compact pill-button--negative',
-  },
-  {
-    label: 'Not responded',
-    value: 'not-responded',
-    className: 'pill-button pill-button--compact pill-button--neutral',
-  },
-] as const;
-
-type PlayerAvailabilityResponseStatus = AvailabilityResponseStatus;
-
 type EventListFilter = 'upcoming' | 'all';
-
-function getPlayerAvailabilityLabel(status: PlayerAvailabilityResponseStatus) {
-  if (status === 'available') {
-    return 'Selected';
-  }
-
-  if (status === 'unavailable') {
-    return 'Unavailable';
-  }
-
-  if (status === 'uncertain') {
-    return 'Available';
-  }
-
-  return 'Not responded';
-}
-
-function getPlayerAvailabilityTone(status: PlayerAvailabilityResponseStatus) {
-  if (status === 'available') {
-    return 'status-pill status-pill--positive';
-  }
-
-  if (status === 'unavailable') {
-    return 'status-pill status-pill--negative';
-  }
-
-  return 'status-pill status-pill--neutral';
-}
-
-function renderBoardMetric(value: number, label: string, tone: 'positive' | 'negative' | 'neutral') {
-  return (
-    <span className={`schedule-board__metric schedule-board__metric--${tone}`}>
-      <span className="schedule-board__metric-value">{value}</span>
-      <span className="schedule-board__metric-label">{label}</span>
-    </span>
-  );
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-AU', {
@@ -94,21 +31,16 @@ function isPastItem(value: string) {
 
 export function MatchesListRoute() {
   const {
-    availabilityRecords,
     fixtures,
     matchLineupAssignments,
     matchStats,
     playerVoteBallots,
     players,
-    setAvailabilityRecords,
   } = useClubData();
-  const { canAccessAdmin, canViewPlayer, canViewSquadItem, isPlayer } = useClubPermissions();
+  const { canAccessAdmin, canViewSquadItem, isPlayer } = useClubPermissions();
   const { policySettings } = useClubPolicy();
   const { selectedPlayer } = usePlayerProfile();
   const [eventListFilter, setEventListFilter] = useState<EventListFilter>('upcoming');
-  const visiblePlayers = useMemo(() => {
-    return players.filter((player) => canViewPlayer(player));
-  }, [canViewPlayer, players]);
   const visibleFixtures = useMemo(() => {
     const squadFixtures = fixtures.filter((fixture) => {
       return isPlayer || canViewSquadItem(fixture.squad);
@@ -202,13 +134,11 @@ export function MatchesListRoute() {
           <div className="schedule-board__header schedule-board__row--matches">
             <span>Fixture</span>
             <span>Venue</span>
-            <span>Availability</span>
             <span>Result</span>
             <span>Action</span>
           </div>
           <div className="schedule-board__body">
             {visibleFixtures.map((fixture) => {
-              const summary = getAvailabilitySummary(fixture.id, visiblePlayers, availabilityRecords);
               const label = fixture.isHome ? 'Home' : 'Away';
               const isPastFixture = isPastItem(fixture.date);
               const scoreSummary = getFixtureScoreSummary(fixture.id, matchStats);
@@ -236,16 +166,6 @@ export function MatchesListRoute() {
                   <div className="schedule-board__cell">
                     <p className="schedule-board__venue">{fixture.venue}</p>
                   </div>
-
-                  <div className="schedule-board__cell">
-                    <div className="schedule-board__metrics">
-                      {renderBoardMetric(summary.available, 'selected', 'positive')}
-                      {renderBoardMetric(summary.unavailable, 'unavailable', 'negative')}
-                      {renderBoardMetric(summary.respondedNotSelected, 'available', 'neutral')}
-                      {renderBoardMetric(summary.notResponded, 'no response', 'neutral')}
-                    </div>
-                  </div>
-
                   <div className="schedule-board__cell">
                     <span className={hasRecordedScore ? 'schedule-board__result' : 'schedule-board__hint'}>
                       {hasRecordedScore
@@ -282,27 +202,9 @@ export function MatchesListRoute() {
             const rightScore = fixture.isHome ? scoreSummary.theirs : scoreSummary.ours;
             const hasRecordedScore =
               leftScore.goals + leftScore.points + rightScore.goals + rightScore.points > 0;
-            const availabilityLockReason = getPlayerAvailabilityLockReason(
-              fixture.date,
-              Date.now(),
-              policySettings.availabilityLockDays
-            );
             const lineupPlayerIds = selectedPlayer
               ? getLineupPlayerIdsForFixture(fixture.id, matchLineupAssignments)
               : [];
-            const isSelectedInLineup = selectedPlayer ? lineupPlayerIds.includes(selectedPlayer.id) : false;
-            const savedPlayerAvailability =
-              selectedPlayer && isPlayer
-                ? getAvailabilityResponseStatusForPlayer(fixture.id, selectedPlayer.id, availabilityRecords)
-                : null;
-            const playerAvailability =
-              selectedPlayer && isPlayer
-                ? savedPlayerAvailability === 'unavailable'
-                  ? 'unavailable'
-                  : isSelectedInLineup
-                    ? 'available'
-                    : savedPlayerAvailability
-                : null;
             const playerVoteCandidates = selectedPlayer
               ? getPlayerVoteCandidates(
                   fixture,
@@ -323,10 +225,6 @@ export function MatchesListRoute() {
                 ? getPlayerVoteBallot(fixture.id, selectedPlayer.id, playerVoteBallots)
                 : null;
 
-            if (!playerAvailability) {
-              return null;
-            }
-
             return (
               <section
                 key={fixture.id}
@@ -345,42 +243,12 @@ export function MatchesListRoute() {
                   </div>
 
                   <div className="player-fixture-card__response">
-                    <span className="player-fixture-card__label">Your response</span>
-                    <span className={getPlayerAvailabilityTone(playerAvailability)}>
-                      {getPlayerAvailabilityLabel(playerAvailability)}
-                    </span>
+                    <span className="player-fixture-card__label">Availability</span>
+                    <Link className="text-link" to="/player/availability">
+                      Set response
+                    </Link>
                   </div>
                 </div>
-
-                {!isPastFixture && selectedPlayer && !availabilityLockReason ? (
-                  <div className="player-fixture-card__actions">
-                    {availabilityOptions.map((option) => {
-                      const isSelected = option.value === playerAvailability;
-
-                      return (
-                        <button
-                          key={option.value}
-                          className={isSelected ? `${option.className} pill-button--selected` : option.className}
-                          onClick={() => {
-                            setAvailabilityRecords((current) => {
-                              if (option.value === 'not-responded') {
-                                return deleteAvailabilityRecord(current, fixture.id, selectedPlayer.id);
-                              }
-
-                              return upsertAvailabilityRecord(current, fixture.id, selectedPlayer.id, option.value);
-                            });
-                          }}
-                          type="button">
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-
-                {!isPastFixture && selectedPlayer && availabilityLockReason ? (
-                  <p className="muted">{availabilityLockReason}</p>
-                ) : null}
 
                 {hasRecordedScore || hasMatchStats || canVotePlayersPlayer ? (
                   <div className="player-fixture-card__footer">

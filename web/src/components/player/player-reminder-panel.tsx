@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getPlayerAvailabilityLockReason, getSortedFixtures } from '@/lib/availability';
@@ -40,9 +40,20 @@ function formatCountLabel(count: number, singular: string, plural: string) {
 }
 
 export function PlayerReminderPanel({ playerId }: PlayerReminderPanelProps) {
-  const { attendanceRecords, availabilityRecords, fixtures, trainingSessions } = useClubData();
+  const {
+    attendanceRecords,
+    availabilityRecords,
+    fixtures,
+    refreshAvailabilityRecordsForPlayer,
+    trainingSessions,
+  } = useClubData();
   const { canViewSquadItem } = useClubPermissions();
   const { policySettings } = useClubPolicy();
+
+  useEffect(() => {
+    void refreshAvailabilityRecordsForPlayer(playerId);
+  }, [playerId, refreshAvailabilityRecordsForPlayer]);
+
   const { fixtureReminderCount, reminders, trainingReminderCount } = useMemo(() => {
     const now = Date.now();
     const pendingTrainingSessions = getSortedTrainingSessions(

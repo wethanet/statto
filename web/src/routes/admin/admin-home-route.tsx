@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { getNextTrainingSession, getSortedTrainingSessions } from '@/lib/attendance';
-import { getPlayerAvailabilityLockReason, getSortedFixtures } from '@/lib/availability';
+import { getNextTrainingSession } from '@/lib/attendance';
 import { getFineSummary } from '@/lib/fines';
 import { fitnessPhases, getFitnessSummary } from '@/lib/fitness';
 import { getTeamSummary } from '@/lib/team';
@@ -20,21 +19,10 @@ import { useClubPolicy } from '@web/lib/club-policy-context';
 import { useSettings } from '@web/lib/settings-context';
 import { supabase } from '@web/lib/supabase';
 
-function isFutureEvent(value: string, now: number) {
-  return new Date(value).getTime() >= now;
-}
-
-function canPlayerSeeSquadItem(playerSquad: string | null, eventSquad: string | null) {
-  return eventSquad === null || playerSquad === null || eventSquad === playerSquad;
-}
-
 export function AdminHomeRoute() {
   const {
-    attendanceRecords,
-    availabilityRecords,
     fines,
     fitnessResults,
-    fixtures,
     players,
     trainingSessions,
     voteEntries,
@@ -49,54 +37,6 @@ export function AdminHomeRoute() {
   const teamSummary = getTeamSummary(players);
   const voteLeader = leaderboard[0];
   const nextTraining = getNextTrainingSession(trainingSessions);
-  const responseReminderSummary = useMemo(() => {
-    const now = Date.now();
-    const activePlayers = players.filter((player) => player.active);
-    const pendingTrainingSessions = getSortedTrainingSessions(trainingSessions).filter((session) => {
-      return isFutureEvent(session.date, now);
-    });
-    const pendingFixtures = getSortedFixtures(fixtures).filter((fixture) => {
-      return (
-        isFutureEvent(fixture.date, now) &&
-        !getPlayerAvailabilityLockReason(fixture.date, now, policySettings.availabilityLockDays)
-      );
-    });
-    let playerCount = 0;
-    let responseCount = 0;
-
-    for (const player of activePlayers) {
-      const missingTrainingResponses = pendingTrainingSessions.filter((session) => {
-        return (
-          canPlayerSeeSquadItem(player.squad, session.squad) &&
-          !attendanceRecords.some((record) => record.sessionId === session.id && record.playerId === player.id)
-        );
-      }).length;
-      const missingMatchResponses = pendingFixtures.filter((fixture) => {
-        return (
-          canPlayerSeeSquadItem(player.squad, fixture.squad) &&
-          !availabilityRecords.some((record) => record.fixtureId === fixture.id && record.playerId === player.id)
-        );
-      }).length;
-      const playerMissingCount = missingTrainingResponses + missingMatchResponses;
-
-      if (playerMissingCount > 0) {
-        playerCount += 1;
-        responseCount += playerMissingCount;
-      }
-    }
-
-    return {
-      playerCount,
-      responseCount,
-    };
-  }, [
-    attendanceRecords,
-    availabilityRecords,
-    fixtures,
-    players,
-    policySettings.availabilityLockDays,
-    trainingSessions,
-  ]);
   const fitnessSummary = fitnessPhases.reduce((total, phase) => {
     return total + getFitnessSummary(players, fitnessResults, phase.id).completed;
   }, 0);
@@ -260,18 +200,14 @@ export function AdminHomeRoute() {
       <AdminSection
         eyebrow="Primary workflow"
         title="Response follow-up"
-        description={
-          responseReminderSummary.responseCount > 0
-            ? `${responseReminderSummary.playerCount} active players have ${responseReminderSummary.responseCount} training or match responses still outstanding.`
-            : 'No outstanding training or match responses for active players.'
-        }>
+        description="Send reminders from live club data. Match availability is checked on the server, not hydrated into this dashboard.">
         <AdminSupportingPanel
           title="Response reminders"
-          description="Send a reminder only when active players still owe training or match responses."
+          description="The reminder service checks active players, upcoming training, and upcoming match availability before sending."
           actions={
             <button
               className="button"
-              disabled={isSendingReminders || responseReminderSummary.responseCount <= 0}
+              disabled={isSendingReminders}
               onClick={() => void handleSendResponseReminders()}
               type="button">
               {isSendingReminders ? 'Sending...' : 'Send reminders'}

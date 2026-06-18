@@ -22,8 +22,6 @@ import { normalizeFixtureSquad } from '@/lib/availability';
 
 import { supabase } from '@web/lib/supabase';
 
-const CLOUD_PAGE_SIZE = 1000;
-
 export type CloudCoreData = {
   players: Player[];
   trainingSessions: TrainingSession[];
@@ -249,39 +247,31 @@ async function loadCloudFines(clubId: string) {
   return result;
 }
 
-async function loadCloudAvailabilityRecords(clubId: string) {
-  if (!supabase) {
-    return { data: null, error: null };
-  }
-
-  const records: CloudAvailabilityRow[] = [];
-
-  for (let offset = 0; ; offset += CLOUD_PAGE_SIZE) {
-    const result = await supabase
-      .rpc('get_club_availability_records', {
-        target_club_id: clubId,
-      })
-      .range(offset, offset + CLOUD_PAGE_SIZE - 1);
-
-    if (result.error) {
-      return { data: null, error: result.error };
-    }
-
-    const pageRecords = (result.data ?? []) as CloudAvailabilityRow[];
-    records.push(...pageRecords);
-
-    if (pageRecords.length < CLOUD_PAGE_SIZE) {
-      return { data: records, error: null };
-    }
-  }
-}
-
-export async function loadCloudAvailabilityRecordsForFixture(clubId: string, fixtureId: string) {
+export async function loadCloudAvailabilityRecordsForFixture(
+  clubId: string,
+  fixtureId: string
+): Promise<AvailabilityRecord[]> {
   const client = requireSupabase();
   const result = await client.rpc('get_club_fixture_availability_records', {
     target_club_id: clubId,
     target_fixture_id: fixtureId,
   });
+
+  await throwOnError(result.error);
+
+  return (result.data ?? []).map(mapCloudAvailabilityRecord);
+}
+
+export async function loadCloudAvailabilityRecordsForPlayer(
+  clubId: string,
+  playerId: string
+): Promise<AvailabilityRecord[]> {
+  const client = requireSupabase();
+  const result = await client
+    .from('club_availability_records')
+    .select('fixture_id, player_id, status')
+    .eq('club_id', clubId)
+    .eq('player_id', playerId);
 
   await throwOnError(result.error);
 
@@ -304,7 +294,6 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     trainingSessionsResult,
     attendanceRecordsResult,
     fixturesResult,
-    availabilityRecordsResult,
     matchStatsResult,
     matchLineupAssignmentsResult,
     matchRotationAssignmentsResult,
@@ -325,7 +314,6 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
       .select('id, opponent, grade, squad, date, venue, is_home')
       .eq('club_id', clubId)
       .order('date', { ascending: true }),
-    loadCloudAvailabilityRecords(clubId),
     matchStatsResultPromise,
     supabase
       .from('club_match_lineup_assignments')
@@ -417,14 +405,6 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
         isHome: fixture.is_home as boolean,
       };
     });
-    hasSuccessfulRead = true;
-  }
-
-  if (availabilityRecordsResult.error) {
-    logCloudCollectionError('availability records', availabilityRecordsResult.error);
-    throw availabilityRecordsResult.error;
-  } else {
-    snapshot.availabilityRecords = (availabilityRecordsResult.data ?? []).map(mapCloudAvailabilityRecord);
     hasSuccessfulRead = true;
   }
 
@@ -808,14 +788,9 @@ export async function deleteCloudAvailabilityRecord(
 
   await throwOnError(responseResult.error);
 
-  const availabilityRecordsResult = await loadCloudAvailabilityRecords(clubId);
-  await throwOnError(availabilityRecordsResult.error);
-
-  const deletedRecord = (availabilityRecordsResult.data ?? []).find((record: {
-    fixture_id?: unknown;
-    player_id?: unknown;
-  }) => {
-    return record.fixture_id === fixtureId && record.player_id === playerId;
+  const fixtureRecords = await loadCloudAvailabilityRecordsForFixture(clubId, fixtureId);
+  const deletedRecord = fixtureRecords.find((record) => {
+    return record.playerId === playerId;
   });
 
   if (deletedRecord) {

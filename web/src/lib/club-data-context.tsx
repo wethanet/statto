@@ -71,6 +71,7 @@ import {
   deleteCloudVoteEntry,
   loadCloudCoreData,
   loadCloudAvailabilityRecordsForFixture,
+  loadCloudAvailabilityRecordsForPlayer,
   loadCloudTrainingSessionDetails,
   upsertCloudAttendanceRecord,
   upsertCloudAvailabilityRecord,
@@ -102,6 +103,7 @@ type ClubDataContextValue = {
   availabilityRecords: AvailabilityRecord[];
   setAvailabilityRecords: Dispatch<SetStateAction<AvailabilityRecord[]>>;
   refreshAvailabilityRecordsForFixture: (fixtureId: string) => Promise<void>;
+  refreshAvailabilityRecordsForPlayer: (playerId: string) => Promise<void>;
   matchStats: MatchStatEntry[];
   setMatchStats: Dispatch<SetStateAction<MatchStatEntry[]>>;
   matchLineupAssignments: MatchLineupAssignment[];
@@ -1033,7 +1035,10 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     realtimeTable: 'club_fixtures',
     keyOf: (fixture) => fixture.id,
     upsertRemote: upsertCloudFixture,
-    deleteRemote: (clubId, fixture) => deleteCloudFixture(clubId, fixture.id),
+    deleteRemote: async (clubId, fixture) => {
+      await deleteCloudAvailabilityRecordsForFixture(clubId, fixture.id);
+      await deleteCloudFixture(clubId, fixture.id);
+    },
   });
 
   const setTrainingSessions = createCollectionSetter(trainingSessionsRef, setTrainingSessionsState, {
@@ -1177,6 +1182,42 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           lastSyncError: errorMessage
             ? `Failed to load fixture availability records: ${errorMessage}`
             : 'Failed to load fixture availability records.',
+        }));
+      }
+    },
+    [activeClubId, isConfigured]
+  );
+
+  const refreshAvailabilityRecordsForPlayer = useCallback(
+    async (playerId: string) => {
+      if (!isConfigured || !activeClubId) {
+        return;
+      }
+
+      try {
+        const playerRecords = await loadCloudAvailabilityRecordsForPlayer(activeClubId, playerId);
+        const nextRecords = [
+          ...availabilityRecordsRef.current.filter((record) => record.playerId !== playerId),
+          ...playerRecords,
+        ];
+
+        availabilityRecordsRef.current = nextRecords;
+        setAvailabilityRecordsState(nextRecords);
+        stateMutationVersionRef.current += 1;
+        setSyncDebug((syncState) => ({
+          ...syncState,
+          availabilitySource: 'cloud',
+          lastSyncError: null,
+        }));
+      } catch (error: unknown) {
+        console.warn('Failed to load player availability records', error);
+        const errorMessage = getCloudSyncErrorMessage(error);
+
+        setSyncDebug((syncState) => ({
+          ...syncState,
+          lastSyncError: errorMessage
+            ? `Failed to load player availability records: ${errorMessage}`
+            : 'Failed to load player availability records.',
         }));
       }
     },
@@ -1790,6 +1831,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       availabilityRecords: availabilityRecordsState,
       setAvailabilityRecords,
       refreshAvailabilityRecordsForFixture,
+      refreshAvailabilityRecordsForPlayer,
       matchStats: matchStatsState,
       setMatchStats,
       matchLineupAssignments: matchLineupAssignmentsState,
@@ -1828,6 +1870,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     playerVoteBallotsState,
     playersState,
     refreshAvailabilityRecordsForFixture,
+    refreshAvailabilityRecordsForPlayer,
     setPlayerVoteBallots,
     setPlayerDevelopmentEntries,
     syncDebug,

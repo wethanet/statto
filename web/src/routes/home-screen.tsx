@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
 import { getAttendanceSummary, getSortedTrainingSessions } from '@/lib/attendance';
-import { getAvailabilitySummary, getSortedFixtures } from '@/lib/availability';
+import { getSortedFixtures } from '@/lib/availability';
 import { getFineSummary } from '@/lib/fines';
 import { getTeamSummary } from '@/lib/team';
 import type { Fixture } from '@/lib/types';
@@ -40,7 +40,6 @@ type AttentionItem = {
 
 type MatchDashboardCard = {
   fixture: Fixture;
-  summary: ReturnType<typeof getAvailabilitySummary>;
   heading: string;
 };
 
@@ -84,7 +83,6 @@ export function HomeScreen() {
   const { canAccessAdmin, canViewPlayer, canViewSquadItem } = useClubPermissions();
   const {
     attendanceRecords,
-    availabilityRecords,
     fixtures,
     fitnessResults,
     fines,
@@ -115,7 +113,6 @@ export function HomeScreen() {
     visibleFixtures.length > 0 ||
     visiblePlayers.length > 0 ||
     attendanceRecords.length > 0 ||
-    availabilityRecords.length > 0 ||
     matchStats.length > 0 ||
     fitnessResults.length > 0 ||
     fines.length > 0 ||
@@ -149,7 +146,6 @@ export function HomeScreen() {
 
     matchCards.push({
       fixture,
-      summary: getAvailabilitySummary(fixture.id, visiblePlayers, availabilityRecords),
       heading: displayedMatchesToday.some((todayFixture) => todayFixture.id === fixture.id)
         ? `Today’s ${gradeLabel} match`
         : `Next ${gradeLabel} match`,
@@ -175,27 +171,6 @@ export function HomeScreen() {
       action: 'Mark attendance',
     });
   }
-
-  matchCards.forEach((card) => {
-    if (card.summary.notResponded > 0) {
-      attentionItems.push({
-        title: `${getFixtureGradeLabel(card.fixture)} availability still needs replies`,
-        detail: `${card.summary.notResponded} players have not responded for ${card.fixture.opponent}.`,
-        to: `/matches/${card.fixture.id}`,
-        action: 'Open match',
-      });
-      return;
-    }
-
-    if (card.summary.respondedNotSelected > 0) {
-      attentionItems.push({
-        title: `${getFixtureGradeLabel(card.fixture)} selection has available players`,
-        detail: `${card.summary.respondedNotSelected} players are available and awaiting selection for ${card.fixture.opponent}.`,
-        to: `/matches/${card.fixture.id}`,
-        action: 'Open match',
-      });
-    }
-  });
 
   if (canAccessAdmin && fineSummary.outstandingCount > 0) {
     attentionItems.push({
@@ -430,14 +405,6 @@ export function HomeScreen() {
                       <h3>{card.fixture.grade ? `${card.fixture.grade} • ` : ''}vs {card.fixture.opponent}</h3>
                       <p className="muted">{formatDate(card.fixture.date)}</p>
                       <p className="muted">{card.fixture.venue}</p>
-                      <div className="metric-row">
-                        <span className="metric metric--positive">{card.summary.available} selected</span>
-                        <span className="metric metric--negative">{card.summary.unavailable} unavailable</span>
-                        <span className="metric metric--neutral">
-                          {card.summary.respondedNotSelected} available
-                        </span>
-                        <span className="metric metric--neutral">{card.summary.notResponded} no response</span>
-                      </div>
                       <Link className="text-link" to={canAccessAdmin ? `/matches/${card.fixture.id}` : '/matches'}>
                         {canAccessAdmin ? 'Manage availability' : 'View fixture'}
                       </Link>

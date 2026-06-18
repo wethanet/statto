@@ -801,7 +801,7 @@ button {
 }
 
 .schedule-board__row--matches {
-  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.5fr) minmax(0, 1fr) auto;
 }
 
 .schedule-board__row--training {
