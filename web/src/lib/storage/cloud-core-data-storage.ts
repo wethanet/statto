@@ -22,6 +22,8 @@ import { normalizeFixtureSquad } from '@/lib/availability';
 
 import { supabase } from '@web/lib/supabase';
 
+const CLOUD_PAGE_SIZE = 1000;
+
 export type CloudCoreData = {
   players: Player[];
   trainingSessions: TrainingSession[];
@@ -94,11 +96,13 @@ function isMissingColumnError(
   return error.message?.includes(`column ${columnName} does not exist`) === true;
 }
 
-function mapCloudAvailabilityRecord(record: {
+type CloudAvailabilityRow = {
   fixture_id?: unknown;
   player_id?: unknown;
   status?: unknown;
-}): AvailabilityRecord {
+};
+
+function mapCloudAvailabilityRecord(record: CloudAvailabilityRow): AvailabilityRecord {
   return {
     fixtureId: record.fixture_id as string,
     playerId: record.player_id as string,
@@ -250,9 +254,26 @@ async function loadCloudAvailabilityRecords(clubId: string) {
     return { data: null, error: null };
   }
 
-  return supabase.rpc('get_club_availability_records', {
-    target_club_id: clubId,
-  });
+  const records: CloudAvailabilityRow[] = [];
+
+  for (let offset = 0; ; offset += CLOUD_PAGE_SIZE) {
+    const result = await supabase
+      .rpc('get_club_availability_records', {
+        target_club_id: clubId,
+      })
+      .range(offset, offset + CLOUD_PAGE_SIZE - 1);
+
+    if (result.error) {
+      return { data: null, error: result.error };
+    }
+
+    const pageRecords = (result.data ?? []) as CloudAvailabilityRow[];
+    records.push(...pageRecords);
+
+    if (pageRecords.length < CLOUD_PAGE_SIZE) {
+      return { data: records, error: null };
+    }
+  }
 }
 
 export async function loadCloudAvailabilityRecordsForFixture(clubId: string, fixtureId: string) {
