@@ -94,6 +94,32 @@ function isMissingColumnError(
   return error.message?.includes(`column ${columnName} does not exist`) === true;
 }
 
+function isMissingFunctionError(error: { code?: string; message?: string } | null, functionName?: string) {
+  if (!error) {
+    return false;
+  }
+
+  const message = error.message ?? '';
+
+  return (
+    error.code === 'PGRST202' ||
+    message.includes('Could not find the function') ||
+    (functionName ? message.includes(`function ${functionName}`) : false)
+  );
+}
+
+function mapCloudAvailabilityRecord(record: {
+  fixture_id?: unknown;
+  player_id?: unknown;
+  status?: unknown;
+}): AvailabilityRecord {
+  return {
+    fixtureId: record.fixture_id as string,
+    playerId: record.player_id as string,
+    status: record.status as AvailabilityRecord['status'],
+  };
+}
+
 async function loadCloudPlayers(clubId: string) {
   if (!supabase) {
     return { data: null, error: null };
@@ -233,6 +259,33 @@ async function loadCloudFines(clubId: string) {
   return result;
 }
 
+async function loadCloudAvailabilityRecords(clubId: string) {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  const rpcResult = await supabase.rpc('get_club_availability_records', {
+    target_club_id: clubId,
+  });
+
+  if (!rpcResult.error) {
+    return rpcResult;
+  }
+
+  if (!isMissingFunctionError(rpcResult.error, 'get_club_availability_records')) {
+    return rpcResult;
+  }
+
+  console.warn(
+    'Availability records are loading through the legacy table read. Run the latest supabase/schema.sql to enable permission-aware availability reads.'
+  );
+
+  return supabase
+    .from('club_availability_records')
+    .select('fixture_id, player_id, status')
+    .eq('club_id', clubId);
+}
+
 export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCoreData> | null> {
   if (!supabase) {
     return null;
@@ -266,14 +319,11 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
       .select('session_id, player_id, status')
       .eq('club_id', clubId),
     supabase
-    .from('club_fixtures')
+      .from('club_fixtures')
       .select('id, opponent, grade, squad, date, venue, is_home')
       .eq('club_id', clubId)
       .order('date', { ascending: true }),
-    supabase
-      .from('club_availability_records')
-      .select('fixture_id, player_id, status')
-      .eq('club_id', clubId),
+    loadCloudAvailabilityRecords(clubId),
     matchStatsResultPromise,
     supabase
       .from('club_match_lineup_assignments')
@@ -371,13 +421,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
   if (availabilityRecordsResult.error) {
     logCloudCollectionError('availability records', availabilityRecordsResult.error);
   } else {
-    snapshot.availabilityRecords = (availabilityRecordsResult.data ?? []).map((record) => {
-      return {
-        fixtureId: record.fixture_id as string,
-        playerId: record.player_id as string,
-        status: record.status as AvailabilityRecord['status'],
-      };
-    });
+    snapshot.availabilityRecords = (availabilityRecordsResult.data ?? []).map(mapCloudAvailabilityRecord);
     hasSuccessfulRead = true;
   }
 
@@ -730,17 +774,16 @@ export async function upsertCloudAvailabilityRecord(clubId: string, record: Avai
 
   await throwOnError(responseResult.error);
 
-  const verificationResult = await client
-    .from('club_availability_records')
-    .select('status')
-    .eq('club_id', clubId)
-    .eq('fixture_id', record.fixtureId)
-    .eq('player_id', record.playerId)
-    .maybeSingle();
+  const savedRecord = Array.isArray(responseResult.data)
+    ? responseResult.data.find((savedResponse) => {
+        return (
+          savedResponse.fixture_id === record.fixtureId &&
+          savedResponse.player_id === record.playerId
+        );
+      })
+    : null;
 
-  await throwOnError(verificationResult.error);
-
-  if (!verificationResult.data || verificationResult.data.status !== record.status) {
+  if (!savedRecord || savedRecord.status !== record.status) {
     throw new Error(
       `Availability save was not confirmed for ${record.playerId} on ${record.fixtureId}.`
     );
@@ -762,17 +805,17 @@ export async function deleteCloudAvailabilityRecord(
 
   await throwOnError(responseResult.error);
 
-  const verificationResult = await client
-    .from('club_availability_records')
-    .select('status')
-    .eq('club_id', clubId)
-    .eq('fixture_id', fixtureId)
-    .eq('player_id', playerId)
-    .maybeSingle();
+  const availabilityRecordsResult = await loadCloudAvailabilityRecords(clubId);
+  await throwOnError(availabilityRecordsResult.error);
 
-  await throwOnError(verificationResult.error);
+  const deletedRecord = (availabilityRecordsResult.data ?? []).find((record: {
+    fixture_id?: unknown;
+    player_id?: unknown;
+  }) => {
+    return record.fixture_id === fixtureId && record.player_id === playerId;
+  });
 
-  if (verificationResult.data) {
+  if (deletedRecord) {
     throw new Error(`Availability reset was not confirmed for ${playerId} on ${fixtureId}.`);
   }
 }

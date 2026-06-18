@@ -188,6 +188,31 @@ type CollectionDiffOperation = {
   run: () => Promise<void>;
 };
 
+function getCloudSyncErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const maybeError = error as {
+    message?: unknown;
+    code?: unknown;
+    details?: unknown;
+    hint?: unknown;
+  };
+  const messageParts = [
+    typeof maybeError.message === 'string' ? maybeError.message : null,
+    typeof maybeError.code === 'string' ? `code ${maybeError.code}` : null,
+    typeof maybeError.details === 'string' ? maybeError.details : null,
+    typeof maybeError.hint === 'string' ? maybeError.hint : null,
+  ].filter((part): part is string => Boolean(part));
+
+  return messageParts.length > 0 ? messageParts.join(' ') : null;
+}
+
 function resolveArrayUpdate<T>(update: SetStateAction<T[]>, current: T[]) {
   return typeof update === 'function' ? update(current) : update;
 }
@@ -824,6 +849,16 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       operation.writeKey,
       (pendingCloudWriteKeysRef.current.get(operation.writeKey) ?? 0) + 1
     );
+    setSyncDebug((syncState) => {
+      if (syncState.lastSyncError === null) {
+        return syncState;
+      }
+
+      return {
+        ...syncState,
+        lastSyncError: null,
+      };
+    });
 
     const previousWrite = cloudWriteQueuesRef.current.get(operation.writeKey) ?? Promise.resolve();
     const queuedWrite = previousWrite.catch(() => {}).then(operation.run);
@@ -831,25 +866,15 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     cloudWriteQueuesRef.current.set(operation.writeKey, queuedWrite);
 
     queuedWrite
-      .then(() => {
-        setSyncDebug((syncState) => {
-          if (syncState.lastSyncError === null) {
-            return syncState;
-          }
-
-          return {
-            ...syncState,
-            lastSyncError: null,
-          };
-        });
-      })
       .catch((error: unknown) => {
         console.warn(`Failed to sync ${label}`, error);
+        const errorMessage = getCloudSyncErrorMessage(error);
+
         setSyncDebug((syncState) => {
           return {
             ...syncState,
             lastSyncError:
-              error instanceof Error ? `Failed to sync ${label}: ${error.message}` : `Failed to sync ${label}.`,
+              errorMessage ? `Failed to sync ${label}: ${errorMessage}` : `Failed to sync ${label}.`,
           };
         });
       })
