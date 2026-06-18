@@ -2050,6 +2050,79 @@ as $$
   end;
 $$;
 
+create or replace function public.set_club_availability_response(
+  target_club_id text,
+  target_fixture_id text,
+  target_player_id text,
+  target_status text
+)
+returns table (
+  fixture_id text,
+  player_id text,
+  status text
+)
+language plpgsql
+security definer
+set search_path = public, private
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Sign in before saving availability.'
+      using errcode = '28000';
+  end if;
+
+  if target_status not in ('available', 'unavailable', 'uncertain', 'not-responded') then
+    raise exception 'Invalid availability response: %', target_status
+      using errcode = '22023';
+  end if;
+
+  if not (
+    private.current_membership_role(target_club_id) = 'admin'
+    or private.can_manage_player(target_club_id, target_player_id)
+    or private.current_membership_player_id(target_club_id) = target_player_id
+  ) then
+    raise exception 'You do not have permission to save availability for this player.'
+      using errcode = '42501';
+  end if;
+
+  if target_status = 'not-responded' then
+    delete from public.club_availability_records
+    where club_id = target_club_id
+      and club_availability_records.fixture_id = target_fixture_id
+      and club_availability_records.player_id = target_player_id;
+
+    return;
+  end if;
+
+  return query
+  insert into public.club_availability_records (
+    club_id,
+    fixture_id,
+    player_id,
+    status,
+    updated_at
+  )
+  values (
+    target_club_id,
+    target_fixture_id,
+    target_player_id,
+    target_status,
+    timezone('utc', now())
+  )
+  on conflict (club_id, fixture_id, player_id)
+  do update
+  set status = excluded.status,
+      updated_at = timezone('utc', now())
+  returning
+    club_availability_records.fixture_id,
+    club_availability_records.player_id,
+    club_availability_records.status;
+end;
+$$;
+
+revoke all on function public.set_club_availability_response(text, text, text, text) from public;
+grant execute on function public.set_club_availability_response(text, text, text, text) to authenticated;
+
 create or replace function private.can_view_player(target_club_id text, target_player_id text)
 returns boolean
 language sql

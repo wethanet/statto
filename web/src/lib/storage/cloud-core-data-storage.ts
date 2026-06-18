@@ -94,6 +94,18 @@ function isMissingColumnError(
   return error.message?.includes(`column ${columnName} does not exist`) === true;
 }
 
+function isMissingAvailabilityResponseRpcError(error: { code?: string; message?: string } | null) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === 'PGRST202' ||
+    error.code === '42883' ||
+    error.message?.includes('set_club_availability_response') === true
+  );
+}
+
 async function loadCloudPlayers(clubId: string) {
   if (!supabase) {
     return { data: null, error: null };
@@ -728,6 +740,21 @@ export async function upsertCloudAvailabilityRecord(clubId: string, record: Avai
     status: record.status,
   };
 
+  const responseResult = await client.rpc('set_club_availability_response', {
+    target_club_id: clubId,
+    target_fixture_id: record.fixtureId,
+    target_player_id: record.playerId,
+    target_status: record.status,
+  });
+
+  if (!responseResult.error) {
+    return;
+  }
+
+  if (!isMissingAvailabilityResponseRpcError(responseResult.error)) {
+    throw responseResult.error;
+  }
+
   const updateResult = await client
     .from('club_availability_records')
     .update({
@@ -794,6 +821,21 @@ export async function deleteCloudAvailabilityRecord(
   playerId: string
 ) {
   const client = requireSupabase();
+  const responseResult = await client.rpc('set_club_availability_response', {
+    target_club_id: clubId,
+    target_fixture_id: fixtureId,
+    target_player_id: playerId,
+    target_status: 'not-responded',
+  });
+
+  if (!responseResult.error) {
+    return;
+  }
+
+  if (!isMissingAvailabilityResponseRpcError(responseResult.error)) {
+    throw responseResult.error;
+  }
+
   const { error } = await client
     .from('club_availability_records')
     .delete()

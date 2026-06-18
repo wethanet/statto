@@ -60,6 +60,7 @@ export function MatchDetailRoute() {
     setAvailabilityRecords,
     setMatchLineupAssignments,
     setPlayers,
+    syncDebug,
   } = useClubData();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const [isUnavailableGroupExpanded, setIsUnavailableGroupExpanded] = useState(false);
@@ -222,6 +223,7 @@ export function MatchDetailRoute() {
                 ? 'Selections save immediately for everyone in the club workspace.'
                 : 'Loading saved availability...'}
             </p>
+            {syncDebug.lastSyncError ? <p className="muted">{syncDebug.lastSyncError}</p> : null}
           </div>
           <div className="availability-summary__response">
             <span className="availability-summary__response-value">{responseRate}%</span>
