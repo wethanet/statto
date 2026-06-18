@@ -2141,9 +2141,11 @@ as $$
     club_availability_records.status
   from public.club_availability_records
   where club_availability_records.club_id = target_club_id
-    and (
-      private.is_club_coach_or_admin(target_club_id)
-      or private.current_membership_player_id(target_club_id) = club_availability_records.player_id
+    and exists (
+      select 1
+      from public.club_memberships
+      where club_memberships.club_id = target_club_id
+        and club_memberships.user_id = auth.uid()
     )
   order by
     club_availability_records.fixture_id,

@@ -1513,6 +1513,14 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
         );
       } catch (error: unknown) {
         console.warn('Failed to refresh cloud club data', error);
+        const errorMessage = getCloudSyncErrorMessage(error);
+
+        setSyncDebug((syncState) => ({
+          ...syncState,
+          lastSyncError: errorMessage
+            ? `Failed to refresh cloud club data: ${errorMessage}`
+            : 'Failed to refresh cloud club data.',
+        }));
       } finally {
         refreshFromCloudPromiseRef.current = null;
       }
@@ -1594,6 +1602,14 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           } catch (error: unknown) {
             console.warn('Failed to load cloud club data', error);
             setSyncDebugFromSources(localSnapshot, null);
+            const errorMessage = getCloudSyncErrorMessage(error);
+
+            setSyncDebug((syncState) => ({
+              ...syncState,
+              lastSyncError: errorMessage
+                ? `Failed to load cloud club data: ${errorMessage}`
+                : 'Failed to load cloud club data.',
+            }));
           }
         }
 

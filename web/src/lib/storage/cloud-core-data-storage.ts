@@ -389,6 +389,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
 
   if (availabilityRecordsResult.error) {
     logCloudCollectionError('availability records', availabilityRecordsResult.error);
+    throw availabilityRecordsResult.error;
   } else {
     snapshot.availabilityRecords = (availabilityRecordsResult.data ?? []).map(mapCloudAvailabilityRecord);
     hasSuccessfulRead = true;
