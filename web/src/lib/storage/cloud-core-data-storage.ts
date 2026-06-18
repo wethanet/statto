@@ -255,6 +255,18 @@ async function loadCloudAvailabilityRecords(clubId: string) {
   });
 }
 
+export async function loadCloudAvailabilityRecordsForFixture(clubId: string, fixtureId: string) {
+  const client = requireSupabase();
+  const result = await client.rpc('get_club_fixture_availability_records', {
+    target_club_id: clubId,
+    target_fixture_id: fixtureId,
+  });
+
+  await throwOnError(result.error);
+
+  return (result.data ?? []).map(mapCloudAvailabilityRecord);
+}
+
 export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCoreData> | null> {
   if (!supabase) {
     return null;

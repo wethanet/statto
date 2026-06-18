@@ -70,6 +70,7 @@ import {
   deleteCloudVoteEntriesForPlayer,
   deleteCloudVoteEntry,
   loadCloudCoreData,
+  loadCloudAvailabilityRecordsForFixture,
   loadCloudTrainingSessionDetails,
   upsertCloudAttendanceRecord,
   upsertCloudAvailabilityRecord,
@@ -100,6 +101,7 @@ type ClubDataContextValue = {
   setPlayers: Dispatch<SetStateAction<Player[]>>;
   availabilityRecords: AvailabilityRecord[];
   setAvailabilityRecords: Dispatch<SetStateAction<AvailabilityRecord[]>>;
+  refreshAvailabilityRecordsForFixture: (fixtureId: string) => Promise<void>;
   matchStats: MatchStatEntry[];
   setMatchStats: Dispatch<SetStateAction<MatchStatEntry[]>>;
   matchLineupAssignments: MatchLineupAssignment[];
@@ -1145,6 +1147,42 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     }
   );
 
+  const refreshAvailabilityRecordsForFixture = useCallback(
+    async (fixtureId: string) => {
+      if (!isConfigured || !activeClubId) {
+        return;
+      }
+
+      try {
+        const fixtureRecords = await loadCloudAvailabilityRecordsForFixture(activeClubId, fixtureId);
+        const nextRecords = [
+          ...availabilityRecordsRef.current.filter((record) => record.fixtureId !== fixtureId),
+          ...fixtureRecords,
+        ];
+
+        availabilityRecordsRef.current = nextRecords;
+        setAvailabilityRecordsState(nextRecords);
+        stateMutationVersionRef.current += 1;
+        setSyncDebug((syncState) => ({
+          ...syncState,
+          availabilitySource: 'cloud',
+          lastSyncError: null,
+        }));
+      } catch (error: unknown) {
+        console.warn('Failed to load fixture availability records', error);
+        const errorMessage = getCloudSyncErrorMessage(error);
+
+        setSyncDebug((syncState) => ({
+          ...syncState,
+          lastSyncError: errorMessage
+            ? `Failed to load fixture availability records: ${errorMessage}`
+            : 'Failed to load fixture availability records.',
+        }));
+      }
+    },
+    [activeClubId, isConfigured]
+  );
+
   const setMatchStats = createCollectionSetter(matchStatsRef, setMatchStatsState, {
     label: 'match stats',
     realtimeTable: 'club_match_stats',
@@ -1751,6 +1789,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setPlayers,
       availabilityRecords: availabilityRecordsState,
       setAvailabilityRecords,
+      refreshAvailabilityRecordsForFixture,
       matchStats: matchStatsState,
       setMatchStats,
       matchLineupAssignments: matchLineupAssignmentsState,
@@ -1788,6 +1827,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     playerDevelopmentEntriesState,
     playerVoteBallotsState,
     playersState,
+    refreshAvailabilityRecordsForFixture,
     setPlayerVoteBallots,
     setPlayerDevelopmentEntries,
     syncDebug,

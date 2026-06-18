@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import {
@@ -57,6 +57,7 @@ export function MatchDetailRoute() {
     isHydrated,
     matchLineupAssignments,
     players,
+    refreshAvailabilityRecordsForFixture,
     setAvailabilityRecords,
     setMatchLineupAssignments,
     setPlayers,
@@ -65,6 +66,15 @@ export function MatchDetailRoute() {
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const [isUnavailableGroupExpanded, setIsUnavailableGroupExpanded] = useState(false);
   const fixture = getFixtureById(fixtureId, fixtures);
+
+  useEffect(() => {
+    if (!isHydrated || !fixture) {
+      return;
+    }
+
+    void refreshAvailabilityRecordsForFixture(fixture.id);
+  }, [fixture, isHydrated, refreshAvailabilityRecordsForFixture]);
+
   const effectiveAvailabilityRecords = useMemo(() => {
     if (!fixture) {
       return availabilityRecords;

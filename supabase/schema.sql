@@ -2155,6 +2155,39 @@ $$;
 revoke all on function public.get_club_availability_records(text) from public;
 grant execute on function public.get_club_availability_records(text) to authenticated;
 
+create or replace function public.get_club_fixture_availability_records(
+  target_club_id text,
+  target_fixture_id text
+)
+returns table (
+  fixture_id text,
+  player_id text,
+  status text
+)
+language sql
+security definer
+set search_path = public, private
+as $$
+  select
+    club_availability_records.fixture_id,
+    club_availability_records.player_id,
+    club_availability_records.status
+  from public.club_availability_records
+  where club_availability_records.club_id = target_club_id
+    and club_availability_records.fixture_id = target_fixture_id
+    and exists (
+      select 1
+      from public.club_memberships
+      where club_memberships.club_id = target_club_id
+        and club_memberships.user_id = auth.uid()
+    )
+  order by
+    club_availability_records.player_id;
+$$;
+
+revoke all on function public.get_club_fixture_availability_records(text, text) from public;
+grant execute on function public.get_club_fixture_availability_records(text, text) to authenticated;
+
 create or replace function private.can_view_player(target_club_id text, target_player_id text)
 returns boolean
 language sql
