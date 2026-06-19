@@ -130,6 +130,7 @@ export function upsertMatchLineupAssignment(
   const existing = assignments.find((assignment) => {
     return assignment.fixtureId === fixtureId && assignment.playerId === playerId;
   });
+  const updatedAt = existing?.updatedAt ?? new Date().toISOString();
   const nextAssignments = assignments.filter((assignment) => {
     return !(assignment.fixtureId === fixtureId && assignment.playerId === playerId);
   });
@@ -139,7 +140,7 @@ export function upsertMatchLineupAssignment(
     playerId,
     position,
     availabilityStatus: 'available',
-    updatedAt: existing?.updatedAt ?? null,
+    updatedAt,
   });
 
   return nextAssignments;

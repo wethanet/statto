@@ -2613,9 +2613,10 @@ button {
 }
 
 .selection-row__subtext {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
 }
 
 .selection-row__rotation-dots {

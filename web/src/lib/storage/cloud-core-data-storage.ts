@@ -954,6 +954,7 @@ export async function upsertCloudMatchLineupAssignment(
       player_id: assignment.playerId,
       position: assignment.position,
       availability_status: assignment.availabilityStatus,
+      updated_at: assignment.updatedAt ?? new Date().toISOString(),
     },
     { onConflict: 'club_id,fixture_id,player_id' }
   );

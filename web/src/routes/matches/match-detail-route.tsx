@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import {
@@ -86,7 +86,15 @@ export function MatchDetailRoute() {
   } = useClubData();
   const [sortBy, setSortBy] = useState<PlayerSort>('number');
   const [isUnavailableGroupExpanded, setIsUnavailableGroupExpanded] = useState(false);
+  const responseDateRecoveryRequestsRef = useRef(new Set<string>());
   const fixture = getFixtureById(fixtureId, fixtures);
+  const fixtureAvailabilityRecords = useMemo(() => {
+    if (!fixture) {
+      return [];
+    }
+
+    return availabilityRecords.filter((record) => record.fixtureId === fixture.id);
+  }, [availabilityRecords, fixture]);
 
   useEffect(() => {
     if (!isHydrated || !fixture) {
@@ -95,6 +103,23 @@ export function MatchDetailRoute() {
 
     void refreshAvailabilityRecordsForFixture(fixture.id);
   }, [fixture, isHydrated, refreshAvailabilityRecordsForFixture]);
+
+  useEffect(() => {
+    if (!isHydrated || !fixture || responseDateRecoveryRequestsRef.current.has(fixture.id)) {
+      return;
+    }
+
+    const hasAvailableResponseWithoutDate = fixtureAvailabilityRecords.some((record) => {
+      return record.status === 'available' && !record.updatedAt;
+    });
+
+    if (!hasAvailableResponseWithoutDate) {
+      return;
+    }
+
+    responseDateRecoveryRequestsRef.current.add(fixture.id);
+    void refreshAvailabilityRecordsForFixture(fixture.id, { force: true });
+  }, [fixture, fixtureAvailabilityRecords, isHydrated, refreshAvailabilityRecordsForFixture]);
 
   const gamesPlayedByPlayer = useMemo(() => {
     return buildGamesPlayedByGrade(fixtures, matchLineupAssignments, policySettings);
@@ -196,7 +221,6 @@ export function MatchDetailRoute() {
     );
   }
 
-  const fixtureAvailabilityRecords = availabilityRecords.filter((record) => record.fixtureId === fixture.id);
   const fixtureAvailabilityByPlayer = new Map(
     fixtureAvailabilityRecords.map((record) => [record.playerId, record])
   );
@@ -360,6 +384,8 @@ export function MatchDetailRoute() {
                   group.players.map((player) => {
                     const availabilityRecord = fixtureAvailabilityByPlayer.get(player.id);
                     const playerGamesPlayed = getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id);
+                    const responseUpdatedAt =
+                      availabilityRecord?.updatedAt ?? fixtureLineupByPlayer.get(player.id)?.updatedAt;
                     const selectionBlockReason = getLowerGradeSelectionBlockReason(
                       fixture,
                       playerGamesPlayed,
@@ -455,7 +481,7 @@ export function MatchDetailRoute() {
                         selectionBlockReason={selectionBlockReason}
                         secondaryText={
                           group.key === 'available'
-                            ? formatResponseDate(availabilityRecord?.updatedAt)
+                            ? formatResponseDate(responseUpdatedAt)
                             : null
                         }
                         selectedPosition={player.matchPosition}
