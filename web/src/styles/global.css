@@ -2612,6 +2612,12 @@ button {
   font-size: 1rem;
 }
 
+.selection-row__subtext {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .selection-row__rotation-dots {
   display: inline-flex;
   align-items: center;

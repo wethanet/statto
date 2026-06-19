@@ -125,6 +125,7 @@ type CloudMatchLineupAssignmentRow = {
   player_id?: unknown;
   position?: unknown;
   availability_status?: unknown;
+  updated_at?: unknown;
 };
 
 function mapCloudMatchLineupAssignments(
@@ -139,6 +140,7 @@ function mapCloudMatchLineupAssignments(
         availabilityStatus:
           (assignment.availability_status as MatchLineupAssignment['availabilityStatus'] | null | undefined) ??
           'available',
+        updatedAt: (assignment.updated_at as string | null | undefined) ?? null,
       };
     })
   );
@@ -269,7 +271,7 @@ async function loadCloudMatchLineupAssignments(clubId: string) {
 
   return supabase
     .from('club_match_lineup_assignments')
-    .select('fixture_id, player_id, position, availability_status')
+    .select('fixture_id, player_id, position, availability_status, updated_at')
     .eq('club_id', clubId);
 }
 
@@ -319,7 +321,7 @@ export async function loadCloudMatchLineupAssignmentsForFixture(
   const client = requireSupabase();
   const result = await client
     .from('club_match_lineup_assignments')
-    .select('fixture_id, player_id, position, availability_status')
+    .select('fixture_id, player_id, position, availability_status, updated_at')
     .eq('club_id', clubId)
     .eq('fixture_id', fixtureId);
 
@@ -335,7 +337,7 @@ export async function loadCloudMatchLineupAssignmentsForPlayer(
   const client = requireSupabase();
   const result = await client
     .from('club_match_lineup_assignments')
-    .select('fixture_id, player_id, position, availability_status')
+    .select('fixture_id, player_id, position, availability_status, updated_at')
     .eq('club_id', clubId)
     .eq('player_id', playerId);
 

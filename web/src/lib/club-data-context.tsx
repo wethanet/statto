@@ -613,6 +613,7 @@ function mapCloudMatchLineupAssignment(row: CloudRow): MatchLineupAssignment | n
     availabilityStatus:
       (getNullableString(row, 'availability_status') as MatchLineupAssignment['availabilityStatus']) ??
       'available',
+    updatedAt: getNullableString(row, 'updated_at'),
   }])[0] ?? null;
 }
 

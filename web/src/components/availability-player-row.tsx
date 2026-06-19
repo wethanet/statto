@@ -17,6 +17,7 @@ type AvailabilityPlayerRowProps = {
   hasSameDaySelectionConflict?: boolean;
   eligibilityWarnings?: string[];
   selectionBlockReason?: string | null;
+  secondaryText?: string | null;
   onChange: (status: AvailabilityResponseStatus) => void;
   selectedPosition: MatchLinePosition | null;
   onSelectPosition: (position: MatchLinePosition) => void;
@@ -59,6 +60,7 @@ export function AvailabilityPlayerRow({
   hasSameDaySelectionConflict = false,
   eligibilityWarnings = [],
   selectionBlockReason = null,
+  secondaryText = null,
   onChange,
   onSelectPosition,
   selectedPosition,
@@ -170,6 +172,7 @@ export function AvailabilityPlayerRow({
             </span>
           ) : null}
         </div>
+        {secondaryText ? <p className="selection-row__subtext">{secondaryText}</p> : null}
         {selectionBlockReason || eligibilityWarnings.length > 0 ? (
           <div className="selection-row__warnings" aria-label="Eligibility warnings">
             {selectionBlockReason ? (

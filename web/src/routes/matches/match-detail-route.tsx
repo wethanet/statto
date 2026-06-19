@@ -47,6 +47,26 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatResponseDate(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (!Number.isFinite(date.getTime())) {
+    return null;
+  }
+
+  return `Responded ${new Intl.DateTimeFormat('en-AU', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)}`;
+}
+
 export function MatchDetailRoute() {
   useEnsureClubCollections(['players', 'fixtures', 'matchLineupAssignments']);
 
@@ -338,6 +358,7 @@ export function MatchDetailRoute() {
               <section className="selection-table">
                 {group.players.length > 0 ? (
                   group.players.map((player) => {
+                    const availabilityRecord = fixtureAvailabilityByPlayer.get(player.id);
                     const playerGamesPlayed = getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id);
                     const selectionBlockReason = getLowerGradeSelectionBlockReason(
                       fixture,
@@ -432,6 +453,11 @@ export function MatchDetailRoute() {
                             : null
                         }
                         selectionBlockReason={selectionBlockReason}
+                        secondaryText={
+                          group.key === 'available'
+                            ? formatResponseDate(availabilityRecord?.updatedAt)
+                            : null
+                        }
                         selectedPosition={player.matchPosition}
                         status={rowStatus}
                       />

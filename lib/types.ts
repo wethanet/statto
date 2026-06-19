@@ -136,6 +136,7 @@ export type AvailabilityRecord = {
   fixtureId: string;
   playerId: string;
   status: AvailabilityStatus;
+  updatedAt?: string | null;
 };
 
 export type MatchLinePosition = 'B' | 'HB' | 'W' | 'C' | 'HF' | 'F' | 'Fol' | 'Int';
@@ -145,6 +146,7 @@ export type MatchLineupAssignment = {
   playerId: string;
   position: MatchLinePosition | null;
   availabilityStatus: AvailabilityStatus;
+  updatedAt?: string | null;
 };
 
 export type MatchRotationAssignment = {

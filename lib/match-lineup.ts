@@ -37,6 +37,7 @@ export function normalizeMatchLineupAssignment(
     playerId: assignment.playerId,
     position,
     availabilityStatus,
+    updatedAt: assignment.updatedAt ?? null,
   };
 }
 
@@ -53,6 +54,7 @@ export function getAvailabilityRecordsFromMatchLineupAssignments(
     fixtureId: assignment.fixtureId,
     playerId: assignment.playerId,
     status: assignment.availabilityStatus,
+    updatedAt: assignment.updatedAt ?? null,
   }));
 }
 
@@ -77,6 +79,7 @@ export function mergeAvailabilityRecordsIntoMatchLineupAssignments(
       playerId: record.playerId,
       position: availabilityStatus === 'available' ? existing?.position ?? null : null,
       availabilityStatus,
+      updatedAt: record.updatedAt ?? existing?.updatedAt ?? null,
     });
   });
 
@@ -124,6 +127,9 @@ export function upsertMatchLineupAssignment(
   playerId: string,
   position: MatchLinePosition
 ) {
+  const existing = assignments.find((assignment) => {
+    return assignment.fixtureId === fixtureId && assignment.playerId === playerId;
+  });
   const nextAssignments = assignments.filter((assignment) => {
     return !(assignment.fixtureId === fixtureId && assignment.playerId === playerId);
   });
@@ -133,6 +139,7 @@ export function upsertMatchLineupAssignment(
     playerId,
     position,
     availabilityStatus: 'available',
+    updatedAt: existing?.updatedAt ?? null,
   });
 
   return nextAssignments;

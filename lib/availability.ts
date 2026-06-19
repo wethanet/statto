@@ -229,7 +229,7 @@ export function upsertAvailabilityRecord(
     return !(record.fixtureId === fixtureId && record.playerId === playerId);
   });
 
-  nextRecords.push({ fixtureId, playerId, status });
+  nextRecords.push({ fixtureId, playerId, status, updatedAt: new Date().toISOString() });
 
   return nextRecords;
 }
