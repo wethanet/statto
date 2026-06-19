@@ -19,6 +19,11 @@ import {
   normalizeClubDataSnapshot,
   type ClubDataSnapshot,
 } from '@/lib/club-data-snapshot';
+import {
+  applyAvailabilityRecordsToMatchLineupAssignments,
+  getAvailabilityRecordsFromMatchLineupAssignments,
+  normalizeMatchLineupAssignments,
+} from '@/lib/match-lineup';
 import { normalizeMatchStatQuarter } from '@/lib/match-stats';
 import { normalizePlayerDevelopmentEntries } from '@/lib/player-development';
 import { normalizePlayerSquad, normalizePlayers } from '@/lib/team';
@@ -46,8 +51,6 @@ import {
   deleteCloudAttendanceRecordsForPlayer,
   deleteCloudAttendanceRecordsForSession,
   deleteCloudAvailabilityRecord,
-  deleteCloudAvailabilityRecordsForFixture,
-  deleteCloudAvailabilityRecordsForPlayer,
   deleteCloudFine,
   deleteCloudFinesForPlayer,
   deleteCloudFitnessResultsForPlayer,
@@ -70,8 +73,8 @@ import {
   deleteCloudVoteEntriesForPlayer,
   deleteCloudVoteEntry,
   loadCloudCoreData,
-  loadCloudAvailabilityRecordsForFixture,
-  loadCloudAvailabilityRecordsForPlayer,
+  loadCloudMatchLineupAssignmentsForFixture,
+  loadCloudMatchLineupAssignmentsForPlayer,
   loadCloudTrainingSessionDetails,
   upsertCloudAttendanceRecord,
   upsertCloudAvailabilityRecord,
@@ -158,7 +161,6 @@ const REALTIME_TABLES = [
   'club_training_sessions',
   'club_attendance_records',
   'club_fixtures',
-  'club_availability_records',
   'club_match_stats',
   'club_match_lineup_assignments',
   'club_match_rotation_assignments',
@@ -310,7 +312,7 @@ async function saveLocalSnapshot(snapshot: ClubDataSnapshot, storageScope: strin
     writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.players), snapshot.players),
     writeJsonStorage(
       getScopedStorageKey(storageScope, STORAGE_KEYS.availabilityRecords),
-      snapshot.availabilityRecords
+      []
     ),
     writeJsonStorage(getScopedStorageKey(storageScope, STORAGE_KEYS.matchStats), snapshot.matchStats),
     writeJsonStorage(
@@ -556,22 +558,6 @@ function mapCloudAttendanceRecord(row: CloudRow): AttendanceRecord | null {
   };
 }
 
-function mapCloudAvailabilityRecord(row: CloudRow): AvailabilityRecord | null {
-  const fixtureId = getString(row, 'fixture_id');
-  const playerId = getString(row, 'player_id');
-  const status = getString(row, 'status');
-
-  if (!fixtureId || !playerId || !status) {
-    return null;
-  }
-
-  return {
-    fixtureId,
-    playerId,
-    status: status as AvailabilityRecord['status'],
-  };
-}
-
 function mapCloudMatchStat(row: CloudRow): MatchStatEntry | null {
   const fixtureId = getString(row, 'fixture_id');
   const metric = getString(row, 'metric');
@@ -594,17 +580,19 @@ function mapCloudMatchStat(row: CloudRow): MatchStatEntry | null {
 function mapCloudMatchLineupAssignment(row: CloudRow): MatchLineupAssignment | null {
   const fixtureId = getString(row, 'fixture_id');
   const playerId = getString(row, 'player_id');
-  const position = getString(row, 'position');
 
-  if (!fixtureId || !playerId || !position) {
+  if (!fixtureId || !playerId) {
     return null;
   }
 
-  return {
+  return normalizeMatchLineupAssignments([{
     fixtureId,
     playerId,
-    position: position as MatchLineupAssignment['position'],
-  };
+    position: getNullableString(row, 'position') as MatchLineupAssignment['position'],
+    availabilityStatus:
+      (getNullableString(row, 'availability_status') as MatchLineupAssignment['availabilityStatus']) ??
+      'available',
+  }])[0] ?? null;
 }
 
 function mapCloudMatchRotationAssignment(row: CloudRow): MatchRotationAssignment | null {
@@ -788,6 +776,16 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   voteEntriesRef.current = voteEntriesState;
   playerVoteBallotsRef.current = playerVoteBallotsState;
 
+  function setMatchLineupAndAvailabilityState(assignments: MatchLineupAssignment[]) {
+    const nextAssignments = normalizeMatchLineupAssignments(assignments);
+    const nextAvailabilityRecords = getAvailabilityRecordsFromMatchLineupAssignments(nextAssignments);
+
+    matchLineupAssignmentsRef.current = nextAssignments;
+    availabilityRecordsRef.current = nextAvailabilityRecords;
+    setMatchLineupAssignmentsState(nextAssignments);
+    setAvailabilityRecordsState(nextAvailabilityRecords);
+  }
+
   const storageScope = useMemo(() => {
     if (isConfigured) {
       if (activeClubId) {
@@ -818,9 +816,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     trainingSessionsRef.current = snapshot.trainingSessions;
     attendanceRecordsRef.current = snapshot.attendanceRecords;
     playersRef.current = snapshot.players;
-    availabilityRecordsRef.current = snapshot.availabilityRecords;
     matchStatsRef.current = snapshot.matchStats;
-    matchLineupAssignmentsRef.current = snapshot.matchLineupAssignments;
     matchRotationAssignmentsRef.current = snapshot.matchRotationAssignments;
     playerDevelopmentEntriesRef.current = snapshot.playerDevelopmentEntries;
     fitnessResultsRef.current = snapshot.fitnessResults;
@@ -832,9 +828,8 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setTrainingSessionsState(snapshot.trainingSessions);
     setAttendanceRecordsState(snapshot.attendanceRecords);
     setPlayersState(snapshot.players);
-    setAvailabilityRecordsState(snapshot.availabilityRecords);
     setMatchStatsState(snapshot.matchStats);
-    setMatchLineupAssignmentsState(snapshot.matchLineupAssignments);
+    setMatchLineupAndAvailabilityState(snapshot.matchLineupAssignments);
     setMatchRotationAssignmentsState(snapshot.matchRotationAssignments);
     setPlayerDevelopmentEntriesState(snapshot.playerDevelopmentEntries);
     setFitnessResultsState(snapshot.fitnessResults);
@@ -972,12 +967,10 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       const hasRemoteAttendance = Boolean(
         remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'attendanceRecords')
       );
-      const hasRemoteAvailability = Boolean(
-        remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'availabilityRecords')
-      );
       const hasRemoteMatchLineup = Boolean(
         remoteCoreData && Object.prototype.hasOwnProperty.call(remoteCoreData, 'matchLineupAssignments')
       );
+      const hasRemoteAvailability = hasRemoteMatchLineup;
 
       setSyncDebug((current) => ({
         playersSource: hasRemotePlayers
@@ -1036,7 +1029,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     keyOf: (fixture) => fixture.id,
     upsertRemote: upsertCloudFixture,
     deleteRemote: async (clubId, fixture) => {
-      await deleteCloudAvailabilityRecordsForFixture(clubId, fixture.id);
+      await deleteCloudMatchLineupAssignmentsForFixture(clubId, fixture.id);
       await deleteCloudFixture(clubId, fixture.id);
     },
   });
@@ -1129,7 +1122,6 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     upsertRemote: upsertCloudPlayer,
     deleteRemote: async (clubId, player) => {
       await deleteCloudAttendanceRecordsForPlayer(clubId, player.id);
-      await deleteCloudAvailabilityRecordsForPlayer(clubId, player.id);
       await deleteCloudMatchLineupAssignmentsForPlayer(clubId, player.id);
       await deleteCloudMatchRotationAssignmentsForPlayer(clubId, player.id);
       await deleteCloudPlayerDevelopmentEntriesForPlayer(clubId, player.id);
@@ -1140,17 +1132,40 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     },
   });
 
-  const setAvailabilityRecords = createCollectionSetter(
-    availabilityRecordsRef,
-    setAvailabilityRecordsState,
-    {
-      label: 'availability records',
-      realtimeTable: 'club_availability_records',
-      keyOf: (record) => `${record.fixtureId}::${record.playerId}`,
-      upsertRemote: upsertCloudAvailabilityRecord,
-      deleteRemote: (clubId, record) => deleteCloudAvailabilityRecord(clubId, record.fixtureId, record.playerId),
+  const setAvailabilityRecords: Dispatch<SetStateAction<AvailabilityRecord[]>> = (update) => {
+    const currentAvailabilityRecords = availabilityRecordsRef.current;
+    const nextAvailabilityRecords = resolveArrayUpdate(update, currentAvailabilityRecords);
+    const currentAssignments = matchLineupAssignmentsRef.current;
+    const nextAssignments = applyAvailabilityRecordsToMatchLineupAssignments(
+      currentAssignments,
+      nextAvailabilityRecords
+    );
+
+    setMatchLineupAndAvailabilityState(nextAssignments);
+    stateMutationVersionRef.current += 1;
+
+    if (!isConfigured || !activeClubId) {
+      return;
     }
-  );
+
+    const operations = getCollectionDiffOperations(activeClubId, currentAssignments, nextAssignments, {
+      label: 'availability records',
+      realtimeTable: 'club_match_lineup_assignments',
+      keyOf: (assignment) => `${assignment.fixtureId}::${assignment.playerId}`,
+      upsertRemote: (clubId, assignment) =>
+        upsertCloudAvailabilityRecord(clubId, {
+          fixtureId: assignment.fixtureId,
+          playerId: assignment.playerId,
+          status: assignment.availabilityStatus,
+        }),
+      deleteRemote: (clubId, assignment) =>
+        deleteCloudAvailabilityRecord(clubId, assignment.fixtureId, assignment.playerId),
+    });
+
+    operations.forEach((operation) => {
+      queueCloudWrite('availability records', operation);
+    });
+  };
 
   const refreshAvailabilityRecordsForFixture = useCallback(
     async (fixtureId: string) => {
@@ -1159,14 +1174,16 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       }
 
       try {
-        const fixtureRecords = await loadCloudAvailabilityRecordsForFixture(activeClubId, fixtureId);
-        const nextRecords = [
-          ...availabilityRecordsRef.current.filter((record) => record.fixtureId !== fixtureId),
-          ...fixtureRecords,
+        const fixtureAssignments = await loadCloudMatchLineupAssignmentsForFixture(
+          activeClubId,
+          fixtureId
+        );
+        const nextAssignments = [
+          ...matchLineupAssignmentsRef.current.filter((assignment) => assignment.fixtureId !== fixtureId),
+          ...fixtureAssignments,
         ];
 
-        availabilityRecordsRef.current = nextRecords;
-        setAvailabilityRecordsState(nextRecords);
+        setMatchLineupAndAvailabilityState(nextAssignments);
         stateMutationVersionRef.current += 1;
         setSyncDebug((syncState) => ({
           ...syncState,
@@ -1195,14 +1212,13 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       }
 
       try {
-        const playerRecords = await loadCloudAvailabilityRecordsForPlayer(activeClubId, playerId);
-        const nextRecords = [
-          ...availabilityRecordsRef.current.filter((record) => record.playerId !== playerId),
-          ...playerRecords,
+        const playerAssignments = await loadCloudMatchLineupAssignmentsForPlayer(activeClubId, playerId);
+        const nextAssignments = [
+          ...matchLineupAssignmentsRef.current.filter((assignment) => assignment.playerId !== playerId),
+          ...playerAssignments,
         ];
 
-        availabilityRecordsRef.current = nextRecords;
-        setAvailabilityRecordsState(nextRecords);
+        setMatchLineupAndAvailabilityState(nextAssignments);
         stateMutationVersionRef.current += 1;
         setSyncDebug((syncState) => ({
           ...syncState,
@@ -1233,18 +1249,30 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       deleteCloudMatchStatEntry(clubId, entry.fixtureId, entry.quarter, entry.metric, entry.team),
   });
 
-  const setMatchLineupAssignments = createCollectionSetter(
-    matchLineupAssignmentsRef,
-    setMatchLineupAssignmentsState,
-    {
+  const setMatchLineupAssignments: Dispatch<SetStateAction<MatchLineupAssignment[]>> = (update) => {
+    const current = matchLineupAssignmentsRef.current;
+    const next = normalizeMatchLineupAssignments(resolveArrayUpdate(update, current));
+
+    setMatchLineupAndAvailabilityState(next);
+    stateMutationVersionRef.current += 1;
+
+    if (!isConfigured || !activeClubId) {
+      return;
+    }
+
+    const operations = getCollectionDiffOperations(activeClubId, current, next, {
       label: 'match lineup assignments',
       realtimeTable: 'club_match_lineup_assignments',
       keyOf: (assignment) => `${assignment.fixtureId}::${assignment.playerId}`,
       upsertRemote: upsertCloudMatchLineupAssignment,
       deleteRemote: (clubId, assignment) =>
         deleteCloudMatchLineupAssignment(clubId, assignment.fixtureId, assignment.playerId),
-    }
-  );
+    });
+
+    operations.forEach((operation) => {
+      queueCloudWrite('match lineup assignments', operation);
+    });
+  };
 
   const setMatchRotationAssignments = createCollectionSetter(
     matchRotationAssignmentsRef,
@@ -1402,20 +1430,6 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           setFixturesState,
           (fixture) => fixture.id
         );
-      case 'club_availability_records':
-        return applyRealtimeCollectionPayload(
-          payload,
-          tableName,
-          (row) => {
-            const fixtureId = getString(row, 'fixture_id');
-            const playerId = getString(row, 'player_id');
-            return fixtureId && playerId ? `${fixtureId}::${playerId}` : null;
-          },
-          mapCloudAvailabilityRecord,
-          availabilityRecordsRef,
-          setAvailabilityRecordsState,
-          (record) => `${record.fixtureId}::${record.playerId}`
-        );
       case 'club_match_stats':
         return applyRealtimeCollectionPayload(
           payload,
@@ -1432,20 +1446,64 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           setMatchStatsState,
           (entry) => `${entry.fixtureId}::${entry.quarter}::${entry.metric}::${entry.team}`
         );
-      case 'club_match_lineup_assignments':
-        return applyRealtimeCollectionPayload(
-          payload,
-          tableName,
-          (row) => {
-            const fixtureId = getString(row, 'fixture_id');
-            const playerId = getString(row, 'player_id');
-            return fixtureId && playerId ? `${fixtureId}::${playerId}` : null;
-          },
-          mapCloudMatchLineupAssignment,
-          matchLineupAssignmentsRef,
-          setMatchLineupAssignmentsState,
-          (assignment) => `${assignment.fixtureId}::${assignment.playerId}`
-        );
+      case 'club_match_lineup_assignments': {
+        const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+        const rowClubId = getString(row, 'club_id');
+
+        if (rowClubId && rowClubId !== activeClubId) {
+          return true;
+        }
+
+        const fixtureId = getString(row, 'fixture_id');
+        const playerId = getString(row, 'player_id');
+        const rowKey = fixtureId && playerId ? `${fixtureId}::${playerId}` : null;
+
+        if (!rowKey) {
+          return false;
+        }
+
+        if (hasPendingCloudWrite(getCloudWriteKey(tableName, rowKey))) {
+          return true;
+        }
+
+        if (payload.eventType === 'DELETE') {
+          const nextAssignments = matchLineupAssignmentsRef.current.filter((assignment) => {
+            return `${assignment.fixtureId}::${assignment.playerId}` !== rowKey;
+          });
+
+          if (nextAssignments.length !== matchLineupAssignmentsRef.current.length) {
+            setMatchLineupAndAvailabilityState(nextAssignments);
+            stateMutationVersionRef.current += 1;
+          }
+
+          return true;
+        }
+
+        const item = mapCloudMatchLineupAssignment(row);
+
+        if (!item) {
+          return false;
+        }
+
+        const current = matchLineupAssignmentsRef.current;
+        const existingIndex = current.findIndex((assignment) => {
+          return `${assignment.fixtureId}::${assignment.playerId}` === rowKey;
+        });
+        const existingItem = existingIndex >= 0 ? current[existingIndex] : null;
+
+        if (existingItem && !itemChanged(existingItem, item)) {
+          return true;
+        }
+
+        const nextAssignments =
+          existingIndex >= 0
+            ? current.map((assignment, index) => (index === existingIndex ? item : assignment))
+            : [...current, item];
+
+        setMatchLineupAndAvailabilityState(nextAssignments);
+        stateMutationVersionRef.current += 1;
+        return true;
+      }
       case 'club_match_rotation_assignments':
         return applyRealtimeCollectionPayload(
           payload,
@@ -1539,7 +1597,6 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     setTrainingSessions(snapshot.trainingSessions);
     setAttendanceRecords(snapshot.attendanceRecords);
     setPlayers(snapshot.players);
-    setAvailabilityRecords(snapshot.availabilityRecords);
     setMatchStats(snapshot.matchStats);
     setMatchLineupAssignments(snapshot.matchLineupAssignments);
     setMatchRotationAssignments(snapshot.matchRotationAssignments);

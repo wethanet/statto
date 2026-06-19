@@ -133,7 +133,10 @@ create table if not exists public.club_match_lineup_assignments (
   club_id text not null references public.clubs (id) on delete cascade,
   fixture_id text not null,
   player_id text not null,
-  position text not null check (position in ('B', 'HB', 'W', 'C', 'HF', 'F', 'Fol', 'Int')),
+  position text check (position in ('B', 'HB', 'W', 'C', 'HF', 'F', 'Fol', 'Int')),
+  availability_status text not null default 'available' check (
+    availability_status in ('available', 'unavailable', 'uncertain')
+  ),
   updated_at timestamptz not null default timezone('utc', now()),
   primary key (club_id, fixture_id, player_id)
 );
@@ -372,6 +375,57 @@ exception
     null;
 end $$;
 
+alter table public.club_match_lineup_assignments
+alter column position drop not null;
+
+alter table public.club_match_lineup_assignments
+add column if not exists availability_status text not null default 'available';
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'club_match_lineup_assignments_availability_status_check'
+  ) then
+    alter table public.club_match_lineup_assignments
+    add constraint club_match_lineup_assignments_availability_status_check
+    check (availability_status in ('available', 'unavailable', 'uncertain'));
+  end if;
+end $$;
+
+insert into public.club_match_lineup_assignments (
+  club_id,
+  fixture_id,
+  player_id,
+  position,
+  availability_status,
+  updated_at
+)
+select
+  club_id,
+  fixture_id,
+  player_id,
+  null,
+  status,
+  updated_at
+from public.club_availability_records
+where status in ('available', 'unavailable', 'uncertain')
+on conflict (club_id, fixture_id, player_id)
+do update
+set availability_status = case
+      when club_match_lineup_assignments.position is not null
+        then 'available'
+      else excluded.availability_status
+    end,
+    position = club_match_lineup_assignments.position,
+    updated_at = greatest(club_match_lineup_assignments.updated_at, excluded.updated_at);
+
+update public.club_match_lineup_assignments
+set availability_status = 'available'
+where position is not null
+  and availability_status <> 'available';
+
 alter table public.club_data_snapshots enable row level security;
 alter table public.clubs enable row level security;
 alter table public.club_policy_settings enable row level security;
@@ -496,6 +550,10 @@ drop policy if exists "Club members can read match lineup assignments" on public
 drop policy if exists "Club members can insert match lineup assignments" on public.club_match_lineup_assignments;
 drop policy if exists "Club members can update match lineup assignments" on public.club_match_lineup_assignments;
 drop policy if exists "Club members can delete match lineup assignments" on public.club_match_lineup_assignments;
+drop policy if exists "Users can read allowed match selections" on public.club_match_lineup_assignments;
+drop policy if exists "Admins and coaches can insert match selections" on public.club_match_lineup_assignments;
+drop policy if exists "Admins and coaches can update match selections" on public.club_match_lineup_assignments;
+drop policy if exists "Admins and coaches can delete match selections" on public.club_match_lineup_assignments;
 drop policy if exists "Club members can read match rotation assignments" on public.club_match_rotation_assignments;
 drop policy if exists "Club members can insert match rotation assignments" on public.club_match_rotation_assignments;
 drop policy if exists "Club members can update match rotation assignments" on public.club_match_rotation_assignments;
@@ -995,66 +1053,6 @@ using (
     select 1
     from public.club_memberships
     where club_memberships.club_id = club_match_stats.club_id
-      and club_memberships.user_id = auth.uid()
-  )
-);
-
-create policy "Club members can read match lineup assignments"
-on public.club_match_lineup_assignments
-for select
-to authenticated
-using (
-  exists (
-    select 1
-    from public.club_memberships
-    where club_memberships.club_id = club_match_lineup_assignments.club_id
-      and club_memberships.user_id = auth.uid()
-  )
-);
-
-create policy "Club members can insert match lineup assignments"
-on public.club_match_lineup_assignments
-for insert
-to authenticated
-with check (
-  exists (
-    select 1
-    from public.club_memberships
-    where club_memberships.club_id = club_match_lineup_assignments.club_id
-      and club_memberships.user_id = auth.uid()
-  )
-);
-
-create policy "Club members can update match lineup assignments"
-on public.club_match_lineup_assignments
-for update
-to authenticated
-using (
-  exists (
-    select 1
-    from public.club_memberships
-    where club_memberships.club_id = club_match_lineup_assignments.club_id
-      and club_memberships.user_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.club_memberships
-    where club_memberships.club_id = club_match_lineup_assignments.club_id
-      and club_memberships.user_id = auth.uid()
-  )
-);
-
-create policy "Club members can delete match lineup assignments"
-on public.club_match_lineup_assignments
-for delete
-to authenticated
-using (
-  exists (
-    select 1
-    from public.club_memberships
-    where club_memberships.club_id = club_match_lineup_assignments.club_id
       and club_memberships.user_id = auth.uid()
   )
 );
@@ -2086,37 +2084,44 @@ begin
   end if;
 
   if target_status = 'not-responded' then
-    delete from public.club_availability_records
-    where club_id = target_club_id
-      and club_availability_records.fixture_id = target_fixture_id
-      and club_availability_records.player_id = target_player_id;
+    delete from public.club_match_lineup_assignments
+    where club_match_lineup_assignments.club_id = target_club_id
+      and club_match_lineup_assignments.fixture_id = target_fixture_id
+      and club_match_lineup_assignments.player_id = target_player_id;
 
     return;
   end if;
 
   return query
-  insert into public.club_availability_records (
+  insert into public.club_match_lineup_assignments (
     club_id,
     fixture_id,
     player_id,
-    status,
+    position,
+    availability_status,
     updated_at
   )
   values (
     target_club_id,
     target_fixture_id,
     target_player_id,
+    null,
     target_status,
     timezone('utc', now())
   )
-  on conflict (club_id, fixture_id, player_id)
+  on conflict on constraint club_match_lineup_assignments_pkey
   do update
-  set status = excluded.status,
+  set availability_status = excluded.availability_status,
+      position = case
+        when excluded.availability_status = 'available'
+          then club_match_lineup_assignments.position
+        else null
+      end,
       updated_at = timezone('utc', now())
   returning
-    club_availability_records.fixture_id,
-    club_availability_records.player_id,
-    club_availability_records.status;
+    club_match_lineup_assignments.fixture_id,
+    club_match_lineup_assignments.player_id,
+    club_match_lineup_assignments.availability_status as status;
 end;
 $$;
 
@@ -2136,11 +2141,11 @@ security definer
 set search_path = public, private
 as $$
   select
-    club_availability_records.fixture_id,
-    club_availability_records.player_id,
-    club_availability_records.status
-  from public.club_availability_records
-  where club_availability_records.club_id = target_club_id
+    club_match_lineup_assignments.fixture_id,
+    club_match_lineup_assignments.player_id,
+    club_match_lineup_assignments.availability_status as status
+  from public.club_match_lineup_assignments
+  where club_match_lineup_assignments.club_id = target_club_id
     and exists (
       select 1
       from public.club_memberships
@@ -2148,8 +2153,8 @@ as $$
         and club_memberships.user_id = auth.uid()
     )
   order by
-    club_availability_records.fixture_id,
-    club_availability_records.player_id;
+    club_match_lineup_assignments.fixture_id,
+    club_match_lineup_assignments.player_id;
 $$;
 
 revoke all on function public.get_club_availability_records(text) from public;
@@ -2169,12 +2174,12 @@ security definer
 set search_path = public, private
 as $$
   select
-    club_availability_records.fixture_id,
-    club_availability_records.player_id,
-    club_availability_records.status
-  from public.club_availability_records
-  where club_availability_records.club_id = target_club_id
-    and club_availability_records.fixture_id = target_fixture_id
+    club_match_lineup_assignments.fixture_id,
+    club_match_lineup_assignments.player_id,
+    club_match_lineup_assignments.availability_status as status
+  from public.club_match_lineup_assignments
+  where club_match_lineup_assignments.club_id = target_club_id
+    and club_match_lineup_assignments.fixture_id = target_fixture_id
     and exists (
       select 1
       from public.club_memberships
@@ -2182,7 +2187,7 @@ as $$
         and club_memberships.user_id = auth.uid()
     )
   order by
-    club_availability_records.player_id;
+    club_match_lineup_assignments.player_id;
 $$;
 
 revoke all on function public.get_club_fixture_availability_records(text, text) from public;
@@ -2467,6 +2472,44 @@ on public.club_fixtures
 for delete
 to authenticated
 using (private.can_manage_squad_item(club_id, squad));
+
+create policy "Users can read allowed match selections"
+on public.club_match_lineup_assignments
+for select
+to authenticated
+using (
+  private.current_membership_role(club_id) = 'admin'
+  or private.can_manage_player(club_id, player_id)
+  or private.current_membership_player_id(club_id) = player_id
+  or (
+    position is not null
+    and exists (
+      select 1
+      from public.club_memberships
+      where club_memberships.club_id = club_match_lineup_assignments.club_id
+        and club_memberships.user_id = auth.uid()
+    )
+  )
+);
+
+create policy "Admins and coaches can insert match selections"
+on public.club_match_lineup_assignments
+for insert
+to authenticated
+with check (private.can_manage_player(club_id, player_id));
+
+create policy "Admins and coaches can update match selections"
+on public.club_match_lineup_assignments
+for update
+to authenticated
+using (private.can_manage_player(club_id, player_id))
+with check (private.can_manage_player(club_id, player_id));
+
+create policy "Admins and coaches can delete match selections"
+on public.club_match_lineup_assignments
+for delete
+to authenticated
+using (private.can_manage_player(club_id, player_id));
 
 create policy "Users can read allowed availability"
 on public.club_availability_records

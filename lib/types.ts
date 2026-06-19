@@ -143,7 +143,8 @@ export type MatchLinePosition = 'B' | 'HB' | 'W' | 'C' | 'HF' | 'F' | 'Fol' | 'I
 export type MatchLineupAssignment = {
   fixtureId: string;
   playerId: string;
-  position: MatchLinePosition;
+  position: MatchLinePosition | null;
+  availabilityStatus: AvailabilityStatus;
 };
 
 export type MatchRotationAssignment = {

@@ -14,6 +14,10 @@ import {
 } from '@/lib/mock-data';
 import { normalizeTrainingSessions } from '@/lib/attendance';
 import { normalizeMatchStats } from '@/lib/match-stats';
+import {
+  getAvailabilityRecordsFromMatchLineupAssignments,
+  mergeAvailabilityRecordsIntoMatchLineupAssignments,
+} from '@/lib/match-lineup';
 import { normalizePlayerDevelopmentEntries } from '@/lib/player-development';
 import { normalizeVoteEntries } from '@/lib/votes';
 import type {
@@ -76,14 +80,19 @@ function cloneList<T>(items: T[]) {
 }
 
 export function createDemoClubDataSnapshot(): ClubDataSnapshot {
+  const mergedMatchLineupAssignments = mergeAvailabilityRecordsIntoMatchLineupAssignments(
+    cloneList(matchLineupAssignments),
+    cloneList(availabilityRecords)
+  );
+
   return {
     fixtures: cloneList(fixtures),
     trainingSessions: normalizeTrainingSessions(cloneList(trainingSessions)),
     attendanceRecords: cloneList(attendanceRecords),
     players: normalizePlayers(cloneList(players)),
-    availabilityRecords: cloneList(availabilityRecords),
+    availabilityRecords: getAvailabilityRecordsFromMatchLineupAssignments(mergedMatchLineupAssignments),
     matchStats: normalizeMatchStats(cloneList(matchStats)),
-    matchLineupAssignments: cloneList(matchLineupAssignments),
+    matchLineupAssignments: mergedMatchLineupAssignments,
     matchRotationAssignments: cloneList(matchRotationAssignments),
     playerDevelopmentEntries: normalizePlayerDevelopmentEntries(cloneList(playerDevelopmentEntries)),
     fitnessResults: cloneList(fitnessResults),
@@ -98,6 +107,11 @@ function asList<T>(value: unknown, fallback: T[]) {
 }
 
 export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | null | undefined) {
+  const matchLineupAssignments = mergeAvailabilityRecordsIntoMatchLineupAssignments(
+    asList(snapshot?.matchLineupAssignments, emptyClubDataSnapshot.matchLineupAssignments),
+    asList(snapshot?.availabilityRecords, emptyClubDataSnapshot.availabilityRecords)
+  );
+
   return {
     fixtures: asList(snapshot?.fixtures, emptyClubDataSnapshot.fixtures),
     trainingSessions: normalizeTrainingSessions(
@@ -105,12 +119,9 @@ export function normalizeClubDataSnapshot(snapshot: Partial<ClubDataSnapshot> | 
     ),
     attendanceRecords: asList(snapshot?.attendanceRecords, emptyClubDataSnapshot.attendanceRecords),
     players: normalizePlayers(asList(snapshot?.players, emptyClubDataSnapshot.players)),
-    availabilityRecords: asList(snapshot?.availabilityRecords, emptyClubDataSnapshot.availabilityRecords),
+    availabilityRecords: getAvailabilityRecordsFromMatchLineupAssignments(matchLineupAssignments),
     matchStats: normalizeMatchStats(asList(snapshot?.matchStats, emptyClubDataSnapshot.matchStats)),
-    matchLineupAssignments: asList(
-      snapshot?.matchLineupAssignments,
-      emptyClubDataSnapshot.matchLineupAssignments
-    ),
+    matchLineupAssignments,
     matchRotationAssignments: asList(
       snapshot?.matchRotationAssignments,
       emptyClubDataSnapshot.matchRotationAssignments

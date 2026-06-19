@@ -96,7 +96,7 @@ export function buildGamesPlayedByGrade(
   assignments.forEach((assignment) => {
     const fixture = fixturesById.get(assignment.fixtureId);
 
-    if (!fixture || !isPastFixture(fixture, now)) {
+    if (!fixture || !isPastFixture(fixture, now) || assignment.position === null) {
       return;
     }
 

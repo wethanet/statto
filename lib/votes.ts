@@ -155,7 +155,7 @@ export function getLineupPlayerIdsForFixture(
 ) {
   return matchLineupAssignments
     .filter((assignment) => {
-      return assignment.fixtureId === fixtureId;
+      return assignment.fixtureId === fixtureId && assignment.position !== null;
     })
     .map((assignment) => assignment.playerId);
 }

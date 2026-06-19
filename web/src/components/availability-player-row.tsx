@@ -36,7 +36,7 @@ const AVAILABILITY_OPTIONS: AvailabilityResponseStatus[] = [
 
 function getAvailabilityLabel(status: AvailabilityResponseStatus) {
   if (status === 'available') {
-    return 'selected';
+    return 'available';
   }
 
   if (status === 'not-responded') {
@@ -44,7 +44,7 @@ function getAvailabilityLabel(status: AvailabilityResponseStatus) {
   }
 
   if (status === 'uncertain') {
-    return 'available';
+    return 'uncertain';
   }
 
   return 'unavailable';

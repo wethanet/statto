@@ -254,7 +254,7 @@ Deno.serve(async (req) => {
       trainingSessionsResult,
       attendanceRecordsResult,
       fixturesResult,
-      availabilityRecordsResult,
+      matchSelectionRecordsResult,
       policyResult,
     ] = await Promise.all([
       adminClient
@@ -281,7 +281,7 @@ Deno.serve(async (req) => {
         .select('id, opponent, date, venue, squad')
         .eq('club_id', clubId),
       adminClient
-        .from('club_availability_records')
+        .from('club_match_lineup_assignments')
         .select('fixture_id, player_id')
         .eq('club_id', clubId),
       adminClient
@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
       trainingSessionsResult.error,
       attendanceRecordsResult.error,
       fixturesResult.error,
-      availabilityRecordsResult.error,
+      matchSelectionRecordsResult.error,
       policyResult.error,
     ].find(Boolean);
 
@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
       (attendanceRecordsResult.data ?? []).map((record) => `${record.session_id}:${record.player_id}`)
     );
     const availabilityKeys = new Set(
-      (availabilityRecordsResult.data ?? []).map((record) => `${record.fixture_id}:${record.player_id}`)
+      (matchSelectionRecordsResult.data ?? []).map((record) => `${record.fixture_id}:${record.player_id}`)
     );
     const futureTrainingSessions = (trainingSessionsResult.data ?? []).filter((session) => {
       return isFutureEvent(session.date, now);

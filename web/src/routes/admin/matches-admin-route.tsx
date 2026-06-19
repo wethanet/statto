@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 
 import {
   addFixture,
-  deleteAvailabilityRecordsForFixture,
   deleteFixture,
   getSortedFixtures,
   updateFixture,
 } from '@/lib/availability';
+import { deleteMatchLineupAssignmentsForFixture } from '@/lib/match-lineup';
 import { deleteMatchStatsForFixture } from '@/lib/match-stats';
 import { getPlayerSquadLabel, normalizePlayerSquad } from '@/lib/team';
 import type { PlayerSquad } from '@/lib/types';
@@ -51,7 +51,7 @@ function formatDate(value: string) {
 }
 
 export function MatchesAdminRoute() {
-  const { fixtures, setAvailabilityRecords, setFixtures, setMatchStats, setPlayerVoteBallots, setVoteEntries } =
+  const { fixtures, setFixtures, setMatchLineupAssignments, setMatchStats, setPlayerVoteBallots, setVoteEntries } =
     useClubData();
   const [opponent, setOpponent] = useState('');
   const [grade, setGrade] = useState('');
@@ -221,8 +221,8 @@ export function MatchesAdminRoute() {
     setFixtures((current) => {
       return deleteFixture(current, fixtureId);
     });
-    setAvailabilityRecords((current) => {
-      return deleteAvailabilityRecordsForFixture(current, fixtureId);
+    setMatchLineupAssignments((current) => {
+      return deleteMatchLineupAssignmentsForFixture(current, fixtureId);
     });
     setVoteEntries((current) => {
       return deleteVoteEntriesForFixture(current, fixtureId);

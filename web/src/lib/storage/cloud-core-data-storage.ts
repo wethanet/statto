@@ -14,6 +14,10 @@ import type {
   VoteEntry,
 } from '@/lib/types';
 import { normalizeMatchStats } from '@/lib/match-stats';
+import {
+  getAvailabilityRecordsFromMatchLineupAssignments,
+  normalizeMatchLineupAssignments,
+} from '@/lib/match-lineup';
 import { normalizePlayerDevelopmentEntries } from '@/lib/player-development';
 import { normalizePlayers, normalizePlayerSquad } from '@/lib/team';
 import { normalizeVoteEntries, normalizeVoteType } from '@/lib/votes';
@@ -94,18 +98,28 @@ function isMissingColumnError(
   return error.message?.includes(`column ${columnName} does not exist`) === true;
 }
 
-type CloudAvailabilityRow = {
+type CloudMatchLineupAssignmentRow = {
   fixture_id?: unknown;
   player_id?: unknown;
-  status?: unknown;
+  position?: unknown;
+  availability_status?: unknown;
 };
 
-function mapCloudAvailabilityRecord(record: CloudAvailabilityRow): AvailabilityRecord {
-  return {
-    fixtureId: record.fixture_id as string,
-    playerId: record.player_id as string,
-    status: record.status as AvailabilityRecord['status'],
-  };
+function mapCloudMatchLineupAssignments(
+  rows: CloudMatchLineupAssignmentRow[]
+): MatchLineupAssignment[] {
+  return normalizeMatchLineupAssignments(
+    rows.map((assignment) => {
+      return {
+        fixtureId: assignment.fixture_id as string,
+        playerId: assignment.player_id as string,
+        position: (assignment.position as MatchLineupAssignment['position'] | null | undefined) ?? null,
+        availabilityStatus:
+          (assignment.availability_status as MatchLineupAssignment['availabilityStatus'] | null | undefined) ??
+          'available',
+      };
+    })
+  );
 }
 
 async function loadCloudPlayers(clubId: string) {
@@ -226,6 +240,17 @@ async function loadCloudMatchRotationAssignments(clubId: string) {
   return result;
 }
 
+async function loadCloudMatchLineupAssignments(clubId: string) {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  return supabase
+    .from('club_match_lineup_assignments')
+    .select('fixture_id, player_id, position, availability_status')
+    .eq('club_id', clubId);
+}
+
 async function loadCloudFines(clubId: string) {
   if (!supabase) {
     return { data: null, error: null };
@@ -251,31 +276,50 @@ export async function loadCloudAvailabilityRecordsForFixture(
   clubId: string,
   fixtureId: string
 ): Promise<AvailabilityRecord[]> {
-  const client = requireSupabase();
-  const result = await client.rpc('get_club_fixture_availability_records', {
-    target_club_id: clubId,
-    target_fixture_id: fixtureId,
-  });
-
-  await throwOnError(result.error);
-
-  return (result.data ?? []).map(mapCloudAvailabilityRecord);
+  return getAvailabilityRecordsFromMatchLineupAssignments(
+    await loadCloudMatchLineupAssignmentsForFixture(clubId, fixtureId)
+  );
 }
 
 export async function loadCloudAvailabilityRecordsForPlayer(
   clubId: string,
   playerId: string
 ): Promise<AvailabilityRecord[]> {
+  return getAvailabilityRecordsFromMatchLineupAssignments(
+    await loadCloudMatchLineupAssignmentsForPlayer(clubId, playerId)
+  );
+}
+
+export async function loadCloudMatchLineupAssignmentsForFixture(
+  clubId: string,
+  fixtureId: string
+): Promise<MatchLineupAssignment[]> {
   const client = requireSupabase();
   const result = await client
-    .from('club_availability_records')
-    .select('fixture_id, player_id, status')
+    .from('club_match_lineup_assignments')
+    .select('fixture_id, player_id, position, availability_status')
+    .eq('club_id', clubId)
+    .eq('fixture_id', fixtureId);
+
+  await throwOnError(result.error);
+
+  return mapCloudMatchLineupAssignments(result.data ?? []);
+}
+
+export async function loadCloudMatchLineupAssignmentsForPlayer(
+  clubId: string,
+  playerId: string
+): Promise<MatchLineupAssignment[]> {
+  const client = requireSupabase();
+  const result = await client
+    .from('club_match_lineup_assignments')
+    .select('fixture_id, player_id, position, availability_status')
     .eq('club_id', clubId)
     .eq('player_id', playerId);
 
   await throwOnError(result.error);
 
-  return (result.data ?? []).map(mapCloudAvailabilityRecord);
+  return mapCloudMatchLineupAssignments(result.data ?? []);
 }
 
 export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCoreData> | null> {
@@ -286,6 +330,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
   const playersResultPromise = loadCloudPlayers(clubId);
   const matchStatsResultPromise = loadCloudMatchStats(clubId);
   const trainingSessionsResultPromise = loadCloudTrainingSessions(clubId);
+  const matchLineupAssignmentsResultPromise = loadCloudMatchLineupAssignments(clubId);
   const matchRotationAssignmentsResultPromise = loadCloudMatchRotationAssignments(clubId);
   const finesResultPromise = loadCloudFines(clubId);
 
@@ -315,10 +360,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
       .eq('club_id', clubId)
       .order('date', { ascending: true }),
     matchStatsResultPromise,
-    supabase
-      .from('club_match_lineup_assignments')
-      .select('fixture_id, player_id, position')
-      .eq('club_id', clubId),
+    matchLineupAssignmentsResultPromise,
     matchRotationAssignmentsResultPromise,
     supabase
       .from('club_player_development_entries')
@@ -428,13 +470,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
   if (matchLineupAssignmentsResult.error) {
     logCloudCollectionError('match lineup assignments', matchLineupAssignmentsResult.error);
   } else {
-    snapshot.matchLineupAssignments = (matchLineupAssignmentsResult.data ?? []).map((assignment) => {
-      return {
-        fixtureId: assignment.fixture_id as string,
-        playerId: assignment.player_id as string,
-        position: assignment.position as MatchLineupAssignment['position'],
-      };
-    });
+    snapshot.matchLineupAssignments = mapCloudMatchLineupAssignments(
+      matchLineupAssignmentsResult.data ?? []
+    );
     hasSuccessfulRead = true;
   }
 
@@ -806,26 +844,13 @@ export async function upsertCloudAvailabilityRecords(
     return;
   }
 
-  const client = requireSupabase();
-  const { error } = await client.from('club_availability_records').upsert(
-    records.map((record) => {
-      return {
-        club_id: clubId,
-        fixture_id: record.fixtureId,
-        player_id: record.playerId,
-        status: record.status,
-      };
-    }),
-    { onConflict: 'club_id,fixture_id,player_id' }
-  );
-
-  await throwOnError(error);
+  await Promise.all(records.map((record) => upsertCloudAvailabilityRecord(clubId, record)));
 }
 
 export async function deleteCloudAvailabilityRecordsForFixture(clubId: string, fixtureId: string) {
   const client = requireSupabase();
   const { error } = await client
-    .from('club_availability_records')
+    .from('club_match_lineup_assignments')
     .delete()
     .eq('club_id', clubId)
     .eq('fixture_id', fixtureId);
@@ -835,7 +860,7 @@ export async function deleteCloudAvailabilityRecordsForFixture(clubId: string, f
 export async function deleteCloudAvailabilityRecordsForPlayer(clubId: string, playerId: string) {
   const client = requireSupabase();
   const { error } = await client
-    .from('club_availability_records')
+    .from('club_match_lineup_assignments')
     .delete()
     .eq('club_id', clubId)
     .eq('player_id', playerId);
@@ -894,6 +919,7 @@ export async function upsertCloudMatchLineupAssignment(
       fixture_id: assignment.fixtureId,
       player_id: assignment.playerId,
       position: assignment.position,
+      availability_status: assignment.availabilityStatus,
     },
     { onConflict: 'club_id,fixture_id,player_id' }
   );

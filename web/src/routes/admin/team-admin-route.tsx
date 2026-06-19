@@ -10,9 +10,9 @@ import {
 import type { PlayerRotationGroup, PlayerSquad } from '@/lib/types';
 
 import { deleteAttendanceRecordsForPlayer } from '@/lib/attendance';
-import { deleteAvailabilityRecordsForPlayer } from '@/lib/availability';
 import { deleteFinesForPlayer } from '@/lib/fines';
 import { deleteFitnessResultsForPlayer } from '@/lib/fitness';
+import { deleteMatchLineupAssignmentsForPlayer } from '@/lib/match-lineup';
 import { deletePlayerDevelopmentEntriesForPlayer } from '@/lib/player-development';
 import {
   cyclePlayerRole,
@@ -47,9 +47,9 @@ export function TeamAdminRoute() {
     matchLineupAssignments,
     players,
     setAttendanceRecords,
-    setAvailabilityRecords,
     setFitnessResults,
     setFines,
+    setMatchLineupAssignments,
     setPlayers,
     setPlayerDevelopmentEntries,
     setPlayerVoteBallots,
@@ -82,8 +82,8 @@ export function TeamAdminRoute() {
     setAttendanceRecords((current) => {
       return deleteAttendanceRecordsForPlayer(current, playerId);
     });
-    setAvailabilityRecords((current) => {
-      return deleteAvailabilityRecordsForPlayer(current, playerId);
+    setMatchLineupAssignments((current) => {
+      return deleteMatchLineupAssignmentsForPlayer(current, playerId);
     });
     setFitnessResults((current) => {
       return deleteFitnessResultsForPlayer(current, playerId);
