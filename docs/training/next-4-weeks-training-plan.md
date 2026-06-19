@@ -24,78 +24,79 @@ Shared language:
 - "Triangle" means one player at the ball, one behind or sideways, one ahead or wider.
 - "Face" means use the option your body already sees.
 - "Wide first" means exit defence toward the boundary-side option, not straight back to goals.
+- "Mark, breathe, scan" means kick to a mark, slow down for one beat, then look lateral before going long.
 
 Session shape:
 - 10 min warm-up and touch.
 - 12 min simple technique.
 - 12 min decision drill.
 - 15 min pressure drill.
-- 20 min conditioned game.
+- 20-25 min conditioned gameplay.
 - 6 min reset, questions, and recap.
 
 If a drill breaks down, reduce pressure first. Do not add more instructions. Make the area bigger, remove a defender, or walk through the decision at half speed.
+
+Every session finishes with gameplay. For now the gameplay should usually be one of these:
+- Changing Lanes: kick to a mark, stop, scan, then pass laterally to change lane before going forward.
+- 5v5 Transition: win the ball, find an outlet, kick to a mark, slow down, look lateral, then attack.
 
 ## Week 1 - Ball Or Outlet
 
 Theme: Decide earlier whether to get the ball or become the outlet.
 
-Goal: Players stop hovering around the contest and start creating a simple triangle around the ball carrier.
+Goal: Players learn one simple choice: if you are closest, get the ball; if you are not closest, get out and talk.
 
 Key cues:
-- First player gets the ball.
-- Second player gets off the line.
-- Third player gets ahead or wide.
-- Talk early: "ball", "back", "wide", "go".
+- Closest player says "ball".
+- Next player says "outlet".
+- Outlet gets sideways, not behind the ball winner's back.
+- Kick to a mark, breathe, scan lateral.
 
 ### Main Session
 
-1. Warm-up: Triangle Touch
+1. Warm-up: Pairs Touch And Talk
    - Time: 10 min
-   - Setup: Groups of 3 with one ball. Players move in a triangle, handballing and replacing the receiver's spot.
-   - Coach: Freeze occasionally and ask, "Where is the triangle?"
-   - Easier: Walk it first.
-   - Harder: Add a passive defender who blocks one side.
+   - Setup: Pairs handball and short kick 5-10 m apart.
+   - Rule: Every receive gets a call: "ball", "outlet", or the receiver's name.
+   - Coach: Keep it relaxed. This is just touch and voice.
 
-2. Technique: Ground Ball First
-   - Time: 12 min
+2. Technique: Ball Or Outlet Pairs
+   - Time: 15 min
    - Setup: Pairs start 5 m apart. Coach rolls ball between them. One player attacks the ball, the other becomes outlet.
    - Rule: The player closest to the ball must call "ball". The other must call "outlet".
-   - Coach: Reward early calls, not perfect handballs.
-   - Easier: No defender.
-   - Harder: Add a chaser from behind.
+   - Coach: Reward the correct role and early talk before worrying about perfect execution.
+   - Easier: Walk the first two reps.
+   - Harder: Roll the ball slightly to one side so the outlet has to move.
 
-3. Decision Drill: 2v1 Ball Or Outlet
-   - Time: 12 min
-   - Setup: Two attackers, one defender, 10 m by 10 m grid.
-   - Rule: Ball winner must use the outlet within 3 seconds.
-   - Scoring: 1 point for clean collect, 1 point for correct outlet shape, 1 point for completed handball.
-   - Coach: If both attackers run to the ball, stop and reset.
-
-4. Pressure Drill: 3v2 Triangle Exit
+3. Decision Drill: 2v0 To 2v1 Outlet
    - Time: 15 min
-   - Setup: Three attackers, two defenders, 15 m by 12 m grid with two exit gates.
-   - Rule: Attackers must form a triangle before exiting through a gate.
-   - Coach: The best exit is often sideways first, not forward straight away.
-   - Easier: Make defenders touch-only.
-   - Harder: Add a 5-second clock.
+   - Setup: Start with 2 attackers and no defender. After 5 minutes, add one passive defender.
+   - Rule: The ball winner must use the outlet. The outlet then kicks to a marked target.
+   - Coach: If both attackers go to the ball, stop and repeat. Do not add extra rules.
+   - Easier: Defender shadows only.
+   - Harder: Defender can pressure after the ball is picked up.
 
-5. Conditioned Game: Triangle To Score
-   - Time: 20 min
-   - Setup: 5v5 or 6v6 in a small rectangle.
-   - Rule: A team can only score after using a handball to an outlet.
-   - Bonus: 2 points if the outlet was sideways or behind and then the team went forward.
-   - Coach: Praise the player who creates the outlet as much as the player who wins the ball.
+4. Gameplay: Kick-Mark-Lateral
+   - Time: 25 min
+   - Setup: 5v5 if numbers allow, otherwise 4v4 or 6v6. Use a rectangle with three lanes.
+   - Rules:
+     - A team scores by kicking to a mark.
+     - After a mark, the player must stop, breathe, and look lateral.
+     - The next pass should change lane if a lateral option is open.
+   - Coach: This is not about fast scoring. It is about slowing the panic after a mark.
+   - Easier: The mark cannot be tackled.
+   - Harder: Add a 4-second scan clock after the mark.
 
-6. Review
-   - Time: 6 min
+5. Review
+   - Time: 10 min
    - Questions:
      - Who decides to get the ball?
      - If you are not that player, where do you go?
-     - What words help your teammate decide?
+     - After a mark, what do we do before going long?
 
 ### Second Session Option
 
-Repeat Triangle Touch, 2v1 Ball Or Outlet, and Triangle To Score. Keep it lighter and faster. Finish with 10 minutes of set-shot or goal kicking so the session feels rewarding.
+Repeat Ball Or Outlet Pairs, then spend most of the session in Kick-Mark-Lateral. Keep the coaching to two cues only: "ball or outlet" and "mark, breathe, scan".
 
 ## Week 2 - One-Move Ground Handball
 
@@ -137,11 +138,14 @@ Key cues:
    - Easier: Defenders start 2 m away.
    - Harder: Defenders start shoulder to shoulder.
 
-5. Conditioned Game: Ground Ball Advantage
+5. Gameplay: 5v5 Transition To Mark
    - Time: 20 min
-   - Setup: 6v6. Coach starts each play with a ground ball.
-   - Rule: Team gets a bonus point if the first possession is one movement and exits to an outlet.
-   - Coach: Freeze only when the decision is unclear. Ask, "Was that pickup or outlet?"
+   - Setup: 5v5 if numbers allow, otherwise 4v4 or 6v6. Coach starts each play with a ground ball.
+   - Rules:
+     - First possession should be one movement where possible.
+     - Team must find an outlet, then kick to a mark.
+     - After the mark, the player slows down and looks lateral before going forward.
+   - Coach: Freeze only when the first decision is unclear. Ask, "Was that pickup or outlet?"
 
 6. Review
    - Time: 6 min
@@ -152,7 +156,7 @@ Key cues:
 
 ### Second Session Option
 
-Use the 5v4 handball transfer drill as the main block if numbers allow. Keep the focus on one-move disposal, not winning the drill.
+Use the 5v4 handball transfer drill as the main block if numbers allow. Finish with 5v5 Transition To Mark so the handball work connects to game play.
 
 ## Week 3 - Wide Exit From Defence
 
@@ -195,11 +199,13 @@ Key cues:
    - Rule: Wide gate is worth 2 points. Central gate is worth 1 point only if it is clearly open.
    - Coach: Do not ban the middle. Teach them to recognise when it is safe.
 
-5. Conditioned Game: Wide Before Forward
+5. Gameplay: Changing Lanes
    - Time: 20 min
-   - Setup: Half-ground game.
-   - Rule: From defensive half, team must use a wide option before scoring.
-   - Bonus: 2 points for a wide kick that leads to a controlled next possession.
+   - Setup: Half-ground game split into three lanes.
+   - Rules:
+     - From defence, first look is wide.
+     - A marked player must slow down and look lateral.
+     - Team gets a bonus point if it changes lane before going forward.
    - Coach: Praise calm sideways kicks. They are buying time.
 
 6. Review
@@ -211,7 +217,7 @@ Key cues:
 
 ### Second Session Option
 
-Run Backline Three Options and Wide Before Forward again, then finish with unpressured kicking pairs. Low-skill players need clean reps after pressure reps.
+Run Backline Three Options and Changing Lanes again, then finish with unpressured kicking pairs. Low-skill players need clean reps after pressure reps.
 
 ## Week 4 - Connect The Whole Chain
 
@@ -255,18 +261,19 @@ Key cues:
    - Rule: Turnover if all supporting players run to the ball.
    - Coach: This is the main test of the month.
 
-5. Conditioned Game: Three-Rule Match Sim
+5. Gameplay: 5v5 Transition Or Changing Lanes
    - Time: 20 min
-   - Setup: 7v7 or available numbers.
+   - Setup: 5v5 transition if numbers are tight, or Changing Lanes if you have enough space.
    - Rules:
      - Around contest, one player must be outlet.
-     - From defence, first look is wide.
-     - Forward of centre, kicker must choose goal, contest, or lateral option.
+     - First kick after winning it should be to a mark where possible.
+     - After a mark, slow down and look lateral.
+     - From defence, use width before going straight.
    - Scoring:
      - 1 point for normal score.
-     - 1 bonus point for triangle exit.
-     - 1 bonus point for wide defensive exit.
-     - 1 bonus point for correct kicking choice.
+     - 1 bonus point for ball or outlet being clear.
+     - 1 bonus point for a lateral pass after a mark.
+     - 1 bonus point for a wide defensive exit.
 
 6. Review
    - Time: 6 min
@@ -277,7 +284,7 @@ Key cues:
 
 ### Second Session Option
 
-Run a shorter match sim with the same three rules. Keep stoppages short. Let leaders or captains call the cue before each restart.
+Run a shorter 5v5 transition game with the same rules. Keep stoppages short. Let leaders or captains call "mark, breathe, scan" after each mark.
 
 ## App-Ready Session Summaries
 
@@ -289,15 +296,14 @@ Title: Ball Or Outlet
 
 Goal: Decide earlier whether to win the ball or become the outlet.
 
-Focus: Build simple triangle shape around the ball carrier so inexperienced players stop crowding the contest and start creating safe exits.
+Focus: Keep the first decision simple: closest player wins the ball, next player becomes the outlet, then the group practises kick to mark, slow down, and scan lateral.
 
 Run plan:
-- Triangle Touch, 10 min, skills: Touch, Shape, Communication
-- Ground Ball First, 12 min, skills: Ground ball, Outlet, Communication
-- 2v1 Ball Or Outlet, 12 min, skills: Decision making, Clean hands, Support
-- 3v2 Triangle Exit, 15 min, skills: Contest exit, Shape, Pressure
-- Triangle To Score, 20 min, skills: Game sense, Support running, Ball movement
-- Review, 6 min, skills: Reflection, Shared language
+- Pairs Touch And Talk, 10 min, skills: Touch, Voice, Confidence
+- Ball Or Outlet Pairs, 15 min, skills: Ground ball, Outlet, Communication
+- 2v0 To 2v1 Outlet, 15 min, skills: Decision making, Support, Short kicking
+- Kick-Mark-Lateral, 25 min, skills: Gameplay, Kicking to mark, Lateral scan
+- Review, 10 min, skills: Reflection, Shared language
 
 ### Week 2
 
@@ -312,7 +318,7 @@ Run plan:
 - One-Move Handball, 12 min, skills: Ground handball, Body position, Execution
 - Pick Up Or Punch Out, 12 min, skills: Pressure decision, Ground ball, Outlet
 - 4v3 Ground Ball Exit, 15 min, skills: Contest exit, Clean hands, Communication
-- Ground Ball Advantage, 20 min, skills: Game sense, Pressure, Transition
+- 5v5 Transition To Mark, 20 min, skills: Game sense, Kicking to mark, Lateral scan
 - Review, 6 min, skills: Reflection, Shared language
 
 ### Week 3
@@ -328,7 +334,7 @@ Run plan:
 - Mark Turn Wide, 12 min, skills: Defensive exit, Body shape, Kicking
 - Backline Three Options, 12 min, skills: Decision making, Kicking, Scanning
 - Defensive Exit Gate, 15 min, skills: Rebound, Pressure, Width
-- Wide Before Forward, 20 min, skills: Team shape, Defensive exit, Ball movement
+- Changing Lanes, 20 min, skills: Team shape, Defensive exit, Lateral ball movement
 - Review, 6 min, skills: Reflection, Shared language
 
 ### Week 4
@@ -344,7 +350,7 @@ Run plan:
 - One-Move To Wide Kick, 12 min, skills: Ground ball, Outlet, Kicking
 - Goal Contest Or Lateral, 12 min, skills: Forward decision, Kicking, Scanning
 - Contest To Wide Rebound, 15 min, skills: Contest exit, Width, Pressure
-- Three-Rule Match Sim, 20 min, skills: Game sense, Team shape, Decision making
+- 5v5 Transition Or Changing Lanes, 20 min, skills: Game sense, Kicking to mark, Lateral scan
 - Review, 6 min, skills: Reflection, Game transfer
 
 ## Measurement
@@ -354,6 +360,7 @@ Track only a few things so it stays simple:
 - How often does a triangle exist within 3 seconds of a contest?
 - How often does the first defensive exit look wide?
 - How often does a pressured ground ball become a one-move disposal?
+- After a mark, how often does the player slow down and scan lateral?
 - In match sim, how many kicks go to the best option rather than the first option?
 
 Use numbers if helpful, but do not turn training into admin. A simple coach tally during the final game is enough.
@@ -367,6 +374,7 @@ Keep corrections short:
 - "One move."
 - "Play face."
 - "Wide first."
+- "Mark, breathe, scan."
 - "Best option."
 
 For low-skill players:
