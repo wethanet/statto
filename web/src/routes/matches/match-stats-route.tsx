@@ -16,7 +16,7 @@ import {
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { MatchStatRow } from '@web/components/stats/match-stat-row';
 import { useClubAccess } from '@web/lib/club-access-context';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 
 type StatAction = {
@@ -51,6 +51,8 @@ function getLastWord(value: string) {
 }
 
 export function MatchStatsRoute() {
+  useEnsureClubCollections(['fixtures', 'matchStats']);
+
   const { fixtureId = '' } = useParams();
   const { activeClub } = useClubAccess();
   const { canAccessAdmin } = useClubPermissions();

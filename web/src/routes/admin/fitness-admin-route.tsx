@@ -7,7 +7,7 @@ import {
   AdminSection,
   AdminSummaryStrip,
 } from '@web/components/admin/admin-workflow';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 
 import {
@@ -36,6 +36,8 @@ function formatRecordedAt(value: string) {
 }
 
 export function FitnessAdminRoute() {
+  useEnsureClubCollections(['fitnessResults', 'players']);
+
   const { fitnessResults, isHydrated, players, setFitnessResults } = useClubData();
   const { canManagePlayer } = useClubPermissions();
   const [selectedPhase, setSelectedPhase] = useState<FitnessPhase>('start-of-season');

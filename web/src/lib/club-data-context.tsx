@@ -72,10 +72,12 @@ import {
   deleteCloudTrainingSession,
   deleteCloudVoteEntriesForPlayer,
   deleteCloudVoteEntry,
+  CLOUD_CORE_COLLECTIONS,
   loadCloudCoreData,
   loadCloudMatchLineupAssignmentsForFixture,
   loadCloudMatchLineupAssignmentsForPlayer,
   loadCloudTrainingSessionDetails,
+  type CloudDataCollection,
   upsertCloudAttendanceRecord,
   upsertCloudAvailabilityRecord,
   upsertCloudFine,
@@ -105,8 +107,15 @@ type ClubDataContextValue = {
   setPlayers: Dispatch<SetStateAction<Player[]>>;
   availabilityRecords: AvailabilityRecord[];
   setAvailabilityRecords: Dispatch<SetStateAction<AvailabilityRecord[]>>;
-  refreshAvailabilityRecordsForFixture: (fixtureId: string) => Promise<void>;
-  refreshAvailabilityRecordsForPlayer: (playerId: string) => Promise<void>;
+  ensureClubCollections: (collections: readonly CloudDataCollection[]) => Promise<void>;
+  refreshAvailabilityRecordsForFixture: (
+    fixtureId: string,
+    options?: { force?: boolean }
+  ) => Promise<void>;
+  refreshAvailabilityRecordsForPlayer: (
+    playerId: string,
+    options?: { force?: boolean }
+  ) => Promise<void>;
   matchStats: MatchStatEntry[];
   setMatchStats: Dispatch<SetStateAction<MatchStatEntry[]>>;
   matchLineupAssignments: MatchLineupAssignment[];
@@ -154,8 +163,14 @@ const STORAGE_KEYS = {
 
 const ClubDataContext = createContext<ClubDataContextValue | null>(null);
 
-const CLOUD_REFRESH_INTERVAL_MS = 60000;
+const CLOUD_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const CLOUD_COLLECTION_STALE_MS = 5 * 60 * 1000;
 const REALTIME_REFRESH_DEBOUNCE_MS = 400;
+const BOOTSTRAP_CLOUD_COLLECTIONS = [
+  'players',
+  'fixtures',
+  'matchLineupAssignments',
+] as const satisfies readonly CloudDataCollection[];
 const REALTIME_TABLES = [
   'club_players',
   'club_training_sessions',
@@ -193,6 +208,12 @@ type CollectionDiffOperation = {
   writeKey: string;
   run: () => Promise<void>;
 };
+
+function getLoadedCloudCollections(remoteCoreData: Partial<ClubDataSnapshot>) {
+  return CLOUD_CORE_COLLECTIONS.filter((collection) => {
+    return Object.prototype.hasOwnProperty.call(remoteCoreData, collection);
+  });
+}
 
 function getCloudSyncErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -745,6 +766,11 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   const refreshFromCloudPromiseRef = useRef<Promise<void> | null>(null);
   const hydratedStorageScopeRef = useRef<string | null>(null);
   const stateMutationVersionRef = useRef(0);
+  const loadedCloudCollectionsRef = useRef(new Set<CloudDataCollection>());
+  const cloudCollectionsInFlightRef = useRef(new Set<CloudDataCollection>());
+  const cloudCollectionFreshAtRef = useRef(new Map<CloudDataCollection, number>());
+  const fixtureAvailabilityFreshAtRef = useRef(new Map<string, number>());
+  const playerAvailabilityFreshAtRef = useRef(new Map<string, number>());
   const pendingCloudWriteKeysRef = useRef(new Map<string, number>());
   const cloudWriteQueuesRef = useRef(new Map<string, Promise<void>>());
 
@@ -809,6 +835,42 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       refreshFromCloudTimeoutRef.current = null;
       void refreshFromCloudRef.current();
     }, REALTIME_REFRESH_DEBOUNCE_MS);
+  }
+
+  function isCloudCollectionFresh(collection: CloudDataCollection, now = Date.now()) {
+    const freshAt = cloudCollectionFreshAtRef.current.get(collection);
+    return freshAt !== undefined && now - freshAt < CLOUD_COLLECTION_STALE_MS;
+  }
+
+  function hasStaleLoadedCloudCollections(now = Date.now()) {
+    const loadedCollections = Array.from(loadedCloudCollectionsRef.current);
+
+    return (
+      loadedCollections.length === 0 ||
+      loadedCollections.some((collection) => !isCloudCollectionFresh(collection, now))
+    );
+  }
+
+  function markCloudCollectionsFresh(
+    collections: readonly CloudDataCollection[],
+    freshAt = Date.now()
+  ) {
+    collections.forEach((collection) => {
+      loadedCloudCollectionsRef.current.add(collection);
+      cloudCollectionFreshAtRef.current.set(collection, freshAt);
+    });
+  }
+
+  function markCloudCollectionsInFlight(collections: readonly CloudDataCollection[]) {
+    collections.forEach((collection) => {
+      cloudCollectionsInFlightRef.current.add(collection);
+    });
+  }
+
+  function clearCloudCollectionsInFlight(collections: readonly CloudDataCollection[]) {
+    collections.forEach((collection) => {
+      cloudCollectionsInFlightRef.current.delete(collection);
+    });
   }
 
   function applySnapshot(snapshot: ClubDataSnapshot) {
@@ -975,22 +1037,30 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setSyncDebug((current) => ({
         playersSource: hasRemotePlayers
           ? 'cloud'
-          : localSnapshot.players.length > 0
+          : current.playersSource === 'cloud'
+            ? 'cloud'
+            : localSnapshot.players.length > 0
             ? 'local'
             : 'empty',
         attendanceSource: hasRemoteAttendance
           ? 'cloud'
-          : localSnapshot.attendanceRecords.length > 0
+          : current.attendanceSource === 'cloud'
+            ? 'cloud'
+            : localSnapshot.attendanceRecords.length > 0
             ? 'local'
             : 'empty',
         availabilitySource: hasRemoteAvailability
           ? 'cloud'
-          : localSnapshot.availabilityRecords.length > 0
+          : current.availabilitySource === 'cloud'
+            ? 'cloud'
+            : localSnapshot.availabilityRecords.length > 0
             ? 'local'
             : 'empty',
         matchLineupSource: hasRemoteMatchLineup
           ? 'cloud'
-          : localSnapshot.matchLineupAssignments.length > 0
+          : current.matchLineupSource === 'cloud'
+            ? 'cloud'
+            : localSnapshot.matchLineupAssignments.length > 0
             ? 'local'
             : 'empty',
         lastSyncError: current.lastSyncError,
@@ -998,6 +1068,21 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     },
     []
   );
+
+  function applyRemoteCoreData(remoteCoreData: Partial<ClubDataSnapshot>) {
+    const currentSnapshot = getSnapshotFromRefs();
+    const nextRemoteCoreData = mergeLoadedTrainingSessionDetails(currentSnapshot, remoteCoreData);
+    const loadedCollections = getLoadedCloudCollections(nextRemoteCoreData);
+
+    setSyncDebugFromSources(currentSnapshot, nextRemoteCoreData);
+    applySnapshot(
+      normalizeClubDataSnapshot({
+        ...currentSnapshot,
+        ...nextRemoteCoreData,
+      })
+    );
+    markCloudCollectionsFresh(loadedCollections);
+  }
 
   function createCollectionSetter<T>(
     ref: { current: T[] },
@@ -1167,9 +1252,82 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     });
   };
 
-  const refreshAvailabilityRecordsForFixture = useCallback(
-    async (fixtureId: string) => {
+  const ensureClubCollections = useCallback(
+    async (collections: readonly CloudDataCollection[]) => {
       if (!isConfigured || !activeClubId) {
+        return;
+      }
+
+      const now = Date.now();
+      const collectionsToLoad = Array.from(new Set(collections)).filter((collection) => {
+        return (
+          !cloudCollectionsInFlightRef.current.has(collection) &&
+          !isCloudCollectionFresh(collection, now)
+        );
+      });
+
+      if (collectionsToLoad.length === 0) {
+        return;
+      }
+
+      if (pendingCloudSyncCountRef.current > 0) {
+        collectionsToLoad.forEach((collection) => {
+          loadedCloudCollectionsRef.current.add(collection);
+        });
+        pendingCloudRefreshRequestedRef.current = true;
+        return;
+      }
+
+      try {
+        const refreshStartedAtVersion = stateMutationVersionRef.current;
+        markCloudCollectionsInFlight(collectionsToLoad);
+        const remoteCoreData = await loadCloudCoreData(activeClubId, collectionsToLoad);
+
+        if (!remoteCoreData) {
+          return;
+        }
+
+        if (stateMutationVersionRef.current !== refreshStartedAtVersion) {
+          collectionsToLoad.forEach((collection) => {
+            loadedCloudCollectionsRef.current.add(collection);
+          });
+          requestCloudRefresh();
+          return;
+        }
+
+        applyRemoteCoreData(remoteCoreData);
+      } catch (error: unknown) {
+        console.warn('Failed to load cloud club data collections', error);
+        const errorMessage = getCloudSyncErrorMessage(error);
+
+        setSyncDebug((syncState) => ({
+          ...syncState,
+          lastSyncError: errorMessage
+            ? `Failed to load cloud club data: ${errorMessage}`
+            : 'Failed to load cloud club data.',
+        }));
+      } finally {
+        clearCloudCollectionsInFlight(collectionsToLoad);
+      }
+    },
+    [activeClubId, isConfigured]
+  );
+
+  const refreshAvailabilityRecordsForFixture = useCallback(
+    async (fixtureId: string, options?: { force?: boolean }) => {
+      if (!isConfigured || !activeClubId) {
+        return;
+      }
+
+      const now = Date.now();
+      const fixtureFreshAt = fixtureAvailabilityFreshAtRef.current.get(fixtureId);
+      const isFixtureAvailabilityFresh =
+        fixtureFreshAt !== undefined && now - fixtureFreshAt < CLOUD_COLLECTION_STALE_MS;
+
+      if (
+        !options?.force &&
+        (isCloudCollectionFresh('matchLineupAssignments', now) || isFixtureAvailabilityFresh)
+      ) {
         return;
       }
 
@@ -1185,6 +1343,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
         setMatchLineupAndAvailabilityState(nextAssignments);
         stateMutationVersionRef.current += 1;
+        fixtureAvailabilityFreshAtRef.current.set(fixtureId, Date.now());
         setSyncDebug((syncState) => ({
           ...syncState,
           availabilitySource: 'cloud',
@@ -1206,8 +1365,20 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
   );
 
   const refreshAvailabilityRecordsForPlayer = useCallback(
-    async (playerId: string) => {
+    async (playerId: string, options?: { force?: boolean }) => {
       if (!isConfigured || !activeClubId) {
+        return;
+      }
+
+      const now = Date.now();
+      const playerFreshAt = playerAvailabilityFreshAtRef.current.get(playerId);
+      const isPlayerAvailabilityFresh =
+        playerFreshAt !== undefined && now - playerFreshAt < CLOUD_COLLECTION_STALE_MS;
+
+      if (
+        !options?.force &&
+        (isCloudCollectionFresh('matchLineupAssignments', now) || isPlayerAvailabilityFresh)
+      ) {
         return;
       }
 
@@ -1220,6 +1391,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
         setMatchLineupAndAvailabilityState(nextAssignments);
         stateMutationVersionRef.current += 1;
+        playerAvailabilityFreshAtRef.current.set(playerId, Date.now());
         setSyncDebug((syncState) => ({
           ...syncState,
           availabilitySource: 'cloud',
@@ -1624,10 +1796,16 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     }
 
     const refreshPromise = (async () => {
+      const collectionsToRefresh =
+        loadedCloudCollectionsRef.current.size > 0
+          ? Array.from(loadedCloudCollectionsRef.current)
+          : [...BOOTSTRAP_CLOUD_COLLECTIONS];
+
       try {
         pendingCloudRefreshRequestedRef.current = false;
         const refreshStartedAtVersion = stateMutationVersionRef.current;
-        const remoteCoreData = await loadCloudCoreData(activeClubId);
+        markCloudCollectionsInFlight(collectionsToRefresh);
+        const remoteCoreData = await loadCloudCoreData(activeClubId, collectionsToRefresh);
 
         if (!remoteCoreData) {
           return;
@@ -1638,15 +1816,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
           return;
         }
 
-        const currentSnapshot = getSnapshotFromRefs();
-        const nextRemoteCoreData = mergeLoadedTrainingSessionDetails(currentSnapshot, remoteCoreData);
-        setSyncDebugFromSources(currentSnapshot, nextRemoteCoreData);
-        applySnapshot(
-          normalizeClubDataSnapshot({
-            ...currentSnapshot,
-            ...nextRemoteCoreData,
-          })
-        );
+        applyRemoteCoreData(remoteCoreData);
       } catch (error: unknown) {
         console.warn('Failed to refresh cloud club data', error);
         const errorMessage = getCloudSyncErrorMessage(error);
@@ -1658,6 +1828,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
             : 'Failed to refresh cloud club data.',
         }));
       } finally {
+        clearCloudCollectionsInFlight(collectionsToRefresh);
         refreshFromCloudPromiseRef.current = null;
       }
     })();
@@ -1668,8 +1839,12 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
   refreshFromCloudRef.current = refreshFromCloud;
 
-  const scheduleRefreshFromCloud = useCallback(() => {
+  const scheduleRefreshFromCloud = useCallback((options?: { force?: boolean }) => {
     if (!isConfigured || !activeClubId) {
+      return;
+    }
+
+    if (!options?.force && !hasStaleLoadedCloudCollections()) {
       return;
     }
 
@@ -1692,6 +1867,11 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
 
     let isMounted = true;
     hydratedStorageScopeRef.current = null;
+    loadedCloudCollectionsRef.current.clear();
+    cloudCollectionsInFlightRef.current.clear();
+    cloudCollectionFreshAtRef.current.clear();
+    fixtureAvailabilityFreshAtRef.current.clear();
+    playerAvailabilityFreshAtRef.current.clear();
     setIsHydrated(false);
 
     async function hydrate() {
@@ -1713,8 +1893,11 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
         }
 
         if (isConfigured && activeClubId) {
+          const bootstrapCollections = [...BOOTSTRAP_CLOUD_COLLECTIONS];
+
           try {
-            const remoteCoreData = await loadCloudCoreData(activeClubId);
+            markCloudCollectionsInFlight(bootstrapCollections);
+            const remoteCoreData = await loadCloudCoreData(activeClubId, bootstrapCollections);
 
             if (remoteCoreData) {
               const nextRemoteCoreData = mergeLoadedTrainingSessionDetails(localSnapshot, remoteCoreData);
@@ -1729,6 +1912,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
               }
 
               applySnapshot(nextSnapshot);
+              markCloudCollectionsFresh(getLoadedCloudCollections(nextRemoteCoreData));
               hydratedStorageScopeRef.current = storageScope;
               setIsHydrated(true);
               return;
@@ -1746,6 +1930,8 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
                 ? `Failed to load cloud club data: ${errorMessage}`
                 : 'Failed to load cloud club data.',
             }));
+          } finally {
+            clearCloudCollectionsInFlight(bootstrapCollections);
           }
         }
 
@@ -1887,6 +2073,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
       setPlayers,
       availabilityRecords: availabilityRecordsState,
       setAvailabilityRecords,
+      ensureClubCollections,
       refreshAvailabilityRecordsForFixture,
       refreshAvailabilityRecordsForPlayer,
       matchStats: matchStatsState,
@@ -1919,6 +2106,7 @@ export function ClubDataProvider({ children }: PropsWithChildren) {
     fixturesState,
     isConfigured,
     isHydrated,
+    ensureClubCollections,
     loadTrainingSessionDetails,
     matchLineupAssignmentsState,
     matchRotationAssignmentsState,
@@ -1946,4 +2134,17 @@ export function useClubData() {
   }
 
   return context;
+}
+
+export function useEnsureClubCollections(collections: readonly CloudDataCollection[]) {
+  const { ensureClubCollections, isHydrated } = useClubData();
+  const collectionsKey = collections.join('|');
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void ensureClubCollections(collections);
+  }, [collectionsKey, ensureClubCollections, isHydrated]);
 }

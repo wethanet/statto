@@ -13,7 +13,7 @@ import {
 } from '@web/components/admin/admin-workflow';
 import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { supabase } from '@web/lib/supabase';
 
 type ClubMember = {
@@ -94,6 +94,8 @@ function isMissingInviteSchemaError(error: unknown) {
 }
 
 export function ClubAdminRoute() {
+  useEnsureClubCollections(['players']);
+
   const { user } = useAuth();
   const { activeClub, activeClubId, refreshClubs } = useClubAccess();
   const { players } = useClubData();

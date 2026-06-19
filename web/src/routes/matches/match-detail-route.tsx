@@ -24,7 +24,7 @@ import { getPlayerSortValue } from '@/lib/team';
 import { updatePlayerRotationGroupOverrides } from '@/lib/team';
 
 import { AvailabilityPlayerRow } from '@web/components/availability-player-row';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
 type PlayerSort = 'name' | 'number';
@@ -48,6 +48,8 @@ function formatDate(value: string) {
 }
 
 export function MatchDetailRoute() {
+  useEnsureClubCollections(['players', 'fixtures', 'matchLineupAssignments']);
+
   const { fixtureId = '' } = useParams();
   const { policySettings } = useClubPolicy();
   const {

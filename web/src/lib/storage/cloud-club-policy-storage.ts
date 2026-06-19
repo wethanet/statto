@@ -37,7 +37,9 @@ function requireSupabase() {
   return supabase;
 }
 
-function mapRowToPolicySettings(row: ClubPolicySettingsRow | null | undefined): ClubPolicySettings {
+export function mapRowToPolicySettings(
+  row: ClubPolicySettingsRow | null | undefined
+): ClubPolicySettings {
   return normalizeClubPolicySettings({
     finalsMinimumGames: row?.finals_minimum_games ?? DEFAULT_CLUB_POLICY_SETTINGS.finalsMinimumGames,
     higherDivisionMaxGames: row?.higher_division_max_games ?? DEFAULT_CLUB_POLICY_SETTINGS.higherDivisionMaxGames,

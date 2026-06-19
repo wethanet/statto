@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { getPlayerAvailabilityLockReason, getSortedFixtures } from '@/lib/availability';
 import { getSortedTrainingSessions } from '@/lib/attendance';
 
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
@@ -40,6 +40,13 @@ function formatCountLabel(count: number, singular: string, plural: string) {
 }
 
 export function PlayerReminderPanel({ playerId }: PlayerReminderPanelProps) {
+  useEnsureClubCollections([
+    'attendanceRecords',
+    'fixtures',
+    'matchLineupAssignments',
+    'trainingSessions',
+  ]);
+
   const {
     attendanceRecords,
     availabilityRecords,

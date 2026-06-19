@@ -10,7 +10,7 @@ import type { MatchLinePosition, Player, PlayerRotationGroup } from '@/lib/types
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { useClubAccess } from '@web/lib/club-access-context';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
 type AnnouncementPlayer = Player & {
@@ -168,6 +168,8 @@ function getRotationGroupCardClass(group: PlayerRotationGroup | null, variant: G
 }
 
 export function TeamSelectionGraphicRoute() {
+  useEnsureClubCollections(['fixtures', 'matchLineupAssignments', 'players']);
+
   const { fixtureId = '' } = useParams();
   const { activeClub } = useClubAccess();
   const { availabilityRecords, fixtures, matchLineupAssignments, players } = useClubData();

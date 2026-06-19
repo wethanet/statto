@@ -8,7 +8,7 @@ import { getPlayerVoteCandidates, isPlayerVoteOpen } from '@/lib/club-policy';
 import { getFixtureScoreSummary } from '@/lib/match-stats';
 import { getLineupPlayerIdsForFixture, getPlayerVoteBallot } from '@/lib/votes';
 
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
@@ -30,6 +30,14 @@ function isPastItem(value: string) {
 }
 
 export function MatchesListRoute() {
+  useEnsureClubCollections([
+    'fixtures',
+    'matchLineupAssignments',
+    'matchStats',
+    'playerVoteBallots',
+    'players',
+  ]);
+
   const {
     fixtures,
     matchLineupAssignments,

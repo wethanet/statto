@@ -7,11 +7,13 @@ import type { PlayerSquad } from '@/lib/types';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { AdminRecordList, AdminSection, AdminSummaryStrip } from '@web/components/admin/admin-workflow';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
 export function RotationGroupsAdminRoute() {
+  useEnsureClubCollections(['players']);
+
   const { isHydrated, players } = useClubData();
   const { canManagePlayer } = useClubPermissions();
   const { policySettings } = useClubPolicy();

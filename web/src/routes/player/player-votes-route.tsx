@@ -7,7 +7,7 @@ import { getPlayerDisplayName, getPlayerSortValue } from '@/lib/team';
 import { getLineupPlayerIdsForFixture, getPlayerVoteBallot, upsertPlayerVoteBallot } from '@/lib/votes';
 
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
@@ -23,6 +23,14 @@ function formatFixtureDate(value: string) {
 }
 
 export function PlayerVotesRoute() {
+  useEnsureClubCollections([
+    'fixtures',
+    'matchLineupAssignments',
+    'matchStats',
+    'playerVoteBallots',
+    'players',
+  ]);
+
   const {
     fixtures,
     isHydrated,

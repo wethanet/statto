@@ -5,7 +5,7 @@ import { getPlayerDisplayName, getSortedTeam } from '@/lib/team';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { AdminRecordList, AdminSection, AdminSummaryStrip } from '@web/components/admin/admin-workflow';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
 type PlayerFilter = 'active' | 'all';
@@ -44,6 +44,8 @@ function getReportGradeColumns(
 }
 
 export function GamesPlayedReportRoute() {
+  useEnsureClubCollections(['fixtures', 'matchLineupAssignments', 'players']);
+
   const { fixtures, matchLineupAssignments, players } = useClubData();
   const { policySettings } = useClubPolicy();
   const [playerFilter, setPlayerFilter] = useState<PlayerFilter>('active');

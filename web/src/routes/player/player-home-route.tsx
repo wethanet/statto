@@ -6,7 +6,7 @@ import { getSortedTrainingSessions } from '@/lib/attendance';
 import { getFineSummary, getFinesForPlayer, getSortedFines } from '@/lib/fines';
 
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
@@ -34,6 +34,14 @@ function getAvailabilityLabel(status: 'available' | 'unavailable' | null) {
 }
 
 export function PlayerHomeRoute() {
+  useEnsureClubCollections([
+    'fines',
+    'fixtures',
+    'matchLineupAssignments',
+    'players',
+    'trainingSessions',
+  ]);
+
   const { availabilityRecords, fines, fixtures, refreshAvailabilityRecordsForPlayer, trainingSessions } = useClubData();
   const { canViewSquadItem } = useClubPermissions();
   const { policySettings } = useClubPolicy();

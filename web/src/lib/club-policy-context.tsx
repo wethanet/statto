@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -18,6 +19,7 @@ import { useAuth } from '@web/lib/auth-context';
 import { useClubAccess } from '@web/lib/club-access-context';
 import {
   loadCloudClubPolicySettings,
+  mapRowToPolicySettings,
   upsertCloudClubPolicySettings,
 } from '@web/lib/storage/cloud-club-policy-storage';
 import { readJsonStorage, writeJsonStorage } from '@web/lib/storage/local-storage';
@@ -33,7 +35,8 @@ type ClubPolicyContextValue = {
 };
 
 const ClubPolicyContext = createContext<ClubPolicyContextValue | null>(null);
-const POLICY_REFRESH_INTERVAL_MS = 60000;
+const POLICY_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const POLICY_STALE_MS = 5 * 60 * 1000;
 
 function getLocalPolicyStorageKey(activeClubId: string | null) {
   return `club-policy:${activeClubId ?? 'local'}:settings.json`;
@@ -46,9 +49,18 @@ export function ClubPolicyProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const lastPolicyRefreshAtRef = useRef(0);
 
-  const refreshPolicySettings = useCallback(async (options?: { silent?: boolean }) => {
+  const refreshPolicySettings = useCallback(async (options?: { force?: boolean; silent?: boolean }) => {
     if (isAuthLoading || isClubAccessLoading) {
+      return;
+    }
+
+    if (
+      options?.silent &&
+      !options.force &&
+      Date.now() - lastPolicyRefreshAtRef.current < POLICY_STALE_MS
+    ) {
       return;
     }
 
@@ -60,6 +72,7 @@ export function ClubPolicyProvider({ children }: PropsWithChildren) {
     try {
       if (isConfigured && activeClubId) {
         setPolicySettings(await loadCloudClubPolicySettings(activeClubId));
+        lastPolicyRefreshAtRef.current = Date.now();
         return;
       }
 
@@ -67,6 +80,7 @@ export function ClubPolicyProvider({ children }: PropsWithChildren) {
         getLocalPolicyStorageKey(activeClubId)
       );
       setPolicySettings(normalizeClubPolicySettings(localSettings));
+      lastPolicyRefreshAtRef.current = Date.now();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not load club policy settings.';
       setLastError(message);
@@ -92,6 +106,7 @@ export function ClubPolicyProvider({ children }: PropsWithChildren) {
         }
 
         setPolicySettings(normalizedSettings);
+        lastPolicyRefreshAtRef.current = Date.now();
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Could not save club policy settings.';
         setLastError(message);
@@ -159,8 +174,20 @@ export function ClubPolicyProvider({ children }: PropsWithChildren) {
           table: 'club_policy_settings',
           filter: `club_id=eq.${activeClubId}`,
         },
-        () => {
-          void refreshPolicySettings({ silent: true });
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            setPolicySettings(DEFAULT_CLUB_POLICY_SETTINGS);
+            lastPolicyRefreshAtRef.current = Date.now();
+            return;
+          }
+
+          if (payload.new && Object.keys(payload.new).length > 0) {
+            setPolicySettings(mapRowToPolicySettings(payload.new as Parameters<typeof mapRowToPolicySettings>[0]));
+            lastPolicyRefreshAtRef.current = Date.now();
+            return;
+          }
+
+          void refreshPolicySettings({ force: true, silent: true });
         }
       );
 

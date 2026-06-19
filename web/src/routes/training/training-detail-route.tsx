@@ -11,7 +11,7 @@ import { getPlayerSortValue } from '@/lib/team';
 import type { TrainingSessionPlanAttachment } from '@/lib/types';
 
 import { AttendancePlayerRow } from '@web/components/attendance-player-row';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { openTrainingSessionPlan } from '@web/lib/training-session-plan';
 
@@ -40,6 +40,8 @@ function isSessionPlanImage(plan: TrainingSessionPlanAttachment | null) {
 }
 
 export function TrainingDetailRoute() {
+  useEnsureClubCollections(['attendanceRecords', 'players', 'trainingSessions']);
+
   const { sessionId = '' } = useParams();
   const {
     attendanceRecords,

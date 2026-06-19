@@ -12,9 +12,11 @@ import {
   AdminSummaryStrip,
   AdminSupportingPanel,
 } from '@web/components/admin/admin-workflow';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 
 export function TeamSetupAdminRoute() {
+  useEnsureClubCollections(['players']);
+
   const { isHydrated, players, setPlayers } = useClubData();
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [playerFormMessage, setPlayerFormMessage] = useState<string | null>(null);

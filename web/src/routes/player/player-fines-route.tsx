@@ -4,7 +4,7 @@ import { addFine, getFineSummary, getFinesForPlayer, getSortedFines, toggleFineP
 import { getPlayerDisplayName, getPlayerSortValue } from '@/lib/team';
 
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
 
 function formatDate(value: string) {
@@ -15,6 +15,8 @@ function formatDate(value: string) {
 }
 
 export function PlayerFinesRoute() {
+  useEnsureClubCollections(['fines', 'players']);
+
   const { fines, isHydrated, players, setFines } = useClubData();
   const { selectedPlayer } = usePlayerProfile();
   const activePlayers = useMemo(() => {

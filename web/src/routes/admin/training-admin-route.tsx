@@ -33,7 +33,7 @@ import {
   AdminSummaryStrip,
   AdminSupportingPanel,
 } from '@web/components/admin/admin-workflow';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { discoverTrainingLibraryDrills, type DiscoveredTrainingLibrary } from '@web/lib/training-library-ai';
 import { openTrainingSessionPlan } from '@web/lib/training-session-plan';
@@ -95,6 +95,8 @@ type SessionFormResult =
     };
 
 export function TrainingAdminRoute() {
+  useEnsureClubCollections(['attendanceRecords', 'trainingSessions']);
+
   const { setAttendanceRecords, setTrainingSessions, trainingSessions } = useClubData();
   const [eventListFilter, setEventListFilter] = useState<EventListFilter>('upcoming');
   const sessions = useMemo(() => {
@@ -234,6 +236,8 @@ export function TrainingAdminRoute() {
 }
 
 export function TrainingSettingsRoute() {
+  useEnsureClubCollections(['trainingSessions']);
+
   const { setTrainingSessions, trainingSessions } = useClubData();
   const {
     isLoading: isPolicyLoading,
@@ -794,6 +798,8 @@ export function TrainingLibraryRoute() {
 }
 
 export function TrainingSessionFormRoute() {
+  useEnsureClubCollections(['trainingSessions']);
+
   const navigate = useNavigate();
   const { sessionId } = useParams();
   const { loadTrainingSessionDetails, setTrainingSessions, trainingSessions } = useClubData();

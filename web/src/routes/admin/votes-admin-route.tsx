@@ -3,10 +3,12 @@ import { aggregatePlayerVoteBallots, getVoteLeaderboard, voteTypes } from '@/lib
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
 import { AdminRecordList, AdminSection, AdminSummaryStrip } from '@web/components/admin/admin-workflow';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 
 export function VotesAdminRoute() {
+  useEnsureClubCollections(['playerVoteBallots', 'players', 'voteEntries']);
+
   const { isHydrated, playerVoteBallots, players, voteEntries } = useClubData();
   const { canViewPlayer } = useClubPermissions();
   const visiblePlayers = players.filter((player) => canViewPlayer(player));

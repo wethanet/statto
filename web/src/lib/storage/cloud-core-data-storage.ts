@@ -42,6 +42,28 @@ export type CloudCoreData = {
   playerVoteBallots: PlayerVoteBallot[];
 };
 
+export const CLOUD_CORE_COLLECTIONS = [
+  'players',
+  'trainingSessions',
+  'attendanceRecords',
+  'fixtures',
+  'matchStats',
+  'matchLineupAssignments',
+  'matchRotationAssignments',
+  'playerDevelopmentEntries',
+  'voteEntries',
+  'fitnessResults',
+  'fines',
+  'playerVoteBallots',
+] as const;
+
+export type CloudDataCollection = (typeof CLOUD_CORE_COLLECTIONS)[number];
+
+type CloudCollectionResult = {
+  data: Record<string, unknown>[] | null;
+  error: { code?: string; message?: string } | null;
+};
+
 function requireSupabase() {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
@@ -322,17 +344,24 @@ export async function loadCloudMatchLineupAssignmentsForPlayer(
   return mapCloudMatchLineupAssignments(result.data ?? []);
 }
 
-export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCoreData> | null> {
+export async function loadCloudCoreData(
+  clubId: string,
+  collections: readonly CloudDataCollection[] = CLOUD_CORE_COLLECTIONS
+): Promise<Partial<CloudCoreData> | null> {
   if (!supabase) {
     return null;
   }
 
-  const playersResultPromise = loadCloudPlayers(clubId);
-  const matchStatsResultPromise = loadCloudMatchStats(clubId);
-  const trainingSessionsResultPromise = loadCloudTrainingSessions(clubId);
-  const matchLineupAssignmentsResultPromise = loadCloudMatchLineupAssignments(clubId);
-  const matchRotationAssignmentsResultPromise = loadCloudMatchRotationAssignments(clubId);
-  const finesResultPromise = loadCloudFines(clubId);
+  const client = supabase;
+  const requestedCollections = new Set(collections);
+  const maybeLoad = <T extends CloudCollectionResult>(
+    collection: CloudDataCollection,
+    loader: () => Promise<T>
+  ): Promise<CloudCollectionResult | null> => {
+    return requestedCollections.has(collection)
+      ? loader() as Promise<CloudCollectionResult>
+      : Promise.resolve(null);
+  };
 
   const [
     playersResult,
@@ -348,55 +377,67 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     fitnessResultsResult,
     finesResult,
   ] = await Promise.all([
-    playersResultPromise,
-    trainingSessionsResultPromise,
-    supabase
-      .from('club_attendance_records')
-      .select('session_id, player_id, status')
-      .eq('club_id', clubId),
-    supabase
-      .from('club_fixtures')
-      .select('id, opponent, grade, squad, date, venue, is_home')
-      .eq('club_id', clubId)
-      .order('date', { ascending: true }),
-    matchStatsResultPromise,
-    matchLineupAssignmentsResultPromise,
-    matchRotationAssignmentsResultPromise,
-    supabase
-      .from('club_player_development_entries')
-      .select(
-        'player_id, week_start, focus_areas, coaching_note, progress_status, proficiency, progress_note, generated_at, updated_at'
-      )
-      .eq('club_id', clubId)
-      .order('week_start', { ascending: false }),
-    supabase
-      .from('club_vote_entries')
-      .select('fixture_id, player_id, vote_type, points')
-      .eq('club_id', clubId),
-    supabase
-      .from('club_player_vote_ballots')
-      .select('fixture_id, voter_player_id, nominee_player_id')
-      .eq('club_id', clubId),
-    supabase
-      .from('club_fitness_results')
-      .select('player_id, metric, phase, value, recorded_at')
-      .eq('club_id', clubId),
-    finesResultPromise,
+    maybeLoad('players', () => loadCloudPlayers(clubId)),
+    maybeLoad('trainingSessions', () => loadCloudTrainingSessions(clubId)),
+    maybeLoad('attendanceRecords', () =>
+      client
+        .from('club_attendance_records')
+        .select('session_id, player_id, status')
+        .eq('club_id', clubId) as unknown as Promise<CloudCollectionResult>
+    ),
+    maybeLoad('fixtures', () =>
+      client
+        .from('club_fixtures')
+        .select('id, opponent, grade, squad, date, venue, is_home')
+        .eq('club_id', clubId)
+        .order('date', { ascending: true }) as unknown as Promise<CloudCollectionResult>
+    ),
+    maybeLoad('matchStats', () => loadCloudMatchStats(clubId)),
+    maybeLoad('matchLineupAssignments', () => loadCloudMatchLineupAssignments(clubId)),
+    maybeLoad('matchRotationAssignments', () => loadCloudMatchRotationAssignments(clubId)),
+    maybeLoad('playerDevelopmentEntries', () =>
+      client
+        .from('club_player_development_entries')
+        .select(
+          'player_id, week_start, focus_areas, coaching_note, progress_status, proficiency, progress_note, generated_at, updated_at'
+        )
+        .eq('club_id', clubId)
+        .order('week_start', { ascending: false }) as unknown as Promise<CloudCollectionResult>
+    ),
+    maybeLoad('voteEntries', () =>
+      client
+        .from('club_vote_entries')
+        .select('fixture_id, player_id, vote_type, points')
+        .eq('club_id', clubId) as unknown as Promise<CloudCollectionResult>
+    ),
+    maybeLoad('playerVoteBallots', () =>
+      client
+        .from('club_player_vote_ballots')
+        .select('fixture_id, voter_player_id, nominee_player_id')
+        .eq('club_id', clubId) as unknown as Promise<CloudCollectionResult>
+    ),
+    maybeLoad('fitnessResults', () =>
+      client
+        .from('club_fitness_results')
+        .select('player_id, metric, phase, value, recorded_at')
+        .eq('club_id', clubId) as unknown as Promise<CloudCollectionResult>
+    ),
+    maybeLoad('fines', () => loadCloudFines(clubId)),
   ]);
 
   const snapshot: Partial<CloudCoreData> = {};
   let hasSuccessfulRead = false;
 
-  if (playersResult.error) {
+  if (playersResult?.error) {
     logCloudCollectionError('players', playersResult.error);
-  } else {
+  } else if (playersResult) {
     snapshot.players = normalizePlayers((playersResult.data ?? []) as Player[]);
     hasSuccessfulRead = true;
   }
 
-  if (trainingSessionsResult.error) {
+  if (trainingSessionsResult?.error) {
     logCloudCollectionError('training sessions', trainingSessionsResult.error);
-  } else {
+  } else if (trainingSessionsResult) {
     snapshot.trainingSessions = normalizeTrainingSessions(
       (trainingSessionsResult.data ?? []).map((session) => {
         return {
@@ -416,9 +457,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (attendanceRecordsResult.error) {
+  if (attendanceRecordsResult?.error) {
     logCloudCollectionError('attendance records', attendanceRecordsResult.error);
-  } else {
+  } else if (attendanceRecordsResult) {
     snapshot.attendanceRecords = (attendanceRecordsResult.data ?? []).map((record) => {
       return {
         sessionId: record.session_id as string,
@@ -429,9 +470,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (fixturesResult.error) {
+  if (fixturesResult?.error) {
     logCloudCollectionError('fixtures', fixturesResult.error);
-  } else {
+  } else if (fixturesResult) {
     snapshot.fixtures = (fixturesResult.data ?? []).map((fixture) => {
       return {
         id: fixture.id as string,
@@ -450,9 +491,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (matchStatsResult.error) {
+  if (matchStatsResult?.error) {
     logCloudCollectionError('match stats', matchStatsResult.error);
-  } else {
+  } else if (matchStatsResult) {
     snapshot.matchStats = normalizeMatchStats(
       (matchStatsResult.data ?? []).map((entry) => {
         return {
@@ -467,18 +508,18 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (matchLineupAssignmentsResult.error) {
+  if (matchLineupAssignmentsResult?.error) {
     logCloudCollectionError('match lineup assignments', matchLineupAssignmentsResult.error);
-  } else {
+  } else if (matchLineupAssignmentsResult) {
     snapshot.matchLineupAssignments = mapCloudMatchLineupAssignments(
       matchLineupAssignmentsResult.data ?? []
     );
     hasSuccessfulRead = true;
   }
 
-  if (matchRotationAssignmentsResult.error) {
+  if (matchRotationAssignmentsResult?.error) {
     logCloudCollectionError('match rotation assignments', matchRotationAssignmentsResult.error);
-  } else {
+  } else if (matchRotationAssignmentsResult) {
     snapshot.matchRotationAssignments = (matchRotationAssignmentsResult.data ?? []).map((assignment) => {
       return {
         fixtureId: assignment.fixture_id as string,
@@ -489,9 +530,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (playerDevelopmentEntriesResult.error) {
+  if (playerDevelopmentEntriesResult?.error) {
     logCloudCollectionError('player development entries', playerDevelopmentEntriesResult.error);
-  } else {
+  } else if (playerDevelopmentEntriesResult) {
     snapshot.playerDevelopmentEntries = normalizePlayerDevelopmentEntries(
       (playerDevelopmentEntriesResult.data ?? []).map((entry) => {
         return {
@@ -510,9 +551,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (voteEntriesResult.error) {
+  if (voteEntriesResult?.error) {
     logCloudCollectionError('vote entries', voteEntriesResult.error);
-  } else {
+  } else if (voteEntriesResult) {
     snapshot.voteEntries = normalizeVoteEntries(
       (voteEntriesResult.data ?? []).map((entry) => {
         return {
@@ -526,7 +567,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (playerVoteBallotsResult.error) {
+  if (playerVoteBallotsResult?.error) {
     if (isMissingTableError(playerVoteBallotsResult.error)) {
       snapshot.playerVoteBallots = [];
       logMissingOptionalTable('player vote ballots', 'public.club_player_vote_ballots');
@@ -534,7 +575,7 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     } else {
       logCloudCollectionError('player vote ballots', playerVoteBallotsResult.error);
     }
-  } else {
+  } else if (playerVoteBallotsResult) {
     snapshot.playerVoteBallots = (playerVoteBallotsResult.data ?? []).map((ballot) => {
       return {
         fixtureId: ballot.fixture_id as string,
@@ -545,9 +586,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (fitnessResultsResult.error) {
+  if (fitnessResultsResult?.error) {
     logCloudCollectionError('fitness results', fitnessResultsResult.error);
-  } else {
+  } else if (fitnessResultsResult) {
     snapshot.fitnessResults = (fitnessResultsResult.data ?? []).map((result) => {
       return {
         playerId: result.player_id as string,
@@ -560,9 +601,9 @@ export async function loadCloudCoreData(clubId: string): Promise<Partial<CloudCo
     hasSuccessfulRead = true;
   }
 
-  if (finesResult.error) {
+  if (finesResult?.error) {
     logCloudCollectionError('fines', finesResult.error);
-  } else {
+  } else if (finesResult) {
     snapshot.fines = (finesResult.data ?? []).map((fine) => {
       return {
         id: fine.id as string,
@@ -825,15 +866,6 @@ export async function deleteCloudAvailabilityRecord(
   });
 
   await throwOnError(responseResult.error);
-
-  const fixtureRecords = await loadCloudAvailabilityRecordsForFixture(clubId, fixtureId);
-  const deletedRecord = fixtureRecords.find((record) => {
-    return record.playerId === playerId;
-  });
-
-  if (deletedRecord) {
-    throw new Error(`Availability reset was not confirmed for ${playerId} on ${fixtureId}.`);
-  }
 }
 
 export async function upsertCloudAvailabilityRecords(

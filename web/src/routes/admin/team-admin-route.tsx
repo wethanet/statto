@@ -32,12 +32,24 @@ import {
 } from '@web/components/admin/admin-workflow';
 import { TeamPlayerRow } from '@web/components/team/team-player-row';
 import { useClubAccess } from '@web/lib/club-access-context';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { upsertCloudPlayer } from '@web/lib/storage/cloud-core-data-storage';
 
 export function TeamAdminRoute() {
+  useEnsureClubCollections([
+    'attendanceRecords',
+    'fines',
+    'fitnessResults',
+    'fixtures',
+    'matchLineupAssignments',
+    'playerDevelopmentEntries',
+    'playerVoteBallots',
+    'players',
+    'voteEntries',
+  ]);
+
   const { activeClubId } = useClubAccess();
   const { policySettings } = useClubPolicy();
   const { canManagePlayer } = useClubPermissions();

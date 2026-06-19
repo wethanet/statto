@@ -6,9 +6,11 @@ import type { VoteType } from '@/lib/types';
 import { getFixtureVoteTotal, getPlayersForFixtureVotes, upsertVoteEntry, voteTypes } from '@/lib/votes';
 
 import { VotePlayerRow } from '@web/components/votes/vote-player-row';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 
 export function MatchVotesRoute() {
+  useEnsureClubCollections(['fixtures', 'players', 'voteEntries']);
+
   const { fixtureId = '' } = useParams();
   const { fixtures, isHydrated, players, setVoteEntries, voteEntries } = useClubData();
   const fixture = getFixtureById(fixtureId, fixtures);

@@ -8,7 +8,7 @@ import {
   AdminSummaryStrip,
 } from '@web/components/admin/admin-workflow';
 import { FineRow } from '@web/components/fines/fine-row';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 
 import {
@@ -22,6 +22,8 @@ import {
 import { getPlayerDisplayName, getPlayerSortValue } from '@/lib/team';
 
 export function FinesAdminRoute() {
+  useEnsureClubCollections(['fines', 'players']);
+
   const { fines, isHydrated, players, setFines } = useClubData();
   const { canManagePlayer } = useClubPermissions();
   const manageablePlayers = useMemo(() => {

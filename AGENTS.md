@@ -170,6 +170,19 @@ Do not silently swallow errors.
 
 If mocking or stubbing is needed, make it obvious.
 
+### Club data sync and Supabase reads
+
+This app uses shared club data from Supabase. Keep network usage conservative.
+
+- Do not add broad full-club reloads for narrow interactions.
+- Load only the collections a screen actually needs.
+- Use `ensureClubCollections(...)` for route-level data needs.
+- Keep Realtime as the primary freshness path for row-level updates.
+- Use the 5-minute stale refresh pattern for safety reconciliation.
+- Do not immediately reload the full snapshot after a successful row write.
+- Availability responses live in `club_match_lineup_assignments`; do not read or write `club_availability_records` from app code.
+- Opening UI controls, such as availability dropdowns, should not trigger data reloads.
+
 ---
 
 ## Error Handling
@@ -230,12 +243,27 @@ When implementing a task, follow this order:
 1. Read the relevant files first
 2. Understand the local pattern
 3. Make the smallest effective change
-4. Run relevant checks if available
-5. Summarize:
+4. Bump the web app version for every change with `npm run release:patch` unless a minor or major bump is explicitly warranted
+5. Run relevant checks if available
+6. Push every completed change to `main`
+7. Summarize:
    - files changed
    - behavior changed
    - validation performed
    - any follow-up risks
+
+---
+
+## Release and Publishing
+
+Every change should be released deliberately.
+
+- Bump the app version for every change. The visible app version comes from `web/package.json`.
+- Use `npm run release:patch` for normal updates.
+- Use `npm run release:minor` or `npm run release:major` only when the change warrants it.
+- Commit and push completed work to `main`.
+- Do not include unrelated local files in commits.
+- Before pushing, run `npm --prefix web run typecheck` and `npm --prefix web run build` when the change touches app code.
 
 ---
 

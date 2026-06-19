@@ -9,7 +9,7 @@ import type { Fixture } from '@/lib/types';
 
 import bulldogsLogo from '@web/assets/bulldogs-logo-square.png';
 import { useClubAccess } from '@web/lib/club-access-context';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 
 function formatDate(value: string) {
@@ -79,6 +79,17 @@ function getNextFixtureByGrade(fixtures: Fixture[]) {
 }
 
 export function HomeScreen() {
+  useEnsureClubCollections([
+    'attendanceRecords',
+    'fines',
+    'fitnessResults',
+    'fixtures',
+    'matchStats',
+    'players',
+    'trainingSessions',
+    'voteEntries',
+  ]);
+
   const { activeClub } = useClubAccess();
   const { canAccessAdmin, canViewPlayer, canViewSquadItem } = useClubPermissions();
   const {

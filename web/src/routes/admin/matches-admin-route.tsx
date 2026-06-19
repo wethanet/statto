@@ -21,7 +21,7 @@ import {
   AdminSupportingPanel,
 } from '@web/components/admin/admin-workflow';
 import { importFixturesFromCalendarUrl, normalizeWebcalUrl } from '@web/lib/fixture-calendar';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 
 type FixtureFormResult =
   | {
@@ -51,6 +51,14 @@ function formatDate(value: string) {
 }
 
 export function MatchesAdminRoute() {
+  useEnsureClubCollections([
+    'fixtures',
+    'matchLineupAssignments',
+    'matchStats',
+    'playerVoteBallots',
+    'voteEntries',
+  ]);
+
   const { fixtures, setFixtures, setMatchLineupAssignments, setMatchStats, setPlayerVoteBallots, setVoteEntries } =
     useClubData();
   const [opponent, setOpponent] = useState('');

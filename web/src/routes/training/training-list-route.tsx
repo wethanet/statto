@@ -8,7 +8,7 @@ import {
   upsertAttendanceRecord,
 } from '@/lib/attendance';
 
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
 
@@ -88,6 +88,8 @@ function formatFileSize(size: number) {
 }
 
 export function TrainingListRoute() {
+  useEnsureClubCollections(['attendanceRecords', 'players', 'trainingSessions']);
+
   const { attendanceRecords, players, trainingSessions, setAttendanceRecords } = useClubData();
   const { canAccessAdmin, canAccessTrainingSessionPlans, canViewPlayer, canViewSquadItem, isPlayer } =
     useClubPermissions();

@@ -35,7 +35,7 @@ import {
   AdminSupportingPanel,
 } from '@web/components/admin/admin-workflow';
 import { useClubAccess } from '@web/lib/club-access-context';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import {
   chatPlayerDevelopmentCoach,
@@ -70,6 +70,8 @@ function createDevelopmentChatIntro(playerName: string): PlayerDevelopmentCoachM
 }
 
 export function PlayerDevelopmentAdminRoute() {
+  useEnsureClubCollections(['playerDevelopmentEntries', 'players']);
+
   const { activeClubId } = useClubAccess();
   const { canManagePlayer } = useClubPermissions();
   const { isHydrated, playerDevelopmentEntries, players, setPlayerDevelopmentEntries, setPlayers, storageMode } =

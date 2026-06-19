@@ -14,12 +14,20 @@ import {
   AdminSupportingPanel,
 } from '@web/components/admin/admin-workflow';
 import { useClubAccess } from '@web/lib/club-access-context';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { useSettings } from '@web/lib/settings-context';
 import { supabase } from '@web/lib/supabase';
 
 export function AdminHomeRoute() {
+  useEnsureClubCollections([
+    'fines',
+    'fitnessResults',
+    'players',
+    'trainingSessions',
+    'voteEntries',
+  ]);
+
   const {
     fines,
     fitnessResults,

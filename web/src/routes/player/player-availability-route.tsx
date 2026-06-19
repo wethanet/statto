@@ -7,7 +7,7 @@ import {
 import { useEffect, useMemo } from 'react';
 
 import { PlayerPageShell } from '@web/components/player/player-page-shell';
-import { useClubData } from '@web/lib/club-data-context';
+import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPermissions } from '@web/lib/club-permissions';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 import { usePlayerProfile } from '@web/lib/player-profile-context';
@@ -60,6 +60,8 @@ function getPlayerAvailabilityTone(status: 'available' | 'unavailable' | null) {
 }
 
 export function PlayerAvailabilityRoute() {
+  useEnsureClubCollections(['fixtures', 'matchLineupAssignments', 'players']);
+
   const {
     availabilityRecords,
     fixtures,
