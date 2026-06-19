@@ -7,7 +7,7 @@ import type {
 
 export const matchLinePositions: MatchLinePosition[] = ['B', 'HB', 'W', 'C', 'HF', 'F', 'Fol', 'Int'];
 
-const availabilityStatuses: AvailabilityStatus[] = ['available', 'unavailable', 'uncertain'];
+const availabilityStatuses: AvailabilityStatus[] = ['available', 'unavailable'];
 
 function isMatchLinePosition(value: unknown): value is MatchLinePosition {
   return typeof value === 'string' && matchLinePositions.includes(value as MatchLinePosition);

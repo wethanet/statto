@@ -1,6 +1,6 @@
 import { getPlayerSortValue } from '@/lib/team';
 import type {
-  AvailabilityStatus,
+  AvailabilityResponseStatus,
   MatchLinePosition,
   Player,
   PlayerPositionProfile,
@@ -45,7 +45,7 @@ export type MatchRotationPlan = {
 
 type MatchRotationPlayer = Player & {
   matchPosition: MatchLinePosition | null;
-  availabilityStatus?: AvailabilityStatus;
+  availabilityStatus?: AvailabilityResponseStatus;
 };
 
 const rotationGroupDefinitions: RotationGroupDefinition[] = [

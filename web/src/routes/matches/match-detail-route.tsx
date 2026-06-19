@@ -28,12 +28,12 @@ import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-contex
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
 type PlayerSort = 'name' | 'number';
-type AvailabilityGroup = 'available' | 'unavailable' | 'responded-not-selected' | 'not-responded';
+type AvailabilityGroup = 'selected' | 'available' | 'unavailable' | 'not-responded';
 
 const AVAILABILITY_GROUPS: { key: AvailabilityGroup; title: string }[] = [
-  { key: 'available', title: 'Selected' },
+  { key: 'selected', title: 'Selected' },
   { key: 'unavailable', title: 'Unavailable' },
-  { key: 'responded-not-selected', title: 'Available' },
+  { key: 'available', title: 'Available' },
   { key: 'not-responded', title: 'No response' },
 ];
 
@@ -144,7 +144,7 @@ export function MatchDetailRoute() {
           return record.fixtureId === fixture.id && record.playerId === player.id;
         });
 
-        if (group.key === 'available') {
+        if (group.key === 'selected') {
           return player.availabilityStatus === 'available' && player.matchPosition !== null;
         }
 
@@ -152,7 +152,7 @@ export function MatchDetailRoute() {
           return player.availabilityStatus === 'unavailable';
         }
 
-        if (group.key === 'responded-not-selected') {
+        if (group.key === 'available') {
           return hasSavedResponse && player.availabilityStatus !== 'unavailable' && player.matchPosition === null;
         }
 
@@ -208,7 +208,7 @@ export function MatchDetailRoute() {
       current.respondedNotSelected += 1;
       return current;
     },
-    { available: 0, unavailable: 0, uncertain: 0, respondedNotSelected: 0, notResponded: 0 }
+    { available: 0, unavailable: 0, respondedNotSelected: 0, notResponded: 0 }
   );
   const totalPlayers = players.length;
   const respondedCount = summary.available + summary.unavailable + summary.respondedNotSelected;
@@ -350,11 +350,11 @@ export function MatchDetailRoute() {
                       availabilityRecords
                     );
                     const rowStatus =
-                      responseStatus === 'available' || responseStatus === 'uncertain'
+                      responseStatus === 'available'
                         ? 'available'
                         : responseStatus === 'unavailable'
                           ? 'unavailable'
-                          : 'uncertain';
+                          : 'not-responded';
 
                     return (
                       <AvailabilityPlayerRow
@@ -411,7 +411,7 @@ export function MatchDetailRoute() {
                           });
                         }}
                         hasSameDaySelectionConflict={
-                          player.availabilityStatus === 'uncertain' &&
+                          player.availabilityStatus === 'not-responded' &&
                           isPlayerSelectedInOtherSameDayFixture(
                             fixture.id,
                             player.id,

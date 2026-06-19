@@ -129,7 +129,7 @@ export type Fixture = {
   isHome: boolean;
 };
 
-export type AvailabilityStatus = 'available' | 'unavailable' | 'uncertain';
+export type AvailabilityStatus = 'available' | 'unavailable';
 export type AvailabilityResponseStatus = AvailabilityStatus | 'not-responded';
 
 export type AvailabilityRecord = {

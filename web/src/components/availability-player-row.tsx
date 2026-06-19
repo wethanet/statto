@@ -5,7 +5,6 @@ import { matchRotationGroups } from '@/lib/match-rotations';
 import { getPlayerRotationGroupLabel } from '@/lib/team';
 import type {
   AvailabilityResponseStatus,
-  AvailabilityStatus,
   MatchLinePosition,
   Player,
   PlayerRotationGroup,
@@ -13,7 +12,7 @@ import type {
 
 type AvailabilityPlayerRowProps = {
   player: Player;
-  status: AvailabilityStatus;
+  status: AvailabilityResponseStatus;
   responseStatus: AvailabilityResponseStatus;
   hasSameDaySelectionConflict?: boolean;
   eligibilityWarnings?: string[];
@@ -27,12 +26,7 @@ type AvailabilityPlayerRowProps = {
   onResetRotationGroup: () => void;
 };
 
-const AVAILABILITY_OPTIONS: AvailabilityResponseStatus[] = [
-  'available',
-  'unavailable',
-  'uncertain',
-  'not-responded',
-];
+const AVAILABILITY_OPTIONS: AvailabilityResponseStatus[] = ['available', 'unavailable', 'not-responded'];
 
 function getAvailabilityLabel(status: AvailabilityResponseStatus) {
   if (status === 'available') {
@@ -41,10 +35,6 @@ function getAvailabilityLabel(status: AvailabilityResponseStatus) {
 
   if (status === 'not-responded') {
     return 'not responded';
-  }
-
-  if (status === 'uncertain') {
-    return 'uncertain';
   }
 
   return 'unavailable';

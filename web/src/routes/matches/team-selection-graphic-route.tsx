@@ -14,7 +14,7 @@ import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-contex
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
 type AnnouncementPlayer = Player & {
-  availabilityStatus: 'available' | 'unavailable' | 'uncertain';
+  availabilityStatus: 'available' | 'unavailable' | 'not-responded';
   matchPosition: MatchLinePosition | null;
 };
 

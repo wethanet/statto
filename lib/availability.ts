@@ -12,8 +12,6 @@ import { normalizePlayerSquad } from '@/lib/team';
 type AvailabilitySummary = {
   available: number;
   unavailable: number;
-  uncertain: number;
-  respondedNotSelected: number;
   notResponded: number;
 };
 
@@ -113,10 +111,10 @@ export function getAvailabilityStatusForPlayer(
   fixtureId: string,
   playerId: string,
   records: AvailabilityRecord[]
-): AvailabilityStatus {
+): AvailabilityResponseStatus {
   return records.find((record) => {
     return record.fixtureId === fixtureId && record.playerId === playerId;
-  })?.status ?? 'uncertain';
+  })?.status ?? 'not-responded';
 }
 
 export function getAvailabilityResponseStatusForPlayer(
@@ -169,21 +167,17 @@ export function getAvailabilitySummary(
       const record = records.find((availabilityRecord) => {
         return availabilityRecord.fixtureId === fixtureId && availabilityRecord.playerId === player.id;
       });
-      const status = record?.status ?? 'uncertain';
 
-      summary[status] += 1;
-
-      if (status === 'uncertain') {
-        if (record) {
-          summary.respondedNotSelected += 1;
-        } else {
-          summary.notResponded += 1;
-        }
+      if (!record) {
+        summary.notResponded += 1;
+        return summary;
       }
+
+      summary[record.status] += 1;
 
       return summary;
     },
-    { available: 0, unavailable: 0, uncertain: 0, respondedNotSelected: 0, notResponded: 0 }
+    { available: 0, unavailable: 0, notResponded: 0 }
   );
 }
 
@@ -218,7 +212,9 @@ export function isPlayerSelectedInOtherSameDayFixture(
     return (
       fixture.id !== fixtureId &&
       getFixtureDayKey(fixture.date) === currentDayKey &&
-      getAvailabilityStatusForPlayer(fixture.id, playerId, records) === 'available'
+      records.some((record) => {
+        return record.fixtureId === fixture.id && record.playerId === playerId && record.status === 'available';
+      })
     );
   });
 }
@@ -274,10 +270,11 @@ export function applyDefaultAvailabilityForFixture(
   }
 
   const nextRecords = players.reduce<AvailabilityRecord[]>((current, player) => {
-    const status: AvailabilityStatus =
-      !player.active ? 'uncertain' : player.squad === squad ? 'available' : 'uncertain';
+    if (!player.active || player.squad !== squad) {
+      return current;
+    }
 
-    return upsertAvailabilityRecord(current, fixture.id, player.id, status);
+    return upsertAvailabilityRecord(current, fixture.id, player.id, 'available');
   }, records);
 
   const selectedCount = players.filter((player) => {

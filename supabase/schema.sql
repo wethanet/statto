@@ -135,7 +135,7 @@ create table if not exists public.club_match_lineup_assignments (
   player_id text not null,
   position text check (position in ('B', 'HB', 'W', 'C', 'HF', 'F', 'Fol', 'Int')),
   availability_status text not null default 'available' check (
-    availability_status in ('available', 'unavailable', 'uncertain')
+    availability_status in ('available', 'unavailable')
   ),
   updated_at timestamptz not null default timezone('utc', now()),
   primary key (club_id, fixture_id, player_id)
@@ -383,15 +383,24 @@ add column if not exists availability_status text not null default 'available';
 
 do $$
 begin
-  if not exists (
+  if exists (
     select 1
     from pg_constraint
     where conname = 'club_match_lineup_assignments_availability_status_check'
+      and conrelid = 'public.club_match_lineup_assignments'::regclass
   ) then
     alter table public.club_match_lineup_assignments
-    add constraint club_match_lineup_assignments_availability_status_check
-    check (availability_status in ('available', 'unavailable', 'uncertain'));
+    drop constraint club_match_lineup_assignments_availability_status_check;
   end if;
+
+  update public.club_match_lineup_assignments
+  set availability_status = 'available',
+      updated_at = timezone('utc', now())
+  where availability_status = 'uncertain';
+
+  alter table public.club_match_lineup_assignments
+  add constraint club_match_lineup_assignments_availability_status_check
+  check (availability_status in ('available', 'unavailable'));
 end $$;
 
 insert into public.club_match_lineup_assignments (
@@ -407,7 +416,10 @@ select
   fixture_id,
   player_id,
   null,
-  status,
+  case
+    when status = 'unavailable' then 'unavailable'
+    else 'available'
+  end,
   updated_at
 from public.club_availability_records
 where status in ('available', 'unavailable', 'uncertain')
@@ -2063,13 +2075,18 @@ language plpgsql
 security definer
 set search_path = public, private
 as $$
+declare
+  normalized_status text := case
+    when target_status = 'uncertain' then 'available'
+    else target_status
+  end;
 begin
   if auth.uid() is null then
     raise exception 'Sign in before saving availability.'
       using errcode = '28000';
   end if;
 
-  if target_status not in ('available', 'unavailable', 'uncertain', 'not-responded') then
+  if normalized_status not in ('available', 'unavailable', 'not-responded') then
     raise exception 'Invalid availability response: %', target_status
       using errcode = '22023';
   end if;
@@ -2083,7 +2100,7 @@ begin
       using errcode = '42501';
   end if;
 
-  if target_status = 'not-responded' then
+  if normalized_status = 'not-responded' then
     delete from public.club_match_lineup_assignments
     where club_match_lineup_assignments.club_id = target_club_id
       and club_match_lineup_assignments.fixture_id = target_fixture_id
@@ -2106,7 +2123,7 @@ begin
     target_fixture_id,
     target_player_id,
     null,
-    target_status,
+    normalized_status,
     timezone('utc', now())
   )
   on conflict on constraint club_match_lineup_assignments_pkey
