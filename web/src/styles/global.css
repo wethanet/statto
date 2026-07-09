@@ -3023,6 +3023,8 @@ button {
   border-radius: 999px;
   background: var(--surface-strong);
   color: var(--text-muted);
+  padding: 0 10px;
+  font-size: 0.78rem;
   font-weight: 900;
 }
 
@@ -3043,6 +3045,7 @@ button {
 
 .weekend-selection-player__identity {
   min-width: 0;
+  align-items: flex-start;
 }
 
 .weekend-selection-player__identity strong {
@@ -3050,15 +3053,110 @@ button {
   overflow-wrap: anywhere;
 }
 
-.weekend-selection-player__identity span {
+.weekend-selection-player__identity > span,
+.weekend-selection-player__details {
   flex: 0 0 auto;
   color: var(--text-muted);
   font-size: 0.82rem;
   font-weight: 800;
 }
 
+.weekend-selection-player__details {
+  display: block;
+  line-height: 1.35;
+}
+
+.weekend-selection-player__badge {
+  border: 1px solid rgba(0, 94, 203, 0.28);
+  border-radius: 999px;
+  background: rgba(0, 94, 203, 0.1);
+  color: var(--positive);
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.weekend-selection-player__meta {
+  display: grid;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .weekend-selection-player__actions {
   justify-content: flex-start;
+}
+
+.weekend-selection-team-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.weekend-selection-team-card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.weekend-selection-team-card__header,
+.weekend-selection-team-card__group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.weekend-selection-team-card__header h3 {
+  margin: 0;
+}
+
+.weekend-selection-team-card__header span {
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  padding: 6px 10px;
+  font-weight: 900;
+}
+
+.weekend-selection-team-card__groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.weekend-selection-team-card__group {
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: var(--soft-surface);
+  padding: 9px 10px;
+}
+
+.weekend-selection-team-card__group strong,
+.weekend-selection-team-card__group span {
+  font-size: 0.82rem;
+}
+
+.weekend-selection-team-card__players {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.weekend-selection-team-card__players span:not(.muted) {
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--interactive-surface);
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 .training-summary__status {
@@ -4803,6 +4901,11 @@ p {
   }
 
   .weekend-selection-board {
+    grid-template-columns: 1fr;
+  }
+
+  .weekend-selection-team-grid,
+  .weekend-selection-team-card__groups {
     grid-template-columns: 1fr;
   }
 

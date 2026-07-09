@@ -3,14 +3,26 @@ import { Link } from 'react-router-dom';
 
 import { getAvailabilityResponseStatusForPlayer, getSortedFixtures, normalizeFixtureSquad } from '@/lib/availability';
 import {
+  buildGamesPlayedByGrade,
+  getPlayerGamesPlayedSummary,
+  type PlayerGamesPlayedSummary,
+} from '@/lib/games-played';
+import {
   clearMatchLineupAssignmentPosition,
   upsertMatchLineupAssignment,
 } from '@/lib/match-lineup';
-import { getPlayerSortValue } from '@/lib/team';
-import type { Fixture, MatchLineupAssignment, Player, PlayerSquad } from '@/lib/types';
+import { getPlayerRoleLabel, getPlayerSortValue } from '@/lib/team';
+import type {
+  Fixture,
+  MatchLineupAssignment,
+  Player,
+  PlayerPositionProfile,
+  PlayerRunningProfile,
+  PlayerSquad,
+} from '@/lib/types';
 
 import { AdminPageShell } from '@web/components/admin/admin-page-shell';
-import { AdminSection, AdminSupportingPanel } from '@web/components/admin/admin-workflow';
+import { AdminSection, AdminSummaryStrip, AdminSupportingPanel } from '@web/components/admin/admin-workflow';
 import { useClubData, useEnsureClubCollections } from '@web/lib/club-data-context';
 import { useClubPolicy } from '@web/lib/club-policy-context';
 
@@ -27,10 +39,18 @@ type WeekendOption = {
 type AvailablePlayer = {
   player: Player;
   column: WeekendColumn;
+  gamesPlayed: PlayerGamesPlayedSummary;
   isAvailableForCup: boolean;
   isAvailableForPlate: boolean;
   isSelectedForCup: boolean;
   isSelectedForPlate: boolean;
+};
+
+type TeamSelectionSummary = {
+  backs: AvailablePlayer[];
+  mids: AvailablePlayer[];
+  forwards: AvailablePlayer[];
+  utilities: AvailablePlayer[];
 };
 
 const WEEKEND_COLUMNS: { key: WeekendColumn; title: string }[] = [
@@ -38,6 +58,7 @@ const WEEKEND_COLUMNS: { key: WeekendColumn; title: string }[] = [
   { key: 'both', title: 'Both' },
   { key: 'plate', title: 'Plate' },
 ];
+const MAX_SELECTED_PLAYERS = 22;
 
 function getDateKey(value: string) {
   const date = new Date(value);
@@ -72,6 +93,103 @@ function formatFixtureMeta(fixture: Fixture | null) {
   }
 
   return `${fixture.grade ? `${fixture.grade} vs ` : 'vs '}${fixture.opponent}`;
+}
+
+function getCapNote(count: number) {
+  if (count > MAX_SELECTED_PLAYERS) {
+    return `${count - MAX_SELECTED_PLAYERS} over limit`;
+  }
+
+  if (count === MAX_SELECTED_PLAYERS) {
+    return 'Full';
+  }
+
+  const spotsLeft = MAX_SELECTED_PLAYERS - count;
+
+  return `${spotsLeft} ${spotsLeft === 1 ? 'spot' : 'spots'} left`;
+}
+
+function getCapTone(count: number) {
+  if (count > MAX_SELECTED_PLAYERS) {
+    return 'negative' as const;
+  }
+
+  if (count === MAX_SELECTED_PLAYERS) {
+    return 'positive' as const;
+  }
+
+  return 'neutral' as const;
+}
+
+function formatPositionProfile(primary: PlayerPositionProfile | null, secondary: PlayerPositionProfile | null) {
+  if (primary && secondary) {
+    return `${primary} / ${secondary}`;
+  }
+
+  return primary ?? secondary ?? 'Position not set';
+}
+
+function formatRunningProfile(profile: PlayerRunningProfile | null) {
+  if (profile === 'high') {
+    return 'High runner';
+  }
+
+  if (profile === 'managed') {
+    return 'Managed minutes';
+  }
+
+  if (profile === 'balanced') {
+    return 'Balanced runner';
+  }
+
+  return 'Run profile not set';
+}
+
+function formatGamesPlayed(summary: PlayerGamesPlayedSummary) {
+  if (summary.total === 0) {
+    return 'No games recorded';
+  }
+
+  return summary.gradeTotals.map((entry) => `${entry.grade} ${entry.games}`).join(' | ');
+}
+
+function getSelectionGroup(player: Player) {
+  const positions = [player.primaryPosition, player.secondaryPosition];
+
+  if (positions.some((position) => position === 'B' || position === 'HB')) {
+    return 'backs';
+  }
+
+  if (positions.some((position) => position === 'W' || position === 'C')) {
+    return 'mids';
+  }
+
+  if (positions.some((position) => position === 'HF' || position === 'F' || position === 'Fol')) {
+    return 'forwards';
+  }
+
+  return 'utilities';
+}
+
+function buildTeamSelectionSummary(players: AvailablePlayer[]): TeamSelectionSummary {
+  return players.reduce<TeamSelectionSummary>(
+    (summary, player) => {
+      summary[getSelectionGroup(player.player)].push(player);
+
+      return summary;
+    },
+    { backs: [], mids: [], forwards: [], utilities: [] }
+  );
+}
+
+function getTeamSelectedCount(assignments: MatchLineupAssignment[], fixtureId: string | null) {
+  if (!fixtureId) {
+    return 0;
+  }
+
+  return assignments.filter((assignment) => {
+    return assignment.fixtureId === fixtureId && assignment.position !== null;
+  }).length;
 }
 
 function getFixtureSquad(fixture: Fixture, labels: { cup: string; plate: string }): PlayerSquad | null {
@@ -204,6 +322,9 @@ export function WeekendSelectionAdminRoute() {
   }, [selectedWeekendKey, weekendOptions]);
   const cupFixtureId = selectedWeekend?.cupFixture?.id ?? null;
   const plateFixtureId = selectedWeekend?.plateFixture?.id ?? null;
+  const gamesPlayedByPlayer = useMemo(() => {
+    return buildGamesPlayedByGrade(fixtures, matchLineupAssignments, policySettings);
+  }, [fixtures, matchLineupAssignments, policySettings]);
   const availablePlayers = useMemo<AvailablePlayer[]>(() => {
     return players
       .filter((player) => player.active)
@@ -225,6 +346,7 @@ export function WeekendSelectionAdminRoute() {
         return {
           player,
           column,
+          gamesPlayed: getPlayerGamesPlayedSummary(gamesPlayedByPlayer, player.id),
           isAvailableForCup,
           isAvailableForPlate,
           isSelectedForCup: isPlayerSelected(cupFixtureId, player.id, matchLineupAssignments),
@@ -238,7 +360,7 @@ export function WeekendSelectionAdminRoute() {
           left.player.name.localeCompare(right.player.name)
         );
       });
-  }, [availabilityRecords, cupFixtureId, matchLineupAssignments, plateFixtureId, players]);
+  }, [availabilityRecords, cupFixtureId, gamesPlayedByPlayer, matchLineupAssignments, plateFixtureId, players]);
   const playersByColumn = useMemo(() => {
     return WEEKEND_COLUMNS.reduce<Record<WeekendColumn, AvailablePlayer[]>>(
       (current, column) => ({
@@ -248,17 +370,71 @@ export function WeekendSelectionAdminRoute() {
       { cup: [], both: [], plate: [] }
     );
   }, [availablePlayers]);
-  const selectedCupCount = availablePlayers.filter((player) => player.isSelectedForCup).length;
-  const selectedPlateCount = availablePlayers.filter((player) => player.isSelectedForPlate).length;
+  const selectedCupCount = getTeamSelectedCount(matchLineupAssignments, cupFixtureId);
+  const selectedPlateCount = getTeamSelectedCount(matchLineupAssignments, plateFixtureId);
+  const totalAvailableCount = availablePlayers.length;
+  const cupAvailableCount = availablePlayers.filter((player) => player.isAvailableForCup).length;
+  const plateAvailableCount = availablePlayers.filter((player) => player.isAvailableForPlate).length;
+  const bothAvailableCount = playersByColumn.both.length;
+  const bothSelectedCount = availablePlayers.filter((player) => {
+    return player.isSelectedForCup && player.isSelectedForPlate;
+  }).length;
+  const cupSelectedPlayers = availablePlayers.filter((player) => player.isSelectedForCup);
+  const plateSelectedPlayers = availablePlayers.filter((player) => player.isSelectedForPlate);
+  const cupSelectionSummary = buildTeamSelectionSummary(cupSelectedPlayers);
+  const plateSelectionSummary = buildTeamSelectionSummary(plateSelectedPlayers);
 
   function handleToggleSelection(playerId: string, team: PlayerSquad) {
     const fixtureId = team === 'cup' ? cupFixtureId : plateFixtureId;
 
     setMatchLineupAssignments((current) => {
       const currentlySelected = isPlayerSelected(fixtureId, playerId, current);
+      const selectedCount = getTeamSelectedCount(current, fixtureId);
+
+      if (!currentlySelected && selectedCount >= MAX_SELECTED_PLAYERS) {
+        return current;
+      }
 
       return updateFixtureSelection(current, fixtureId, playerId, !currentlySelected);
     });
+  }
+
+  function renderSelectionSummary(title: string, players: AvailablePlayer[], summary: TeamSelectionSummary) {
+    const groups = [
+      { key: 'backs' as const, label: 'Backs' },
+      { key: 'mids' as const, label: 'Mids / wings' },
+      { key: 'forwards' as const, label: 'Forwards / rucks' },
+      { key: 'utilities' as const, label: 'Utilities' },
+    ];
+
+    return (
+      <article className="weekend-selection-team-card">
+        <div className="weekend-selection-team-card__header">
+          <h3>{title}</h3>
+          <span>{players.length} / {MAX_SELECTED_PLAYERS}</span>
+        </div>
+        <div className="weekend-selection-team-card__groups">
+          {groups.map((group) => (
+            <div className="weekend-selection-team-card__group" key={group.key}>
+              <strong>{group.label}</strong>
+              <span>{summary[group.key].length}</span>
+            </div>
+          ))}
+        </div>
+        <div className="weekend-selection-team-card__players">
+          {players.length > 0 ? (
+            players.map((availablePlayer) => (
+              <span key={availablePlayer.player.id}>
+                {availablePlayer.player.number != null ? `#${availablePlayer.player.number} ` : ''}
+                {availablePlayer.player.name}
+              </span>
+            ))
+          ) : (
+            <span className="muted">No players selected.</span>
+          )}
+        </div>
+      </article>
+    );
   }
 
   return (
@@ -291,10 +467,21 @@ export function WeekendSelectionAdminRoute() {
             </label>
 
             <div className="weekend-selection__team-totals" aria-label="Selected players">
-              <span>{labels.cup}: {selectedCupCount}</span>
-              <span>{labels.plate}: {selectedPlateCount}</span>
+              <span>{labels.cup}: {selectedCupCount} / {MAX_SELECTED_PLAYERS}</span>
+              <span>{labels.plate}: {selectedPlateCount} / {MAX_SELECTED_PLAYERS}</span>
             </div>
           </div>
+
+          <AdminSummaryStrip
+            items={[
+              { label: 'Total available', value: String(totalAvailableCount), note: 'unique players', tone: 'positive' },
+              { label: `${labels.cup} available`, value: String(cupAvailableCount), note: `${selectedCupCount} selected` },
+              { label: `${labels.plate} available`, value: String(plateAvailableCount), note: `${selectedPlateCount} selected` },
+              { label: 'Available for both', value: String(bothAvailableCount), note: `${bothSelectedCount} picked twice` },
+              { label: `${labels.cup} cap`, value: `${selectedCupCount} / ${MAX_SELECTED_PLAYERS}`, note: getCapNote(selectedCupCount), tone: getCapTone(selectedCupCount) },
+              { label: `${labels.plate} cap`, value: `${selectedPlateCount} / ${MAX_SELECTED_PLAYERS}`, note: getCapNote(selectedPlateCount), tone: getCapTone(selectedPlateCount) },
+            ]}
+          />
 
           <div className="weekend-selection__fixture-strip">
             <span>{labels.cup}: {formatFixtureMeta(selectedWeekend?.cupFixture ?? null)}</span>
@@ -309,50 +496,71 @@ export function WeekendSelectionAdminRoute() {
                 <section className="weekend-selection-column" key={column.key}>
                   <div className="weekend-selection-column__header">
                     <h3>{column.title}</h3>
-                    <span>{playersByColumn[column.key].length}</span>
+                    <span>{playersByColumn[column.key].length} available</span>
                   </div>
 
                   <div className="weekend-selection-column__list">
                     {playersByColumn[column.key].length > 0 ? (
-                      playersByColumn[column.key].map((availablePlayer) => (
-                        <article className="weekend-selection-player" key={availablePlayer.player.id}>
-                          <div className="weekend-selection-player__identity">
-                            <strong>{availablePlayer.player.name}</strong>
-                            {availablePlayer.player.number != null ? (
-                              <span>#{availablePlayer.player.number}</span>
-                            ) : null}
-                          </div>
+                      playersByColumn[column.key].map((availablePlayer) => {
+                        const cupDisabled =
+                          !cupFixtureId ||
+                          (!availablePlayer.isSelectedForCup && selectedCupCount >= MAX_SELECTED_PLAYERS);
+                        const plateDisabled =
+                          !plateFixtureId ||
+                          (!availablePlayer.isSelectedForPlate && selectedPlateCount >= MAX_SELECTED_PLAYERS);
 
-                          <div className="inline-actions weekend-selection-player__actions">
-                            {availablePlayer.isAvailableForCup ? (
-                              <button
-                                className={
-                                  availablePlayer.isSelectedForCup
-                                    ? 'pill-button pill-button--compact pill-button--selected'
-                                    : 'pill-button pill-button--compact'
-                                }
-                                disabled={!cupFixtureId}
-                                onClick={() => handleToggleSelection(availablePlayer.player.id, 'cup')}
-                                type="button">
-                                {labels.cup}
-                              </button>
-                            ) : null}
-                            {availablePlayer.isAvailableForPlate ? (
-                              <button
-                                className={
-                                  availablePlayer.isSelectedForPlate
-                                    ? 'pill-button pill-button--compact pill-button--selected'
-                                    : 'pill-button pill-button--compact'
-                                }
-                                disabled={!plateFixtureId}
-                                onClick={() => handleToggleSelection(availablePlayer.player.id, 'plate')}
-                                type="button">
-                                {labels.plate}
-                              </button>
-                            ) : null}
-                          </div>
-                        </article>
-                      ))
+                        return (
+                          <article className="weekend-selection-player" key={availablePlayer.player.id}>
+                            <div className="weekend-selection-player__identity">
+                              <div className="stack-sm">
+                                <strong>{availablePlayer.player.name}</strong>
+                                <span className="weekend-selection-player__details">
+                                  {availablePlayer.player.number != null ? `#${availablePlayer.player.number} | ` : ''}
+                                  {getPlayerRoleLabel(availablePlayer.player.role)} | {availablePlayer.player.squad ?? 'No squad'}
+                                </span>
+                              </div>
+                              {availablePlayer.isSelectedForCup && availablePlayer.isSelectedForPlate ? (
+                                <span className="weekend-selection-player__badge">Both games</span>
+                              ) : null}
+                            </div>
+
+                            <div className="weekend-selection-player__meta">
+                              <span>{formatPositionProfile(availablePlayer.player.primaryPosition, availablePlayer.player.secondaryPosition)}</span>
+                              <span>{formatRunningProfile(availablePlayer.player.runningProfile)}</span>
+                              <span>{formatGamesPlayed(availablePlayer.gamesPlayed)}</span>
+                            </div>
+
+                            <div className="inline-actions weekend-selection-player__actions">
+                              {availablePlayer.isAvailableForCup ? (
+                                <button
+                                  className={
+                                    availablePlayer.isSelectedForCup
+                                      ? 'pill-button pill-button--compact pill-button--selected'
+                                      : 'pill-button pill-button--compact'
+                                  }
+                                  disabled={cupDisabled}
+                                  onClick={() => handleToggleSelection(availablePlayer.player.id, 'cup')}
+                                  type="button">
+                                  {labels.cup}
+                                </button>
+                              ) : null}
+                              {availablePlayer.isAvailableForPlate ? (
+                                <button
+                                  className={
+                                    availablePlayer.isSelectedForPlate
+                                      ? 'pill-button pill-button--compact pill-button--selected'
+                                      : 'pill-button pill-button--compact'
+                                  }
+                                  disabled={plateDisabled}
+                                  onClick={() => handleToggleSelection(availablePlayer.player.id, 'plate')}
+                                  type="button">
+                                  {labels.plate}
+                                </button>
+                              ) : null}
+                            </div>
+                          </article>
+                        );
+                      })
                     ) : (
                       <p className="muted">No available players.</p>
                     )}
@@ -367,12 +575,22 @@ export function WeekendSelectionAdminRoute() {
       </AdminSection>
 
       <AdminSection
+        eyebrow="Selected teams"
+        title="Team balance"
+        description="Use the live selected-team summaries to spot position gaps and both-game load before finalising.">
+        <section className="weekend-selection-team-grid">
+          {renderSelectionSummary(labels.cup, cupSelectedPlayers, cupSelectionSummary)}
+          {renderSelectionSummary(labels.plate, plateSelectedPlayers, plateSelectionSummary)}
+        </section>
+      </AdminSection>
+
+      <AdminSection
         eyebrow="How it saves"
         title="Selection source"
         description="Selections save immediately into the existing match lineup records for each fixture.">
         <AdminSupportingPanel
           title="Shared match data"
-          description="Selected players appear in fixture selection, votes, games played, stats, and the team announcement flow because this board uses the same lineup assignment data."
+          description="Selected players appear in fixture selection, votes, games played, stats, and the team announcement flow because this board uses the same lineup assignment data. New selections stop at 22 per team."
         />
       </AdminSection>
     </AdminPageShell>
