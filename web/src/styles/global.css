@@ -2955,6 +2955,112 @@ button {
   gap: 12px;
 }
 
+.weekend-selection__toolbar {
+  display: flex;
+  gap: 18px;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.weekend-selection__weekend-field {
+  width: min(100%, 320px);
+}
+
+.weekend-selection__team-totals,
+.weekend-selection__fixture-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.weekend-selection__team-totals span,
+.weekend-selection__fixture-strip span {
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  background: var(--interactive-surface);
+  color: var(--text-muted);
+  padding: 7px 10px;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.weekend-selection-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.weekend-selection-column {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  background: var(--soft-surface);
+  padding: 12px;
+}
+
+.weekend-selection-column__header,
+.weekend-selection-player__identity {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.weekend-selection-column__header h3 {
+  margin: 0;
+}
+
+.weekend-selection-column__header span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  font-weight: 900;
+}
+
+.weekend-selection-column__list {
+  display: grid;
+  gap: 8px;
+}
+
+.weekend-selection-player {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: var(--surface-strong);
+}
+
+.weekend-selection-player__identity {
+  min-width: 0;
+}
+
+.weekend-selection-player__identity strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.weekend-selection-player__identity span {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.weekend-selection-player__actions {
+  justify-content: flex-start;
+}
+
 .training-summary__status {
   padding: 16px 18px;
   border-radius: 18px;
@@ -4688,6 +4794,15 @@ p {
   }
 
   .availability-summary__controls {
+    grid-template-columns: 1fr;
+  }
+
+  .weekend-selection__toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .weekend-selection-board {
     grid-template-columns: 1fr;
   }
 

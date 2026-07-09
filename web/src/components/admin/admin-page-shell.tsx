@@ -59,6 +59,7 @@ const adminNavGroups: AdminNavGroup[] = [
     description: 'Fixtures, selection, votes',
     items: [
       { label: 'Fixtures', to: '/admin/matches', end: true },
+      { label: 'Weekend selection', to: '/admin/matches/weekend-selection' },
       { label: 'Games played', to: '/admin/matches/games-played' },
       { label: 'Votes', to: '/admin/votes' },
     ],

@@ -116,6 +116,11 @@ const MatchesAdminRoute = lazy(() =>
     default: MatchesAdminRoute,
   }))
 );
+const WeekendSelectionAdminRoute = lazy(() =>
+  import('@web/routes/admin/weekend-selection-admin-route').then(({ WeekendSelectionAdminRoute }) => ({
+    default: WeekendSelectionAdminRoute,
+  }))
+);
 const GamesPlayedReportRoute = lazy(() =>
   import('@web/routes/admin/games-played-report-route').then(({ GamesPlayedReportRoute }) => ({
     default: GamesPlayedReportRoute,
@@ -369,6 +374,14 @@ export function AppRouter() {
             element={
               <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
                 <GamesPlayedReportRoute />
+              </AccessGate>
+            }
+          />
+          <Route
+            path="/admin/matches/weekend-selection"
+            element={
+              <AccessGate allow={canAccessAdmin} redirectTo={canAccessPlayerApp ? '/player' : '/'}>
+                <WeekendSelectionAdminRoute />
               </AccessGate>
             }
           />
